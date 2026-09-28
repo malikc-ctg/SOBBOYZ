@@ -38,43 +38,39 @@ class SalesDatabase {
     if (this.initPromise) return this.initPromise;
 
     this.initPromise = new Promise((resolve, reject) => {
-      if (typeof window === 'undefined' || typeof indexedDB === 'undefined') {
-        return reject(new Error('IndexedDB is not supported or disabled in this browser environment'));
+      if (typeof window === 'undefined') {
+        return reject(new Error('IndexedDB is only available in browser environments'));
       }
 
-      try {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
+      const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-        request.onerror = () => reject(request.error || new Error('Failed to open IndexedDB'));
+      request.onerror = () => reject(request.error);
 
-        request.onsuccess = () => {
-          this.db = request.result;
-          resolve(this.db);
-        };
+      request.onsuccess = () => {
+        this.db = request.result;
+        resolve(this.db);
+      };
 
-        request.onupgradeneeded = (event) => {
-          const db = (event.target as IDBOpenDBRequest).result;
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
 
-          // Events outbox
-          if (!db.objectStoreNames.contains('events')) {
-            const eventsStore = db.createObjectStore('events', { keyPath: 'event_id' });
-            eventsStore.createIndex('synced', 'synced', { unique: false });
-            eventsStore.createIndex('created_at', 'created_at', { unique: false });
-          }
+        // Events outbox
+        if (!db.objectStoreNames.contains('events')) {
+          const eventsStore = db.createObjectStore('events', { keyPath: 'event_id' });
+          eventsStore.createIndex('synced', 'synced', { unique: false });
+          eventsStore.createIndex('created_at', 'created_at', { unique: false });
+        }
 
-          // Properties cache for map pins
-          if (!db.objectStoreNames.contains('properties')) {
-            db.createObjectStore('properties', { keyPath: 'property_id' });
-          }
+        // Properties cache for map pins
+        if (!db.objectStoreNames.contains('properties')) {
+          db.createObjectStore('properties', { keyPath: 'property_id' });
+        }
 
-          // Key-value settings & state
-          if (!db.objectStoreNames.contains('state')) {
-            db.createObjectStore('state', { keyPath: 'key' });
-          }
-        };
-      } catch (openErr) {
-        reject(openErr);
-      }
+        // Key-value settings & state
+        if (!db.objectStoreNames.contains('state')) {
+          db.createObjectStore('state', { keyPath: 'key' });
+        }
+      };
     });
 
     return this.initPromise;

@@ -19,7 +19,6 @@ export default function MapTab({ user, repName }: MapTabProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [mapError, setMapError] = useState<string | null>(null);
   const [pinCount, setPinCount] = useState(0);
   const [streetToClaim, setStreetToClaim] = useState('');
   const [claims, setClaims] = useState<any[]>([]);
@@ -27,104 +26,71 @@ export default function MapTab({ user, repName }: MapTabProps) {
   useEffect(() => {
     if (!mapContainer.current) return;
 
-    if (!MAPBOX_TOKEN) {
-      setMapError('Mapbox token not configured. Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to your environment.');
-      return;
-    }
+    mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    if (!mapboxgl.supported()) {
-      setMapError('WebGL is not supported on this device/browser.');
-      return;
-    }
+    const map = new mapboxgl.Map({
+      container: mapContainer.current,
+      style: 'mapbox://styles/mapbox/dark-v11',
+      center: [-79.3832, 43.6532], // Toronto default
+      zoom: 13,
+      attributionControl: false,
+    });
 
-    let map: mapboxgl.Map | null = null;
-    try {
-      mapboxgl.accessToken = MAPBOX_TOKEN;
+    map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
 
-      map = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
-        center: [-79.3832, 43.6532], // Toronto default
-        zoom: 13,
-        attributionControl: false,
-      });
+    map.on('load', async () => {
+      mapRef.current = map;
+      setMapLoaded(true);
 
-      map.on('error', (e) => {
-        console.warn('[Sales OS] Mapbox error:', e?.error?.message || e);
-      });
-
-      map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
-
-      map.on('load', async () => {
-        mapRef.current = map;
-        setMapLoaded(true);
-
-        // Locate user
-        if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
-          navigator.geolocation.getCurrentPosition(
-            pos => {
-              if (!map) return;
-              map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 15 });
-              new mapboxgl.Marker({ color: '#3b82f6' })
-                .setLngLat([pos.coords.longitude, pos.coords.latitude])
-                .setPopup(new mapboxgl.Popup().setText('You are here'))
-                .addTo(map);
-            },
-            () => {}
-          );
-        }
-
-        // Add pins from local IndexedDB
-        try {
-          const props = await salesDB.getAllProperties();
-          setPinCount(props.length);
-
-          props.forEach(p => {
-            if (!p.lat || !p.lng || !map) return;
-
-            const isSale = p.last_status === 'SALE';
-            const isCommercial = p.mode === 'commercial';
-            const color = isSale ? '#10b981' : isCommercial ? '#818cf8' : '#64748b';
-
-            const el = document.createElement('div');
-            el.className = 'sales-marker';
-            el.style.width = isCommercial ? '18px' : '14px';
-            el.style.height = isCommercial ? '18px' : '14px';
-            el.style.borderRadius = isCommercial ? '4px' : '50%';
-            el.style.backgroundColor = color;
-            el.style.border = '2px solid white';
-            el.style.boxShadow = '0 0 6px rgba(0,0,0,0.5)';
-
-            new mapboxgl.Marker(el)
-              .setLngLat([p.lng, p.lat])
-              .setPopup(
-                new mapboxgl.Popup({ offset: 12 }).setHTML(
-                  `<div style="color:#0a0f1d;font-family:sans-serif;padding:4px;">
-                    <div style="font-weight:bold;font-size:12px;">${p.address}</div>
-                    <div style="font-size:11px;color:#475569;">Status: ${p.last_status}</div>
-                  </div>`
-                )
-              )
+      // Locate user
+      if (typeof navigator !== 'undefined' && 'geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          pos => {
+            map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 15 });
+            new mapboxgl.Marker({ color: '#3b82f6' })
+              .setLngLat([pos.coords.longitude, pos.coords.latitude])
+              .setPopup(new mapboxgl.Popup().setText('You are here'))
               .addTo(map);
-          });
-        } catch (dbErr) {
-          console.warn('[Sales OS] Failed to load local properties on map:', dbErr);
-        }
-      });
-    } catch (err: any) {
-      console.error('[Sales OS] Map initialization failed:', err);
-      setMapError(err?.message || 'Failed to load map');
-    }
-
-    return () => {
-      try {
-        if (map) {
-          map.remove();
-        }
-      } catch (cleanErr) {
-        // Ignore unmount cleanup error
+          },
+          () => {}
+        );
       }
-    };
+
+      // Add pins from local IndexedDB
+      const props = await salesDB.getAllProperties();
+      setPinCount(props.length);
+
+      props.forEach(p => {
+        if (!p.lat || !p.lng) return;
+
+        const isSale = p.last_status === 'SALE';
+        const isCommercial = p.mode === 'commercial';
+        const color = isSale ? '#10b981' : isCommercial ? '#818cf8' : '#64748b';
+
+        const el = document.createElement('div');
+        el.className = 'sales-marker';
+        el.style.width = isCommercial ? '18px' : '14px';
+        el.style.height = isCommercial ? '18px' : '14px';
+        el.style.borderRadius = isCommercial ? '4px' : '50%';
+        el.style.backgroundColor = color;
+        el.style.border = '2px solid white';
+        el.style.boxShadow = '0 0 6px rgba(0,0,0,0.5)';
+
+        new mapboxgl.Marker(el)
+          .setLngLat([p.lng, p.lat])
+          .setPopup(
+            new mapboxgl.Popup({ offset: 12 }).setHTML(
+              `<div style="color:#0a0f1d;font-family:sans-serif;padding:4px;">
+                <div style="font-weight:bold;font-size:12px;">${p.address}</div>
+                <div style="font-size:11px;color:#475569;">Status: ${p.last_status}</div>
+              </div>`
+            )
+          )
+          .addTo(map);
+      });
+    });
+
+    return () => map.remove();
   }, []);
 
   // Fetch active street claims
@@ -203,15 +169,7 @@ export default function MapTab({ user, repName }: MapTabProps) {
       </div>
 
       {/* Map Container */}
-      {mapError ? (
-        <div className="w-full flex-1 flex flex-col items-center justify-center text-center px-6 gap-3">
-          <MapPin className="w-10 h-10 text-slate-600" />
-          <div className="text-sm font-semibold text-slate-300">Territory Map Unavailable</div>
-          <div className="text-xs text-slate-500 max-w-xs">{mapError}</div>
-        </div>
-      ) : (
-        <div ref={mapContainer} className="w-full flex-1" />
-      )}
+      <div ref={mapContainer} className="w-full flex-1" />
 
       {/* Legend Drawer */}
       <div className="bg-[#11192e] border-t border-white/10 px-4 py-2.5 flex items-center justify-around text-[11px] text-slate-300 font-medium">
