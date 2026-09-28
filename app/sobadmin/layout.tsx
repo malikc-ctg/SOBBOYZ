@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/client';
 const sidebarItems = [
   { href: '/sobadmin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/sobadmin/leads', label: 'Leads', icon: ClipboardList },
+  { href: '/sales', label: 'Sales OS', icon: Waves },
   { href: '/sobadmin/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/sobadmin/customers', label: 'Customers', icon: Users },
   { href: '/sobadmin/employees', label: 'Employees', icon: UserCheck },
