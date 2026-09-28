@@ -324,29 +324,6 @@ export default function EmployeeDashboard() {
       {/* Push Notification Prompt */}
       <PushNotificationPrompt />
 
-      {/* Sales OS Entry Point */}
-      <Link
-        href="/sales"
-        className="flex items-center justify-between p-3.5 bg-gradient-to-r from-blue-900 to-indigo-950 text-white rounded-2xl border border-blue-500/30 shadow-md hover:border-blue-400 transition-all group"
-      >
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-sm">
-            <Sparkles className="w-5 h-5 text-amber-300" />
-          </div>
-          <div>
-            <div className="text-xs font-bold uppercase tracking-wider text-blue-200">
-              Sales OS
-            </div>
-            <div className="text-sm font-black text-white flex items-center gap-1.5">
-              Open Sales OS <ChevronRight className="w-4 h-4 text-blue-400 group-hover:translate-x-0.5 transition-transform" />
-            </div>
-          </div>
-        </div>
-        <Badge className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-bold">
-          Live Radar
-        </Badge>
-      </Link>
-
       {/* Pending Job Offers Alert */}
       {pendingOffers.length > 0 && (
         <div className="space-y-3">
