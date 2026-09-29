@@ -129,6 +129,8 @@ export default function WaveLoader({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  if (pathname?.startsWith('/sales')) return children;
+
   const [isLoading, setIsLoading] = useState(true);
   const [progress, setProgress] = useState(0);
   const [lifting, setLifting] = useState(false);

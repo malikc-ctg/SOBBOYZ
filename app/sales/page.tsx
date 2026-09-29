@@ -12,51 +12,39 @@ import '@/components/sales/team/teamStyles.css';
 import '@/components/sales/historyStyles.css';
 
 export default function SalesPortalPage() {
-  const [session, setSession] = useState<any>(null);
+  const [session, setSession] = useState<any>({
+    user: {
+      id: '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+      email: 'malik@seaofblue.ca'
+    }
+  });
   const [repName, setRepName] = useState<string>('Malik');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [showResetModal, setShowResetModal] = useState(false);
 
   useEffect(() => {
-    // 1. Check existing Supabase session from KnockLog project
-    supabase.auth.getSession().then(({ data: { session: s }, error }) => {
-      if (error) {
-        supabase.auth.signOut();
-        setSession(null);
-        setLoading(false);
-        return;
-      }
-      if (s) {
-        setSession(s);
-        fetchRepName(s.user.id);
-      } else {
-        // Fallback default rep for sandbox testing: Malik (07853cdf-ed2c-4f3b-b713-cde7c40e20a1)
-        setSession({
-          user: {
-            id: '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-            email: 'malik@seaofblue.ca'
-          }
-        });
-        setRepName('Malik');
-        setLoading(false);
-      }
-    });
+    try {
+      supabase.auth.getSession().then(({ data, error }) => {
+        if (!error && data?.session) {
+          setSession(data.session);
+          fetchRepName(data.session.user.id);
+        }
+      }).catch(() => {});
 
-    // 2. Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, s) => {
-      if (event === 'PASSWORD_RECOVERY') {
-        setShowResetModal(true);
-        setSession(s);
-        setLoading(false);
-        return;
-      }
-      if (s) {
-        setSession(s);
-        fetchRepName(s.user.id);
-      }
-    });
+      const { data } = supabase.auth.onAuthStateChange((event, s) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          setShowResetModal(true);
+        }
+        if (s) {
+          setSession(s);
+          fetchRepName(s.user.id);
+        }
+      });
 
-    return () => subscription.unsubscribe();
+      return () => data?.subscription?.unsubscribe();
+    } catch (e) {
+      // In sandbox mode fallback session is already active
+    }
   }, []);
 
   async function fetchRepName(userId: string) {
@@ -67,35 +55,40 @@ export default function SalesPortalPage() {
         .eq('user_id', userId)
         .maybeSingle();
 
-      setRepName(data?.display_name || 'Malik');
+      if (data?.display_name) {
+        setRepName(data.display_name);
+      }
     } catch (e) {
       setRepName('Malik');
-    } finally {
-      setLoading(false);
     }
   }
 
   async function handleLogout() {
-    await supabase.auth.signOut();
+    try {
+      await supabase.auth.signOut();
+    } catch (e) {}
     setSession(null);
     setRepName('');
   }
 
   if (loading) {
     return (
-      <div className="loading-screen">
-        <div className="loading-spinner"></div>
+      <div style={{ background: '#0a0a14', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8888a0' }}>
         <p>Loading KnockLog...</p>
       </div>
     );
   }
 
   if (!session) {
-    return <Auth />;
+    return (
+      <div style={{ background: '#0a0a14', minHeight: '100vh' }}>
+        <Auth />
+      </div>
+    );
   }
 
   return (
-    <>
+    <div style={{ background: '#0a0a14', minHeight: '100vh', color: '#f0f0f5', width: '100%' }}>
       {showResetModal && (
         <ResetPasswordModal onClose={() => setShowResetModal(false)} />
       )}
@@ -104,6 +97,6 @@ export default function SalesPortalPage() {
         repName={repName}
         onLogout={handleLogout}
       />
-    </>
+    </div>
   );
 }
