@@ -1,0 +1,508 @@
+/* ========================================================
+   PHONE SALES OS — Tele-sales Engine Dark Theme Styles
+   ======================================================== */
+
+.phone-container {
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px 80px;
+  max-width: 600px;
+  margin: 0 auto;
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Header */
+.phone-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.phone-header-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.5px;
+}
+
+.phone-header-badge {
+  font-size: 10px;
+  background: rgba(99, 102, 241, 0.2);
+  color: #a5b4fc;
+  border: 1px solid rgba(99, 102, 241, 0.4);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+/* Hero Metrics Strip */
+.phone-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius);
+  padding: 12px 10px;
+  margin-bottom: 16px;
+}
+
+.phone-metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.phone-metric-num {
+  font-size: 20px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.phone-metric-label {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* Sub-Tab Navigation */
+.phone-subtabs {
+  display: flex;
+  gap: 6px;
+  background: var(--bg-card);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 14px;
+}
+
+.phone-subtab-btn {
+  flex: 1;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.phone-subtab-btn.active {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+}
+
+/* Filter Bar */
+.phone-filter-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+
+.phone-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.phone-filter-pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.phone-filter-pill.active {
+  background: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent);
+  color: #c7d2fe;
+}
+
+/* Lead Cards */
+.phone-lead-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.phone-lead-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: transform 0.15s, border-color 0.15s;
+  position: relative;
+}
+
+.phone-lead-card:active {
+  transform: scale(0.99);
+}
+
+.phone-lead-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.phone-lead-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.phone-lead-type-badge {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+.badge-inbound {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-winback {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-commercial {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.phone-lead-service {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.phone-lead-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+}
+
+.phone-lead-val {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.phone-lead-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.phone-call-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.25);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.phone-call-btn:hover {
+  filter: brightness(1.1);
+}
+
+.phone-secondary-btn {
+  padding: 10px 14px;
+  background: var(--bg-elevated);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.phone-secondary-btn:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Dial Pad Screen */
+.phone-dialpad-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 320px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.phone-dial-display {
+  width: 100%;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #fff;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 16px;
+  min-height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.phone-dial-clear {
+  position: absolute;
+  right: 12px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 18px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.phone-dial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.phone-dial-key {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.phone-dial-key:active {
+  background: var(--accent);
+  transform: scale(0.95);
+}
+
+.phone-dial-num {
+  font-size: 24px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.phone-dial-letters {
+  font-size: 8px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+.phone-dial-launch {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  background: #10b981;
+  border: none;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  cursor: pointer;
+  box-shadow: 0 4px 18px rgba(16, 185, 129, 0.4);
+  transition: all 0.2s;
+}
+
+.phone-dial-launch:hover {
+  transform: scale(1.05);
+}
+
+/* Active Call Modal / Screen */
+.phone-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+@media (min-width: 640px) {
+  .phone-modal-overlay {
+    align-items: center;
+  }
+}
+
+.phone-modal-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px 20px 0 0;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 20px;
+  box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.6);
+  animation: slideUp 0.25s ease-out;
+}
+
+@media (min-width: 640px) {
+  .phone-modal-card {
+    border-radius: 20px;
+    max-height: 85vh;
+  }
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.phone-active-call-header {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.phone-active-pulse {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.phone-timer {
+  font-size: 26px;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: 1px;
+}
+
+.phone-disposition-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.phone-disp-btn {
+  padding: 12px 10px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-elevated);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.phone-disp-btn:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  transform: translateY(-1px);
+}
+
+.phone-disp-btn.btn-sale {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  grid-column: span 2;
+  font-size: 13px;
+  font-weight: 900;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+}
+
+/* Battle Cards & Scripts */
+.phone-script-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+
+.phone-script-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: #a5b4fc;
+  margin-bottom: 8px;
+}
+
+.phone-script-box {
+  background: rgba(0, 0, 0, 0.3);
+  border-left: 3px solid var(--accent);
+  padding: 10px 12px;
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.phone-rebuttal-trigger {
+  font-size: 11px;
+  font-weight: 700;
+  color: #f59e0b;
+  margin-bottom: 4px;
+}
