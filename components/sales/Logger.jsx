@@ -1027,6 +1027,9 @@ export default function Logger({ user, repName, onLogout, isActive }) {
           <span className="rep-badge" onClick={() => setShowProfile(!showProfile)}>
             {repName}
           </span>
+          <a href="/sobadmin" className="admin-nav-pill" title="Return to SOB Admin Dashboard">
+            ← SOB Admin
+          </a>
         </div>
         <div className="header-right">
           <button className="break-btn" onClick={startBreak} disabled={logging}>BREAK</button>
@@ -1039,6 +1042,9 @@ export default function Logger({ user, repName, onLogout, isActive }) {
       {showProfile && (
         <div className="profile-dropdown">
           <p className="profile-email">{user.email}</p>
+          <a href="/sobadmin" className="admin-return-btn">
+            🛡️ Return to SOB Admin
+          </a>
           <button id="logout-btn" className="logout-btn" onClick={onLogout}>
             Sign Out
           </button>
