@@ -13,7 +13,8 @@ interface MapTabProps {
   repName: string;
 }
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+const MAPBOX_STYLE = process.env.NEXT_PUBLIC_MAPBOX_STYLE || 'mapbox://styles/mapbox/dark-v11';
 
 export default function MapTab({ user, repName }: MapTabProps) {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -28,7 +29,7 @@ export default function MapTab({ user, repName }: MapTabProps) {
     if (!mapContainer.current) return;
 
     if (!MAPBOX_TOKEN) {
-      setMapError('Mapbox token not configured. Add NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN to your environment.');
+      setMapError('Mapbox token not configured. Add NEXT_PUBLIC_MAPBOX_TOKEN to your environment.');
       return;
     }
 
@@ -43,7 +44,7 @@ export default function MapTab({ user, repName }: MapTabProps) {
 
       map = new mapboxgl.Map({
         container: mapContainer.current,
-        style: 'mapbox://styles/mapbox/dark-v11',
+        style: MAPBOX_STYLE,
         center: [-79.3832, 43.6532], // Toronto default
         zoom: 13,
         attributionControl: false,
