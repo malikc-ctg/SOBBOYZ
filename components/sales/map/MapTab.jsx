@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { getActiveSessionGeoJSON } from '@/lib/sales/propertyService';
+import { getActiveSessionGeoJSON, getPropertiesAsGeoJSON } from '@/lib/sales/propertyService';
 import { getTeamGeoJSON, getTeamCoverageGeoJSON } from '@/lib/sales/teamService';
 import { sqlocal } from '@/lib/sales/db';
 import '../mapStyles.css';
@@ -368,7 +368,10 @@ export default function MapTab({ user, repName, isActive }) {
   const refreshPins = useCallback(async () => {
     if (!mapRef.current || !mapReady) return;
     try {
-      const geojson = await getActiveSessionGeoJSON();
+      let geojson = await getActiveSessionGeoJSON();
+      if (!geojson?.features || geojson.features.length === 0) {
+        geojson = await getPropertiesAsGeoJSON();
+      }
 
       const source = mapRef.current.getSource('properties');
       if (source) {
