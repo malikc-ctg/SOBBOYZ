@@ -4,8 +4,7 @@ import React from 'react';
 import { 
   Home, Building2, PhoneCall, 
   Map, ArrowRight,
-  Waves, ShieldCheck,
-  Flame, Briefcase
+  Waves
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -95,100 +94,8 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
         </div>
       </div>
 
-      {/* Metrics Grid Matching SOB Admin Dashboard 1:1 */}
-      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {/* Metric 1: B2B Phone Pipeline */}
-        <div
-          onClick={() => onSelectApp('phone')}
-          className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-sm cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500">
-              <Briefcase className="w-4 h-4" />
-            </div>
-            <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
-          </div>
-          <div className="text-2xl md:text-3xl font-black tracking-tight text-foreground font-display">
-            0
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-1 font-sans">
-            B2B Phone Pipeline
-          </div>
-          <div className="text-[11px] text-muted-foreground/80 mt-0.5 font-sans">
-            Commercial tele-sales queue
-          </div>
-        </div>
-
-        {/* Metric 2: Doors Canvassed */}
-        <div
-          onClick={() => onSelectApp('residential')}
-          className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-sm cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-500">
-              <Home className="w-4 h-4" />
-            </div>
-            <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
-          </div>
-          <div className="text-2xl md:text-3xl font-black tracking-tight text-foreground font-display">
-            986
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-1 font-sans">
-            Doors Canvassed
-          </div>
-          <div className="text-[11px] text-muted-foreground/80 mt-0.5 font-sans">
-            All-time field knock telemetry
-          </div>
-        </div>
-
-        {/* Metric 3: Total Knock Sales */}
-        <div
-          onClick={() => onSelectApp('residential')}
-          className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-sm cursor-pointer group"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-500/10 text-amber-500">
-              <Flame className="w-4 h-4" />
-            </div>
-            <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
-          </div>
-          <div className="text-2xl md:text-3xl font-black tracking-tight text-foreground font-display">
-            53
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-1 font-sans">
-            Total Knock Sales
-          </div>
-          <div className="text-[11px] text-muted-foreground/80 mt-0.5 font-sans">
-            $3,249 Accrued Commission
-          </div>
-        </div>
-
-        {/* Metric 4: Offline Engine */}
-        <div
-          className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-xs"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-purple-500/10 text-purple-400">
-              <ShieldCheck className="w-4 h-4" />
-            </div>
-            <Badge variant="secondary" className="text-[10px] bg-emerald-500/15 text-emerald-400 border-0 font-bold">
-              100% ONLINE
-            </Badge>
-          </div>
-          <div className="text-2xl md:text-3xl font-black tracking-tight text-foreground font-display">
-            100%
-          </div>
-          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-1 font-sans">
-            IndexedDB Sync
-          </div>
-          <div className="text-[11px] text-muted-foreground/80 mt-0.5 font-sans">
-            Auto-synced with Supabase
-          </div>
-        </div>
-      </div>
-
       {/* 4 Dedicated Application Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 pt-2">
         {APPS.map((app) => (
           <div
             key={app.id}
@@ -200,9 +107,6 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
                 <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${app.iconBg} transition-transform group-hover:scale-105`}>
                   {app.icon}
                 </div>
-                <Badge variant="secondary" className="text-[11px] font-semibold font-sans">
-                  {app.badge}
-                </Badge>
               </div>
 
               <div className="text-base md:text-lg font-bold text-foreground font-sans group-hover:text-primary transition-colors tracking-tight">
@@ -211,18 +115,6 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
               <p className="text-xs text-muted-foreground mt-2 leading-relaxed font-sans">
                 {app.desc}
               </p>
-
-              {/* Feature Chips */}
-              <div className="flex flex-wrap gap-1.5 mt-3">
-                {app.features.map((f) => (
-                  <span
-                    key={f}
-                    className="text-[10px] font-medium bg-muted/60 text-muted-foreground px-2 py-0.5 rounded-md border border-border/40 font-sans"
-                  >
-                    {f}
-                  </span>
-                ))}
-              </div>
             </div>
 
             <div className="flex items-center justify-between pt-4 mt-4 border-t border-border/50">

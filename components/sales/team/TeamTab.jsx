@@ -361,18 +361,6 @@ export default function TeamTab({ user, repName, isActive }) {
           </svg>
           Sales
         </button>
-        <button
-          id="team-seg-pipeline"
-          className={`team-seg-btn ${segment === 'PIPELINE' ? 'active' : ''}`}
-          onClick={() => setSegment('PIPELINE')}
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <line x1="9" y1="3" x2="9" y2="21"></line>
-            <line x1="15" y1="3" x2="15" y2="21"></line>
-          </svg>
-          Pipeline
-        </button>
       </nav>
 
       {/* Date Picker Modal */}
@@ -764,37 +752,6 @@ export default function TeamTab({ user, repName, isActive }) {
                 );
               });
             })()}
-          </div>
-        </div>
-      )}
-
-      {/* ════════════════════════════════════
-           SEGMENT: B2B COMMERCIAL PIPELINE
-         ════════════════════════════════════ */}
-      {segment === 'PIPELINE' && (
-        <div className="team-segment-content">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 800, color: '#fff', margin: 0 }}>🏢 B2B Commercial Pipeline</h3>
-            <span style={{ fontSize: 12, background: 'rgba(139,92,246,0.15)', color: '#a78bfa', padding: '3px 8px', borderRadius: 6, fontWeight: 700 }}>5 Stages</span>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {[
-              { id: 'knocked', title: '1. Contact / Met', color: '#64748b' },
-              { id: 'walkthrough', title: '2. Walkthrough Scheduled', color: '#6366f1' },
-              { id: 'proposal', title: '3. Proposal Sent', color: '#3b82f6' },
-              { id: 'negotiation', title: '4. In Negotiation', color: '#f59e0b' },
-              { id: 'won', title: '5. Closed Contract (MRR)', color: '#10b981' },
-            ].map(col => (
-              <div key={col.id} style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 12, padding: 14 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <span style={{ fontWeight: 800, fontSize: 13, color: col.color }}>{col.title}</span>
-                </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
-                  No active opportunities in this stage. Flip to Commercial mode in the Knock tab to log B2B walkthroughs!
-                </div>
-              </div>
-            ))}
           </div>
         </div>
       )}
