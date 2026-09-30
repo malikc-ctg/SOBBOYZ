@@ -3,14 +3,14 @@
    ======================================================== */
 
 :root {
-  --sales-bg: #07070e;
-  --sales-card: #0f0f1c;
-  --sales-elevated: #161629;
-  --sales-border: rgba(255, 255, 255, 0.08);
-  --sales-accent: #6366f1;
-  --sales-accent-glow: rgba(99, 102, 241, 0.25);
-  --sales-text: #f3f4f6;
-  --sales-muted: #8b8ba7;
+  --sales-bg: #001326;
+  --sales-card: #001d40;
+  --sales-elevated: #00244c;
+  --sales-border: rgba(60, 108, 168, 0.25);
+  --sales-accent: #2563eb;
+  --sales-accent-glow: rgba(37, 99, 235, 0.25);
+  --sales-text: #fffcf6;
+  --sales-muted: #88a2c0;
   --sales-success: #10b981;
 }
 
@@ -32,7 +32,7 @@
   left: 0;
   right: 0;
   height: 56px;
-  background: rgba(10, 10, 20, 0.92);
+  background: rgba(0, 19, 38, 0.95);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--sales-border);
@@ -190,15 +190,16 @@
 /* Desktop container restraint for Field Knocking */
 @media (min-width: 600px) {
   .sales-field-desktop-wrapper {
-    max-width: 480px;
+    max-width: 520px;
     margin: 0 auto;
     width: 100%;
-    min-height: calc(100vh - 56px);
+    min-height: calc(100vh - 120px);
     position: relative;
-    border-left: 1px solid rgba(255, 255, 255, 0.04);
-    border-right: 1px solid rgba(255, 255, 255, 0.04);
-    background: #0a0a14;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(60, 108, 168, 0.25);
+    border-radius: 16px;
+    background: #001733;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
   }
 }
 

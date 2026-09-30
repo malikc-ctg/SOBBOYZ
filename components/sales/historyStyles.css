@@ -6,20 +6,30 @@
 }
 
 .bottom-nav {
-  position: fixed;
+  position: absolute;
   bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
   width: 100%;
-  max-width: 480px;
   height: 64px;
-  background: #0d0d19;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: #001733;
+  border-top: 1px solid rgba(60, 108, 168, 0.25);
   display: flex;
   justify-content: space-around;
   align-items: center;
   z-index: 1000;
-  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+}
+
+@media (max-width: 600px) {
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    max-width: 100%;
+    transform: none;
+  }
 }
 
 .nav-btn {

@@ -259,7 +259,7 @@ export default function PhoneTab({ user, repName, isActive }) {
           <div className="phone-panel-header">
             <div className="phone-panel-title">
               <span>⚡ Lead Pipeline</span>
-              <span className="phone-badge">{contacts.length} Leads</span>
+              <span className="phone-badge">{loading ? 'Loading...' : `${contacts.length} Leads`}</span>
             </div>
             <button
               className="phone-subtab-btn active"
@@ -398,26 +398,30 @@ export default function PhoneTab({ user, repName, isActive }) {
               <button
                 className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
                 onClick={() => setSubView('queue')}
+                title="Active Call Console"
               >
-                <span>⚡ Active Call Console</span>
+                <span>⚡ Console</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'dialpad' ? 'active' : ''}`}
                 onClick={() => setSubView('dialpad')}
+                title="Dial Pad"
               >
                 <span>🔢 Dial Pad</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'scripts' ? 'active' : ''}`}
                 onClick={() => setSubView('scripts')}
+                title="Sales Scripts & Rebuttals"
               >
-                <span>📋 Scripts & Rebuttals</span>
+                <span>📋 Scripts</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'logs' ? 'active' : ''}`}
                 onClick={() => setSubView('logs')}
+                title="Call History Logs"
               >
-                <span>📊 Call History</span>
+                <span>📊 History</span>
               </button>
             </div>
           </div>
