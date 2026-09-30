@@ -21,6 +21,7 @@ export default function PhoneTab({ user, repName, isActive }) {
   // Data states
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedContact, setSelectedContact] = useState(null);
   const [callStats, setCallStats] = useState({
     totalCalls: 0,
     connects: 0,
@@ -37,6 +38,7 @@ export default function PhoneTab({ user, repName, isActive }) {
   const [isCalling, setIsCalling] = useState(false);
   const [callNotes, setCallNotes] = useState('');
   const [selectedObjection, setSelectedObjection] = useState('');
+  const [selectedScriptKey, setSelectedScriptKey] = useState('RESIDENTIAL_INBOUND');
   const [callbackDateTime, setCallbackDateTime] = useState('');
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [saleAmount, setSaleAmount] = useState('220');
@@ -89,6 +91,9 @@ export default function PhoneTab({ user, repName, isActive }) {
     try {
       const data = await fetchSalesContacts(filter);
       setContacts(data);
+      if (data.length > 0 && !selectedContact) {
+        setSelectedContact(data[0]);
+      }
     } catch (e) {
       console.error('[PhoneTab] Error loading contacts:', e);
     } finally {
@@ -110,6 +115,7 @@ export default function PhoneTab({ user, repName, isActive }) {
 
   // Launch a call to contact
   function startCall(contact) {
+    setSelectedContact(contact);
     setActiveCallContact(contact);
     setCallDuration(0);
     setIsCalling(true);
@@ -128,7 +134,8 @@ export default function PhoneTab({ user, repName, isActive }) {
 
   // End Call & Log Disposition
   async function handleDisposition(outcomeType) {
-    if (!activeCallContact) return;
+    const contactToLog = activeCallContact || selectedContact;
+    if (!contactToLog) return;
 
     if (outcomeType === 'SALE') {
       setShowSaleModal(true);
@@ -136,10 +143,10 @@ export default function PhoneTab({ user, repName, isActive }) {
     }
 
     await logCallEvent({
-      contactId: activeCallContact.id,
-      contactName: activeCallContact.name,
-      phoneNumber: activeCallContact.phone,
-      city: activeCallContact.city,
+      contactId: contactToLog.id,
+      contactName: contactToLog.name,
+      phoneNumber: contactToLog.phone,
+      city: contactToLog.city,
       callType: 'OUTBOUND',
       outcomeType: outcomeType,
       durationSeconds: callDuration,
@@ -157,13 +164,14 @@ export default function PhoneTab({ user, repName, isActive }) {
 
   // Confirm Sale Submission
   async function confirmSale() {
-    if (!activeCallContact) return;
+    const contactToLog = activeCallContact || selectedContact;
+    if (!contactToLog) return;
 
     await logCallEvent({
-      contactId: activeCallContact.id,
-      contactName: activeCallContact.name,
-      phoneNumber: activeCallContact.phone,
-      city: activeCallContact.city,
+      contactId: contactToLog.id,
+      contactName: contactToLog.name,
+      phoneNumber: contactToLog.phone,
+      city: contactToLog.city,
       callType: 'OUTBOUND',
       outcomeType: 'SALE',
       durationSeconds: callDuration,
@@ -172,7 +180,7 @@ export default function PhoneTab({ user, repName, isActive }) {
         job_total: saleAmount,
         service_type: saleServiceType,
         payment_method: 'Invoice / Phone Pay',
-        homeowner_name: activeCallContact.name
+        homeowner_name: contactToLog.name
       },
       repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
       repName: repName || 'Malik',
@@ -196,7 +204,7 @@ export default function PhoneTab({ user, repName, isActive }) {
     if (!dialNumber) return;
     const manualContact = {
       id: `manual_${Date.now()}`,
-      name: 'Direct Dial',
+      name: 'Direct Outbound Call',
       phone: dialNumber,
       city: 'Toronto',
       service_type: 'Inquiry / Direct Call',
@@ -242,737 +250,628 @@ export default function PhoneTab({ user, repName, isActive }) {
   });
 
   return (
-    <div className="phone-container">
-      {/* Header */}
-      <div className="phone-header">
-        <div className="phone-header-title">
-          <span>📞 Phone Sales OS</span>
-          <span className="phone-header-badge">{repName}</span>
-        </div>
-        <button
-          className="phone-secondary-btn"
-          style={{ padding: '6px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: 4 }}
-          onClick={() => setShowAddLeadModal(true)}
-        >
-          <span>+ Add Lead</span>
-        </button>
-      </div>
-
-      {/* Hero Metrics Strip */}
-      <div className="phone-metrics-strip">
-        <div className="phone-metric-item">
-          <span className="phone-metric-num" style={{ color: '#fff' }}>{callStats.totalCalls}</span>
-          <span className="phone-metric-label">Calls</span>
-        </div>
-        <div className="phone-metric-item">
-          <span className="phone-metric-num" style={{ color: '#3b82f6' }}>{callStats.connects}</span>
-          <span className="phone-metric-label">Connects</span>
-        </div>
-        <div className="phone-metric-item">
-          <span className="phone-metric-num" style={{ color: '#10b981' }}>{callStats.sales}</span>
-          <span className="phone-metric-label">Sales</span>
-        </div>
-        <div className="phone-metric-item">
-          <span className="phone-metric-num" style={{ color: '#f59e0b' }}>${callStats.revenue}</span>
-          <span className="phone-metric-label">Revenue</span>
-        </div>
-      </div>
-
-      {/* Sub-Tab Navigation */}
-      <div className="phone-subtabs">
-        <button
-          className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
-          onClick={() => setSubView('queue')}
-        >
-          <span>⚡ Lead Queue</span>
-        </button>
-        <button
-          className={`phone-subtab-btn ${subView === 'dialpad' ? 'active' : ''}`}
-          onClick={() => setSubView('dialpad')}
-        >
-          <span>🔢 Dial Pad</span>
-        </button>
-        <button
-          className={`phone-subtab-btn ${subView === 'scripts' ? 'active' : ''}`}
-          onClick={() => setSubView('scripts')}
-        >
-          <span>📋 Scripts</span>
-        </button>
-        <button
-          className={`phone-subtab-btn ${subView === 'logs' ? 'active' : ''}`}
-          onClick={() => setSubView('logs')}
-        >
-          <span>📊 Call Log</span>
-        </button>
-      </div>
-
-      {/* ── VIEW 1: LEAD QUEUE ── */}
-      {subView === 'queue' && (
-        <>
-          {/* Filter Pills */}
-          <div className="phone-filter-bar">
+    <div className="phone-workspace-root">
+      {/* 2-Column Workstation Grid */}
+      <div className="phone-grid-layout">
+        
+        {/* LEFT COLUMN: Lead Pipeline & Queue */}
+        <div className="phone-panel">
+          <div className="phone-panel-header">
+            <div className="phone-panel-title">
+              <span>⚡ Lead Pipeline</span>
+              <span className="phone-badge">{contacts.length} Leads</span>
+            </div>
             <button
-              className={`phone-filter-pill ${filter === 'all' ? 'active' : ''}`}
-              onClick={() => setFilter('all')}
+              className="phone-subtab-btn active"
+              style={{ padding: '4px 10px', fontSize: '11px', flex: 'none' }}
+              onClick={() => setShowAddLeadModal(true)}
             >
-              All Leads ({contacts.length})
-            </button>
-            <button
-              className={`phone-filter-pill ${filter === 'hot' ? 'active' : ''}`}
-              onClick={() => setFilter('hot')}
-            >
-              🔥 Hot Inbound
-            </button>
-            <button
-              className={`phone-filter-pill ${filter === 'past_customers' ? 'active' : ''}`}
-              onClick={() => setFilter('past_customers')}
-            >
-              🔄 Past Customers
-            </button>
-            <button
-              className={`phone-filter-pill ${filter === 'commercial' ? 'active' : ''}`}
-              onClick={() => setFilter('commercial')}
-            >
-              🏢 Commercial B2B
+              + Add Lead
             </button>
           </div>
 
-          {/* Search Box */}
-          <div style={{ marginBottom: 12 }}>
-            <input
-              type="text"
-              placeholder="Search name, phone number, address..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'var(--bg-card)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: 10,
-                padding: '10px 14px',
-                color: '#fff',
-                fontSize: 13,
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-          {/* Contacts List */}
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--text-muted)' }}>
-              Loading tele-sales queue...
-            </div>
-          ) : filteredContacts.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
-              <p style={{ fontSize: 14, fontWeight: 700, marginBottom: 6 }}>No contacts in this queue</p>
-              <p style={{ fontSize: 12 }}>All follow-ups completed or adjust filters above.</p>
-            </div>
-          ) : (
-            <div className="phone-lead-list">
-              {filteredContacts.slice(0, 40).map(contact => (
-                <div key={contact.contact_id} className="phone-lead-card">
-                  <div className="phone-lead-top">
-                    <div>
-                      <div className="phone-lead-name">
-                        {contact.name}
-                        {contact.company && (
-                          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-secondary)', marginLeft: 6 }}>
-                            ({contact.company})
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ fontSize: 12, color: 'var(--accent)', fontWeight: 700, marginTop: 2 }}>
-                        {contact.phone}
-                      </div>
-                    </div>
-                    <span className={`phone-lead-type-badge ${
-                      contact.type === 'COMMERCIAL_WINBACK' ? 'badge-commercial' :
-                      contact.type === 'PAST_CUSTOMER_WINBACK' ? 'badge-winback' : 'badge-inbound'
-                    }`}>
-                      {contact.type === 'COMMERCIAL_WINBACK' ? 'Commercial' :
-                       contact.type === 'PAST_CUSTOMER_WINBACK' ? 'Renewal' : 'Inbound Quote'}
-                    </span>
-                  </div>
-
-                  <div className="phone-lead-service">
-                    {contact.service_type}
-                  </div>
-
-                  <div className="phone-lead-meta">
-                    <span>📍 {contact.city}</span>
-                    <span className="phone-lead-val">${contact.estimated_value}</span>
-                    <span style={{ textTransform: 'capitalize' }}>Status: {contact.status}</span>
-                  </div>
-
-                  {contact.notes && (
-                    <div style={{
-                      fontSize: 11,
-                      color: 'var(--text-muted)',
-                      marginBottom: 10,
-                      fontStyle: 'italic',
-                      background: 'rgba(255,255,255,0.02)',
-                      padding: '6px 8px',
-                      borderRadius: 6,
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical',
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      lineHeight: '1.4'
-                    }}>
-                      {contact.notes}
-                    </div>
-                  )}
-
-                  <div className="phone-lead-actions">
-                    <button
-                      className="phone-call-btn"
-                      onClick={() => startCall(contact)}
-                    >
-                      <span>📞 Call Now</span>
-                    </button>
-                    <a
-                      href={`sms:${contact.phone?.replace(/[^0-9+]/g, '')}`}
-                      className="phone-secondary-btn"
-                      style={{ textDecoration: 'none', display: 'flex', alignItems: 'center' }}
-                    >
-                      💬 Text
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── VIEW 2: NUMERIC DIAL PAD ── */}
-      {subView === 'dialpad' && (
-        <div className="phone-dialpad-container">
-          <div className="phone-dial-display">
-            <span>{dialNumber || 'Enter Phone #'}</span>
-            {dialNumber && (
-              <button className="phone-dial-clear" onClick={() => setDialNumber(prev => prev.slice(0, -1))}>
-                ✕
-              </button>
-            )}
-          </div>
-
-          <div className="phone-dial-grid">
-            {[
-              { num: '1', letters: '' },
-              { num: '2', letters: 'ABC' },
-              { num: '3', letters: 'DEF' },
-              { num: '4', letters: 'GHI' },
-              { num: '5', letters: 'JKL' },
-              { num: '6', letters: 'MNO' },
-              { num: '7', letters: 'PQRS' },
-              { num: '8', letters: 'TUV' },
-              { num: '9', letters: 'WXYZ' },
-              { num: '*', letters: '' },
-              { num: '0', letters: '+' },
-              { num: '#', letters: '' },
-            ].map(k => (
-              <button
-                key={k.num}
-                className="phone-dial-key"
-                onClick={() => handleDialPress(k.num)}
-              >
-                <span className="phone-dial-num">{k.num}</span>
-                {k.letters && <span className="phone-dial-letters">{k.letters}</span>}
-              </button>
-            ))}
-          </div>
-
-          <button
-            className="phone-dial-launch"
-            disabled={!dialNumber}
-            onClick={launchManualDial}
-          >
-            📞
-          </button>
-        </div>
-      )}
-
-      {/* ── VIEW 3: SCRIPTS & OBJECTION KILLERS ── */}
-      {subView === 'scripts' && (
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 12 }}>
-            ⚡ Sales Battle Cards & Pitch Scripts
-          </div>
-
-          {/* Script Accordion */}
-          {Object.entries(CALL_SCRIPTS).map(([k, s]) => (
-            <div key={k} className="phone-script-card">
-              <div className="phone-script-title">{s.title}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>OPPOSING / HOOK:</div>
-              <div className="phone-script-box">{s.opener}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', marginBottom: 4 }}>DISCOVERY QUESTION:</div>
-              <div className="phone-script-box">{s.discovery}</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: '#10b981', marginBottom: 4 }}>CLOSING PITCH:</div>
-              <div className="phone-script-box" style={{ borderLeftColor: '#10b981' }}>{s.close}</div>
-            </div>
-          ))}
-
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#f59e0b', margin: '20px 0 12px' }}>
-            🛡️ Instant Objection Handlers
-          </div>
-
-          {OBJECTION_REBUTTALS.map((r, i) => (
-            <div key={i} className="phone-script-card">
-              <div className="phone-rebuttal-trigger">{r.trigger}</div>
-              <div className="phone-script-title">{r.title}</div>
-              <div className="phone-script-box" style={{ borderLeftColor: '#f59e0b' }}>
-                {r.rebuttal}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* ── VIEW 4: CALL LOGS ── */}
-      {subView === 'logs' && (
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', marginBottom: 12 }}>
-            📊 Today's Call History
-          </div>
-
-          {callStats.todayCalls.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
-              <p>No phone calls logged today yet.</p>
-              <p style={{ fontSize: 12, marginTop: 4 }}>Dial from the Lead Queue to build your stats!</p>
-            </div>
-          ) : (
-            <div className="phone-lead-list">
-              {callStats.todayCalls.map((c, idx) => (
-                <div key={c.id || idx} className="phone-lead-card">
-                  <div className="phone-lead-top">
-                    <div>
-                      <div className="phone-lead-name">{c.contact_name || 'Contact'}</div>
-                      <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>{c.phone_number}</div>
-                    </div>
-                    <span
-                      className="phone-lead-type-badge"
-                      style={{
-                        background: CALL_OUTCOMES.find(o => o.key === c.outcome_type)?.color + '22',
-                        color: CALL_OUTCOMES.find(o => o.key === c.outcome_type)?.color || '#fff',
-                        border: `1px solid ${CALL_OUTCOMES.find(o => o.key === c.outcome_type)?.color}55`
-                      }}
-                    >
-                      {CALL_OUTCOMES.find(o => o.key === c.outcome_type)?.label || c.outcome_type}
-                    </span>
-                  </div>
-
-                  <div className="phone-lead-meta">
-                    <span>⏱️ {formatDuration(c.duration_seconds || 0)}</span>
-                    <span>📍 {c.city || 'Toronto'}</span>
-                    {c.sale_details?.job_total && (
-                      <span className="phone-lead-val">+${c.sale_details.job_total} WON</span>
-                    )}
-                    <span>{new Date(c.timestamp || c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                  </div>
-
-                  {c.notes && (
-                    <div style={{ fontSize: 12, color: 'var(--text-primary)', background: 'rgba(0,0,0,0.2)', padding: '6px 8px', borderRadius: 6 }}>
-                      {c.notes}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── ACTIVE CALL DISPOSITION MODAL ── */}
-      {isCalling && activeCallContact && (
-        <div className="phone-modal-overlay">
-          <div className="phone-modal-card">
-            <div className="phone-active-call-header">
-              <div className="phone-active-pulse">
-                <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981', display: 'inline-block' }}></span>
-                CALL IN PROGRESS
-              </div>
-              <div style={{ fontSize: 20, fontWeight: 900, color: '#fff' }}>
-                {activeCallContact.name}
-              </div>
-              <div style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 700, margin: '4px 0' }}>
-                <a href={`tel:${activeCallContact.phone?.replace(/[^0-9+]/g, '')}`} style={{ color: 'inherit', textDecoration: 'none' }}>
-                  {activeCallContact.phone} ↗
-                </a>
-              </div>
-              <div className="phone-timer">
-                {formatDuration(callDuration)}
-              </div>
-            </div>
-
-            {/* Live Notes Scratchpad */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                CALL NOTES / SCRATCHPAD
-              </label>
-              <textarea
-                value={callNotes}
-                onChange={e => setCallNotes(e.target.value)}
-                placeholder="Type customer notes, questions, timing..."
-                style={{
-                  width: '100%',
-                  height: 60,
-                  background: 'var(--bg-input)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 10,
-                  color: '#fff',
-                  fontSize: 12,
-                  padding: 8,
-                  boxSizing: 'border-box'
-                }}
+          <div style={{ padding: '14px 16px' }}>
+            {/* Search Box */}
+            <div className="phone-search-box">
+              <span className="phone-search-icon">🔍</span>
+              <input
+                type="text"
+                className="phone-search-input"
+                placeholder="Search name, phone, city..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
               />
             </div>
 
-            {/* Quick Objection Tag Selector */}
-            <div style={{ marginBottom: 14 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                OBJECTION NOTED (OPTIONAL)
-              </label>
-              <select
-                value={selectedObjection}
-                onChange={e => setSelectedObjection(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-input)',
-                  color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: 8,
-                  padding: 8,
-                  fontSize: 12
-                }}
-              >
-                <option value="">None / Positive Discussion</option>
-                <option value="Too Expensive">Too Expensive / Price</option>
-                <option value="Can Do Myself">Can Do It Myself (DIY)</option>
-                <option value="Send Email">Wants Email Info Only</option>
-                <option value="Has Competitor">Has Another Cleaner</option>
-                <option value="Spouse Check">Needs Spouse Confirmation</option>
-              </select>
-            </div>
-
-            {/* One-Tap Dispositions */}
-            <label style={{ fontSize: 11, fontWeight: 800, color: 'var(--text-secondary)', textTransform: 'uppercase', display: 'block', marginBottom: 8 }}>
-              Select Call Result
-            </label>
-
-            <div className="phone-disposition-grid">
+            {/* Filter Chips Bar */}
+            <div className="phone-filter-bar">
               <button
-                className="phone-disp-btn btn-sale"
-                onClick={() => handleDisposition('SALE')}
+                className={`phone-filter-pill ${filter === 'all' ? 'active' : ''}`}
+                onClick={() => setFilter('all')}
               >
-                <span>🏆 CLOSED SALE / BOOKING</span>
-                <span style={{ fontSize: 10, opacity: 0.85, fontWeight: 500 }}>Confirm job total & date</span>
+                All Leads ({contacts.length})
               </button>
-
               <button
-                className="phone-disp-btn"
-                style={{ borderLeft: '3px solid #8b5cf6' }}
-                onClick={() => {
-                  const cb = prompt('Enter callback date & time (e.g. Tomorrow 2pm):');
-                  if (cb) setCallbackDateTime(cb);
-                  handleDisposition('CALLBACK');
-                }}
+                className={`phone-filter-pill ${filter === 'hot' ? 'active' : ''}`}
+                onClick={() => setFilter('hot')}
               >
-                <span>📅 Callback Set</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Schedule follow-up</span>
+                🔥 Hot Inbound
               </button>
-
               <button
-                className="phone-disp-btn"
-                style={{ borderLeft: '3px solid #3b82f6' }}
-                onClick={() => handleDisposition('CONVO')}
+                className={`phone-filter-pill ${filter === 'past_customers' ? 'active' : ''}`}
+                onClick={() => setFilter('past_customers')}
               >
-                <span>🗣️ Good Convo</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Qualified interest</span>
+                🔄 Past Customers
               </button>
-
               <button
-                className="phone-disp-btn"
-                style={{ borderLeft: '3px solid #f59e0b' }}
-                onClick={() => handleDisposition('VOICEMAIL')}
+                className={`phone-filter-pill ${filter === 'commercial' ? 'active' : ''}`}
+                onClick={() => setFilter('commercial')}
               >
-                <span>📼 Left Voicemail</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Dropped pitch VM</span>
-              </button>
-
-              <button
-                className="phone-disp-btn"
-                style={{ borderLeft: '3px solid #6b7280' }}
-                onClick={() => handleDisposition('NO_ANSWER')}
-              >
-                <span>📵 No Answer</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Rang out</span>
-              </button>
-
-              <button
-                className="phone-disp-btn"
-                style={{ borderLeft: '3px solid #ef4444' }}
-                onClick={() => handleDisposition('NOT_INTERESTED')}
-              >
-                <span>⛔ Not Interested</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Declined offer</span>
-              </button>
-
-              <button
-                className="phone-disp-btn"
-                style={{ borderLeft: '3px solid #9ca3af' }}
-                onClick={() => handleDisposition('BAD_NUMBER')}
-              >
-                <span>❌ Bad Number</span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)' }}>Disconnected</span>
+                🏢 Commercial
               </button>
             </div>
 
-            <button
-              style={{
-                width: '100%',
-                padding: '10px',
-                background: 'transparent',
-                border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 10,
-                color: 'var(--text-secondary)',
-                cursor: 'pointer',
-                fontWeight: 600,
-                fontSize: 12
-              }}
-              onClick={() => {
-                setIsCalling(false);
-                setActiveCallContact(null);
-              }}
-            >
-              Cancel / Dismiss
-            </button>
+            {/* Scrollable Lead List */}
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#8888a0', fontSize: '13px' }}>
+                <p>Loading sales contacts...</p>
+              </div>
+            ) : filteredContacts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#8888a0', fontSize: '13px' }}>
+                <p>No leads found matching query.</p>
+              </div>
+            ) : (
+              <div className="phone-lead-list">
+                {filteredContacts.map(c => {
+                  const isSelected = selectedContact?.id === c.id;
+                  const isLiveCalling = isCalling && activeCallContact?.id === c.id;
+                  
+                  return (
+                    <div
+                      key={c.id}
+                      className={`phone-lead-card ${isSelected ? 'selected' : ''}`}
+                      onClick={() => setSelectedContact(c)}
+                    >
+                      <div className="phone-lead-top">
+                        <div className="phone-lead-name">
+                          {c.name}
+                          {isLiveCalling && (
+                            <span style={{ color: '#10b981', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                              <span className="phone-timer-dot" /> CALLING
+                            </span>
+                          )}
+                        </div>
+                        <span className={`phone-lead-type-badge ${
+                          c.type === 'COMMERCIAL' ? 'badge-commercial' :
+                          c.type === 'PAST_CUSTOMER' ? 'badge-winback' : 'badge-inbound'
+                        }`}>
+                          {c.type === 'COMMERCIAL' ? 'Commercial' :
+                           c.type === 'PAST_CUSTOMER' ? 'Customer' : 'Inbound'}
+                        </span>
+                      </div>
+
+                      <div className="phone-lead-phone">{c.phone || 'No phone'}</div>
+                      <div className="phone-lead-service">
+                        {c.service_type || 'Cleaning Inquiry'}
+                      </div>
+
+                      <div className="phone-lead-meta">
+                        <span>📍 {c.city || 'GTA'}</span>
+                        <span className="phone-lead-val">${c.estimated_value || '220'}</span>
+                        <span>{c.status || 'New'}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
-      )}
 
-      {/* ── SALE MODAL ── */}
+        {/* RIGHT COLUMN: Workstation Canvas & Active Calling Console */}
+        <div className="phone-panel">
+          
+          {/* Top Panel Header: Stats + Sub-view Navigation */}
+          <div style={{ padding: '16px 18px 0' }}>
+            {/* Metric Strip */}
+            <div className="phone-metrics-strip">
+              <div className="phone-metric-item">
+                <span className="phone-metric-num" style={{ color: '#fff' }}>{callStats.totalCalls}</span>
+                <span className="phone-metric-label">Calls Today</span>
+              </div>
+              <div className="phone-metric-item">
+                <span className="phone-metric-num" style={{ color: '#60a5fa' }}>{callStats.connects}</span>
+                <span className="phone-metric-label">Connects</span>
+              </div>
+              <div className="phone-metric-item">
+                <span className="phone-metric-num" style={{ color: '#10b981' }}>{callStats.sales}</span>
+                <span className="phone-metric-label">Sales Won</span>
+              </div>
+              <div className="phone-metric-item">
+                <span className="phone-metric-num" style={{ color: '#f59e0b' }}>${callStats.revenue}</span>
+                <span className="phone-metric-label">Revenue</span>
+              </div>
+            </div>
+
+            {/* Sub-view Nav Pills */}
+            <div className="phone-subtabs">
+              <button
+                className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
+                onClick={() => setSubView('queue')}
+              >
+                <span>⚡ Active Call Console</span>
+              </button>
+              <button
+                className={`phone-subtab-btn ${subView === 'dialpad' ? 'active' : ''}`}
+                onClick={() => setSubView('dialpad')}
+              >
+                <span>🔢 Dial Pad</span>
+              </button>
+              <button
+                className={`phone-subtab-btn ${subView === 'scripts' ? 'active' : ''}`}
+                onClick={() => setSubView('scripts')}
+              >
+                <span>📋 Scripts & Rebuttals</span>
+              </button>
+              <button
+                className={`phone-subtab-btn ${subView === 'logs' ? 'active' : ''}`}
+                onClick={() => setSubView('logs')}
+              >
+                <span>📊 Call History</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="phone-workstation-content">
+            {/* VIEW 1: ACTIVE CALL CONSOLE & SELECTED CONTACT */}
+            {subView === 'queue' && (
+              <>
+                {selectedContact ? (
+                  <>
+                    {/* Active Contact Dossier */}
+                    <div className="phone-active-dossier">
+                      <div className="phone-dossier-top">
+                        <div>
+                          <div className="phone-dossier-name">{selectedContact.name}</div>
+                          <div style={{ color: '#818cf8', fontWeight: 700, fontSize: '14px', marginTop: 2 }}>
+                            {selectedContact.phone}
+                          </div>
+                        </div>
+
+                        <div className="phone-dossier-actions">
+                          <button
+                            className="phone-call-btn"
+                            onClick={() => startCall(selectedContact)}
+                          >
+                            📞 Call Now
+                          </button>
+                          {selectedContact.phone && (
+                            <a
+                              href={`sms:${selectedContact.phone.replace(/[^0-9+]/g, '')}`}
+                              className="phone-text-btn"
+                            >
+                              💬 Text
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Detail Matrix */}
+                      <div className="phone-dossier-grid">
+                        <div className="phone-dossier-cell">
+                          <span className="phone-dossier-label">City / Territory</span>
+                          <span className="phone-dossier-val">📍 {selectedContact.city || 'Toronto'}</span>
+                        </div>
+                        <div className="phone-dossier-cell">
+                          <span className="phone-dossier-label">Quoted Service</span>
+                          <span className="phone-dossier-val">{selectedContact.service_type || 'Cleaning'}</span>
+                        </div>
+                        <div className="phone-dossier-cell">
+                          <span className="phone-dossier-label">Est. Value</span>
+                          <span className="phone-dossier-val" style={{ color: '#10b981' }}>
+                            ${selectedContact.estimated_value || '220'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {selectedContact.address && (
+                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                          🏠 <strong>Property:</strong> {selectedContact.address}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Active Live Call Timer & Disposition Box */}
+                    <div className="phone-active-call-box">
+                      <div className="phone-call-timer-row">
+                        <div className="phone-timer-badge">
+                          {isCalling && <span className="phone-timer-dot" />}
+                          <span>{isCalling ? `ON CALL: ${formatDuration(callDuration)}` : 'CALL DISPOSITION'}</span>
+                        </div>
+                        {isCalling && (
+                          <span style={{ fontSize: '12px', color: '#8888a0' }}>
+                            Timer running... Select outcome below when finished
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Rep Live Notes */}
+                      <div>
+                        <textarea
+                          className="phone-notes-area"
+                          placeholder="Type notes from conversation... (e.g. Needs quote emailed, dog in backyard, spouse decides Friday)"
+                          value={callNotes}
+                          onChange={e => setCallNotes(e.target.value)}
+                        />
+                      </div>
+
+                      {/* 1-Tap Disposition Buttons */}
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', textTransform: 'uppercase', marginBottom: 6 }}>
+                          Record Call Outcome:
+                        </div>
+                        <div className="phone-dispositions-grid">
+                          <button
+                            className="phone-disp-btn won"
+                            onClick={() => handleDisposition('SALE')}
+                          >
+                            🏆 WON / BOOKED SALE ($)
+                          </button>
+                          
+                          <button
+                            className="phone-disp-btn"
+                            style={{ borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa' }}
+                            onClick={() => handleDisposition('CALLBACK')}
+                          >
+                            📅 Callback Set
+                          </button>
+
+                          <button
+                            className="phone-disp-btn"
+                            style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#c7d2fe' }}
+                            onClick={() => handleDisposition('GOOD_CONVO')}
+                          >
+                            🗣️ Good Convo
+                          </button>
+
+                          <button
+                            className="phone-disp-btn"
+                            style={{ color: '#94a3b8' }}
+                            onClick={() => handleDisposition('LEFT_VOICEMAIL')}
+                          >
+                            📼 Left Voicemail
+                          </button>
+
+                          <button
+                            className="phone-disp-btn"
+                            style={{ color: '#94a3b8' }}
+                            onClick={() => handleDisposition('NO_ANSWER')}
+                          >
+                            📵 No Answer
+                          </button>
+
+                          <button
+                            className="phone-disp-btn"
+                            style={{ color: '#f87171' }}
+                            onClick={() => handleDisposition('NOT_INTERESTED')}
+                          >
+                            ⛔ Not Interested
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Script & Objection Helper */}
+                    <div className="phone-scripts-card">
+                      <div className="phone-scripts-header">
+                        <span>🛡️ Objection Battle-Cards (Quick Rebuttals)</span>
+                      </div>
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                        {OBJECTION_REBUTTALS.map(obj => (
+                          <button
+                            key={obj.title}
+                            type="button"
+                            className={`phone-filter-pill ${selectedObjection === obj.title ? 'active' : ''}`}
+                            onClick={() => setSelectedObjection(selectedObjection === obj.title ? '' : obj.title)}
+                          >
+                            "{obj.title}"
+                          </button>
+                        ))}
+                      </div>
+
+                      {selectedObjection && (
+                        <div className="phone-script-box">
+                          {(() => {
+                            const found = OBJECTION_REBUTTALS.find(o => o.title === selectedObjection);
+                            if (!found) return null;
+                            return (
+                              <>
+                                <div style={{ color: '#fbbf24', fontWeight: 800 }}>When they say: {found.trigger}</div>
+                                <div style={{ marginTop: 6, color: '#f3f4f6', lineHeight: 1.5 }}>{found.rebuttal}</div>
+                              </>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '60px 20px', color: '#8888a0' }}>
+                    <p style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>No Lead Selected</p>
+                    <p style={{ fontSize: '13px', marginTop: 6 }}>Select any contact from the Lead Pipeline on the left to start calling.</p>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* VIEW 2: MANUAL DIAL PAD */}
+            {subView === 'dialpad' && (
+              <div className="phone-dialpad-container">
+                <div className="phone-dial-display">
+                  <span>{dialNumber || '___-___-____'}</span>
+                  {dialNumber && (
+                    <button className="phone-dial-clear" onClick={() => setDialNumber('')}>
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="phone-keypad-grid">
+                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(k => (
+                    <button key={k} className="phone-key-btn" onClick={() => handleDialPress(k)}>
+                      <span className="phone-key-num">{k}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <button
+                  className="phone-call-btn"
+                  style={{ width: '100%', padding: '14px', fontSize: '16px' }}
+                  onClick={launchManualDial}
+                >
+                  📞 Call {dialNumber || 'Number'}
+                </button>
+              </div>
+            )}
+
+            {/* VIEW 3: FULL SCRIPTS & BATTLE CARDS */}
+            {subView === 'scripts' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  {Object.keys(CALL_SCRIPTS).map(scriptKey => (
+                    <button
+                      key={scriptKey}
+                      className={`phone-filter-pill ${selectedScriptKey === scriptKey ? 'active' : ''}`}
+                      onClick={() => setSelectedScriptKey(scriptKey)}
+                    >
+                      {scriptKey.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="phone-active-dossier">
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginBottom: 6 }}>
+                    {CALL_SCRIPTS[selectedScriptKey]?.title}
+                  </div>
+                  
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase' }}>1. The Opener</div>
+                    <div className="phone-script-box" style={{ background: '#121221', marginTop: 4 }}>
+                      <p style={{ lineHeight: 1.5 }}>{CALL_SCRIPTS[selectedScriptKey]?.opener}</p>
+                    </div>
+                  </div>
+
+                  <div style={{ marginBottom: 10 }}>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase' }}>2. Discovery Question</div>
+                    <div className="phone-script-box" style={{ background: '#121221', marginTop: 4 }}>
+                      <p style={{ lineHeight: 1.5 }}>{CALL_SCRIPTS[selectedScriptKey]?.discovery}</p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>3. Closing Hook</div>
+                    <div className="phone-script-box" style={{ background: '#121221', marginTop: 4 }}>
+                      <p style={{ lineHeight: 1.5 }}>{CALL_SCRIPTS[selectedScriptKey]?.close}</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="phone-active-dossier">
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#fff', marginBottom: 10 }}>
+                    All Objection Battle Cards
+                  </div>
+                  {OBJECTION_REBUTTALS.map(obj => (
+                    <div key={obj.title} style={{ marginBottom: 14 }}>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#fbbf24' }}>
+                        Customer says: {obj.trigger}
+                      </div>
+                      <div className="phone-script-box" style={{ marginTop: 4 }}>
+                        {obj.rebuttal}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 4: CALL ACTIVITY LOG */}
+            {subView === 'logs' && (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="phone-logs-table">
+                  <thead>
+                    <tr>
+                      <th>Time</th>
+                      <th>Prospect</th>
+                      <th>Phone</th>
+                      <th>Duration</th>
+                      <th>Outcome</th>
+                      <th>Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {callStats.todayCalls && callStats.todayCalls.length > 0 ? (
+                      callStats.todayCalls.map((c, i) => (
+                        <tr key={i}>
+                          <td>{new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                          <td style={{ fontWeight: 700, color: '#fff' }}>{c.contact_name || 'Outbound'}</td>
+                          <td style={{ color: '#818cf8' }}>{c.phone_number}</td>
+                          <td>{formatDuration(c.duration_seconds || 0)}</td>
+                          <td>
+                            <span style={{
+                              fontWeight: 700,
+                              color: c.outcome_type === 'SALE' ? '#10b981' :
+                                     c.outcome_type === 'GOOD_CONVO' ? '#60a5fa' :
+                                     c.outcome_type === 'CALLBACK' ? '#fbbf24' : '#94a3b8'
+                            }}>
+                              {c.outcome_type}
+                            </span>
+                          </td>
+                          <td style={{ color: '#94a3b8', fontSize: '11px' }}>{c.notes || '—'}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', color: '#8888a0', padding: '30px 0' }}>
+                          No calls logged yet today.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Sale Won Confirmation Modal */}
       {showSaleModal && (
         <div className="phone-modal-overlay">
-          <div className="phone-modal-card" style={{ maxWidth: 420 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 900, color: '#10b981', marginBottom: 6 }}>
-              🏆 Record Closed Sale
+          <div className="phone-modal-content">
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', marginBottom: 12 }}>
+              🎉 Record Closed Sale!
             </h3>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-              Won deal for {activeCallContact?.name} over the phone!
+            <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: 16 }}>
+              Log the job total and service package to credit your commission and update the lead.
             </p>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                JOB TOTAL ($)
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
+                Job Total ($)
               </label>
               <input
                 type="number"
+                className="phone-search-input"
+                style={{ padding: '10px 14px' }}
                 value={saleAmount}
                 onChange={e => setSaleAmount(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-input)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 8,
-                  padding: 10,
-                  color: '#fff',
-                  fontSize: 16,
-                  fontWeight: 800,
-                  boxSizing: 'border-box'
-                }}
               />
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>
-                SERVICE PACKAGE
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
+                Service Type
               </label>
-              <select
+              <input
+                type="text"
+                className="phone-search-input"
+                style={{ padding: '10px 14px' }}
                 value={saleServiceType}
                 onChange={e => setSaleServiceType(e.target.value)}
-                style={{
-                  width: '100%',
-                  background: 'var(--bg-input)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  borderRadius: 8,
-                  padding: 10,
-                  color: '#fff',
-                  fontSize: 12
-                }}
-              >
-                <option value="Seasonal Can Sanitizing & Deep Clean">Seasonal Can Sanitizing (2 Bins)</option>
-                <option value="Yearly Clean Route (Monthly)">Yearly Clean Route (Monthly VIP)</option>
-                <option value="Exterior Power Washing Bundle">Exterior Power Washing Bundle</option>
-                <option value="Commercial Dumpster Pad Sanitizing">Commercial Dumpster Pad Sanitizing</option>
-                <option value="Commercial Office Cleaning">Commercial Office Cleaning</option>
-              </select>
+              />
             </div>
 
-            <div style={{ display: 'flex', gap: 8 }}>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
               <button
-                className="phone-call-btn"
-                style={{ flex: 1 }}
-                onClick={confirmSale}
-              >
-                Log Phone Sale
-              </button>
-              <button
-                className="phone-secondary-btn"
+                className="phone-text-btn"
                 onClick={() => setShowSaleModal(false)}
               >
-                Back
+                Cancel
+              </button>
+              <button
+                className="phone-call-btn"
+                onClick={confirmSale}
+              >
+                Confirm Sale ($)
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* ── ADD NEW LEAD MODAL ── */}
+      {/* Quick Add Lead Modal */}
       {showAddLeadModal && (
         <div className="phone-modal-overlay">
-          <div className="phone-modal-card" style={{ maxWidth: 420 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 900, color: '#fff', marginBottom: 6 }}>
-              + Add Phone Sales Prospect
+          <div className="phone-modal-content">
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', marginBottom: 12 }}>
+              + Add Sales Prospect
             </h3>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>
-              Quickly create a contact to dial immediately.
-            </p>
 
             <form onSubmit={handleAddNewLead}>
               <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
+                  Contact Name
+                </label>
                 <input
                   type="text"
-                  placeholder="Contact Name *"
-                  required
+                  className="phone-search-input"
+                  style={{ padding: '10px 14px' }}
+                  placeholder="e.g. John Smith"
                   value={newLeadName}
                   onChange={e => setNewLeadName(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: '#fff',
-                    fontSize: 13,
-                    boxSizing: 'border-box'
-                  }}
                 />
               </div>
 
               <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
+                  Phone Number *
+                </label>
                 <input
                   type="tel"
-                  placeholder="Phone Number *"
                   required
+                  className="phone-search-input"
+                  style={{ padding: '10px 14px' }}
+                  placeholder="(416) 555-0192"
                   value={newLeadPhone}
                   onChange={e => setNewLeadPhone(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: '#fff',
-                    fontSize: 13,
-                    boxSizing: 'border-box'
-                  }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 10 }}>
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
+                  City / Location
+                </label>
                 <input
                   type="text"
-                  placeholder="City / Area"
+                  className="phone-search-input"
+                  style={{ padding: '10px 14px' }}
+                  placeholder="Toronto / Mississauga"
                   value={newLeadCity}
                   onChange={e => setNewLeadCity(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: '#fff',
-                    fontSize: 13,
-                    boxSizing: 'border-box'
-                  }}
-                />
-                <input
-                  type="text"
-                  placeholder="Company (optional)"
-                  value={newLeadCompany}
-                  onChange={e => setNewLeadCompany(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: '#fff',
-                    fontSize: 13,
-                    boxSizing: 'border-box'
-                  }}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px', gap: 8, marginBottom: 16 }}>
-                <select
-                  value={newLeadService}
-                  onChange={e => setNewLeadService(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: '#fff',
-                    fontSize: 12
-                  }}
-                >
-                  <option value="standard_clean">Standard Can Sanitizing</option>
-                  <option value="deep_clean">Deep Clean & Wash</option>
-                  <option value="commercial">Commercial Sanitation</option>
-                </select>
-
-                <input
-                  type="number"
-                  placeholder="Price ($)"
-                  value={newLeadPrice}
-                  onChange={e => setNewLeadPrice(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: 'var(--bg-input)',
-                    border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 8,
-                    padding: 10,
-                    color: '#fff',
-                    fontSize: 13,
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button
-                  type="submit"
-                  className="phone-call-btn"
-                  style={{ flex: 1 }}
-                >
-                  Save & Add
-                </button>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
                 <button
                   type="button"
-                  className="phone-secondary-btn"
+                  className="phone-text-btn"
                   onClick={() => setShowAddLeadModal(false)}
                 >
                   Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="phone-call-btn"
+                >
+                  Save Lead
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
     </div>
   );
 }

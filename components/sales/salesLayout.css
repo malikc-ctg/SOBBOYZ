@@ -1,0 +1,235 @@
+/* ========================================================
+   SALES OS — Global Workspace Layout & Mode Switcher
+   ======================================================== */
+
+:root {
+  --sales-bg: #07070e;
+  --sales-card: #0f0f1c;
+  --sales-elevated: #161629;
+  --sales-border: rgba(255, 255, 255, 0.08);
+  --sales-accent: #6366f1;
+  --sales-accent-glow: rgba(99, 102, 241, 0.25);
+  --sales-text: #f3f4f6;
+  --sales-muted: #8b8ba7;
+  --sales-success: #10b981;
+}
+
+.sales-os-root {
+  min-height: 100vh;
+  background: var(--sales-bg);
+  color: var(--sales-text);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Global Fixed Top Navigation Bar */
+.sales-topbar {
+  position: sticky;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: rgba(10, 10, 20, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--sales-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 1050;
+}
+
+.sales-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.sales-admin-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #c7d2fe;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.sales-admin-back:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #fff;
+  transform: translateX(-2px);
+}
+
+.sales-brand-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.sales-brand-badge span {
+  font-size: 10px;
+  font-weight: 700;
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.5px;
+}
+
+/* Center Mode Switcher */
+.sales-mode-switcher {
+  display: flex;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--sales-border);
+  padding: 3px;
+  border-radius: 10px;
+  gap: 2px;
+}
+
+.sales-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--sales-muted);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  white-space: nowrap;
+}
+
+.sales-mode-btn:hover {
+  color: #fff;
+}
+
+.sales-mode-btn.active {
+  background: var(--sales-accent);
+  color: #fff;
+  box-shadow: 0 2px 8px var(--sales-accent-glow);
+}
+
+/* Right Rep Pill & Sign Out */
+.sales-topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.sales-rep-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--sales-card);
+  border: 1px solid var(--sales-border);
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.sales-rep-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--sales-success);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+
+.sales-logout-btn {
+  background: transparent;
+  border: none;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: color 0.15s;
+}
+
+.sales-logout-btn:hover {
+  color: #f87171;
+}
+
+/* Workspace Containers */
+.sales-workspace-field {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.sales-workspace-phone {
+  width: 100%;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Desktop container restraint for Field Knocking */
+@media (min-width: 600px) {
+  .sales-field-desktop-wrapper {
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+    min-height: calc(100vh - 56px);
+    position: relative;
+    border-left: 1px solid rgba(255, 255, 255, 0.04);
+    border-right: 1px solid rgba(255, 255, 255, 0.04);
+    background: #0a0a14;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Mobile Topbar Adjustments */
+@media (max-width: 640px) {
+  .sales-topbar {
+    padding: 0 10px;
+    height: 52px;
+  }
+  
+  .sales-brand-badge {
+    display: none;
+  }
+
+  .sales-mode-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+    gap: 4px;
+  }
+
+  .sales-admin-back {
+    padding: 5px 8px;
+    font-size: 11px;
+  }
+
+  .sales-rep-pill {
+    padding: 3px 8px;
+    font-size: 11px;
+  }
+
+  .sales-logout-btn {
+    display: none;
+  }
+}
