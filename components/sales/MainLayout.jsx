@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import SalesLaunchpad from './SalesLaunchpad';
 import Logger from './Logger';
 import PhoneTab from './phone/PhoneTab';
 import HistoryTab from './history/HistoryTab';
@@ -6,66 +7,85 @@ import MapTab from './map/MapTab';
 import TeamTab from './team/TeamTab';
 import './historyStyles.css';
 import './salesLayout.css';
+import './launchpadStyles.css';
 
 export default function MainLayout({ user, repName, onLogout }) {
-  // Primary Workspace Mode: 'FIELD' (KnockLog) vs 'PHONE' (Tele-sales)
-  const [salesMode, setSalesMode] = useState('FIELD');
+  // Active App: null (Launcher Home) | 'residential' | 'commercial' | 'phone' | 'map' | 'team'
+  const [activeApp, setActiveApp] = useState(null);
 
-  // Sub-tabs within Field Knocking Mode
+  // Field Knocking sub-tab (for residential & commercial)
   const [fieldTab, setFieldTab] = useState('KNOCK');
 
-  useEffect(() => {
-    try {
-      const savedMode = localStorage.getItem('sob_sales_mode');
-      if (savedMode === 'FIELD' || savedMode === 'PHONE') {
-        setSalesMode(savedMode);
-      }
-    } catch (e) {}
-  }, []);
+  // App Metadata Helper
+  const APP_METAS = {
+    residential: { title: 'KnockLog (Residential)', badge: 'Field Canvassing', color: '#10b981', icon: '🚪' },
+    commercial: { title: 'KnockLog (Commercial)', badge: 'Commercial B2B', color: '#c084fc', icon: '🏢' },
+    phone: { title: 'Phone Sales OS', badge: 'Inside CRM', color: '#fb923c', icon: '📞' },
+    map: { title: 'Territory Map', badge: 'Satellite GPS', color: '#22d3ee', icon: '🗺️' },
+    team: { title: 'Team Hub', badge: 'Leaderboard', color: '#fbbf24', icon: '🏆' },
+  };
 
-  function handleSwitchMode(newMode) {
-    setSalesMode(newMode);
-    try {
-      localStorage.setItem('sob_sales_mode', newMode);
-    } catch (e) {}
+  // If on launcher home screen, render SalesLaunchpad
+  if (!activeApp) {
+    return (
+      <SalesLaunchpad
+        repName={repName}
+        user={user}
+        onSelectApp={(appId) => {
+          setActiveApp(appId);
+          setFieldTab('KNOCK');
+        }}
+        onLogout={onLogout}
+      />
+    );
   }
+
+  const currentMeta = APP_METAS[activeApp] || { title: 'Sales OS', badge: 'App', color: '#6366f1', icon: '⚡' };
 
   return (
     <div className="sales-os-root">
-      {/* Universal Fixed Top Navigation Bar */}
-      <header className="sales-topbar">
-        {/* Left: Return to SOB Admin + Brand */}
-        <div className="sales-topbar-left">
+      {/* Global In-App Navigation Bar */}
+      <header className="app-topbar">
+        <div className="app-topbar-left">
+          {/* Odoo-style Apps Launcher Switcher Button */}
+          <button
+            className="app-launcher-btn"
+            onClick={() => setActiveApp(null)}
+            title="Return to Sales OS App Launcher"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="3" y="3" width="7" height="7"></rect>
+              <rect x="14" y="3" width="7" height="7"></rect>
+              <rect x="14" y="14" width="7" height="7"></rect>
+              <rect x="3" y="14" width="7" height="7"></rect>
+            </svg>
+            <span>Apps</span>
+          </button>
+
           <a href="/sobadmin" className="sales-admin-back" title="Return to SOB Business Dashboard">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="19" y1="12" x2="5" y2="12"></line>
               <polyline points="12 19 5 12 12 5"></polyline>
             </svg>
             <span>SOB Admin</span>
           </a>
 
-          <div className="sales-brand-badge">
-            <span>Sales OS</span>
+          <div className="app-current-indicator">
+            <span>{currentMeta.icon}</span>
+            <span style={{ color: '#fff', fontWeight: 800 }}>{currentMeta.title}</span>
+            <span
+              className="app-current-pill"
+              style={{
+                color: currentMeta.color,
+                background: `${currentMeta.color}22`,
+                border: `1px solid ${currentMeta.color}44`,
+              }}
+            >
+              {currentMeta.badge}
+            </span>
           </div>
         </div>
 
-        {/* Center: Primary Workspace Switcher */}
-        <div className="sales-mode-switcher">
-          <button
-            className={`sales-mode-btn ${salesMode === 'FIELD' ? 'active' : ''}`}
-            onClick={() => handleSwitchMode('FIELD')}
-          >
-            <span>🚪 Field Knocking</span>
-          </button>
-          <button
-            className={`sales-mode-btn ${salesMode === 'PHONE' ? 'active' : ''}`}
-            onClick={() => handleSwitchMode('PHONE')}
-          >
-            <span>📞 Phone Sales</span>
-          </button>
-        </div>
-
-        {/* Right: Rep Pill + Sign Out */}
         <div className="sales-topbar-right">
           <div className="sales-rep-pill">
             <span className="sales-rep-dot" />
@@ -78,14 +98,20 @@ export default function MainLayout({ user, repName, onLogout }) {
       </header>
 
       {/* ========================================================
-          MODE 1: FIELD KNOCKING (Pure KnockLog Experience)
+          APP 1 & 2: KNOCKLOG (RESIDENTIAL & COMMERCIAL)
           ======================================================== */}
-      {salesMode === 'FIELD' && (
+      {(activeApp === 'residential' || activeApp === 'commercial') && (
         <div className="sales-workspace-field">
           <div className="sales-field-desktop-wrapper">
-            <div style={{ paddingBottom: '70px', minHeight: 'calc(100vh - 56px)', boxSizing: 'border-box' }}>
+            <div style={{ paddingBottom: '70px', minHeight: 'calc(100vh - 54px)', boxSizing: 'border-box' }}>
               <div style={{ display: fieldTab === 'KNOCK' ? 'block' : 'none', height: '100%' }}>
-                <Logger user={user} repName={repName} onLogout={onLogout} isActive={fieldTab === 'KNOCK'} />
+                <Logger
+                  user={user}
+                  repName={repName}
+                  onLogout={onLogout}
+                  isActive={fieldTab === 'KNOCK'}
+                  initialSalesMode={activeApp === 'commercial' ? 'commercial' : 'residential'}
+                />
               </div>
               <div style={{ display: fieldTab === 'MAP' ? 'block' : 'none', height: '100%', width: '100%' }}>
                 <MapTab user={user} repName={repName} isActive={fieldTab === 'MAP'} />
@@ -168,11 +194,29 @@ export default function MainLayout({ user, repName, onLogout }) {
       )}
 
       {/* ========================================================
-          MODE 2: PHONE SALES (Inside Sales CRM Workstation)
+          APP 3: PHONE SALES OS (Inside Sales Workstation)
           ======================================================== */}
-      {salesMode === 'PHONE' && (
+      {activeApp === 'phone' && (
         <div className="sales-workspace-phone">
-          <PhoneTab user={user} repName={repName} isActive={salesMode === 'PHONE'} />
+          <PhoneTab user={user} repName={repName} isActive={activeApp === 'phone'} />
+        </div>
+      )}
+
+      {/* ========================================================
+          APP 4: TERRITORY MAP (Dedicated Full-Screen Map)
+          ======================================================== */}
+      {activeApp === 'map' && (
+        <div style={{ width: '100%', height: 'calc(100vh - 54px)' }}>
+          <MapTab user={user} repName={repName} isActive={activeApp === 'map'} />
+        </div>
+      )}
+
+      {/* ========================================================
+          APP 5: TEAM & LEADERBOARD (Dedicated Team Hub)
+          ======================================================== */}
+      {activeApp === 'team' && (
+        <div style={{ maxWidth: 800, margin: '0 auto', width: '100%', padding: '20px 16px' }}>
+          <TeamTab user={user} repName={repName} isActive={activeApp === 'team'} />
         </div>
       )}
     </div>

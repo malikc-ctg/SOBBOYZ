@@ -21,7 +21,7 @@ const CONVO_OPTIONS = [
   'CONSTRUCTION'
 ];
 
-export default function Logger({ user, repName, onLogout, isActive }) {
+export default function Logger({ user, repName, onLogout, isActive, initialSalesMode = 'residential' }) {
   const [dayState, setDayState] = useState('NOT_STARTED');
   const [session, setSession] = useState(null);
   const [street, setStreet] = useState('');
@@ -53,7 +53,13 @@ export default function Logger({ user, repName, onLogout, isActive }) {
   const PAYMENT_METHODS = ['Cash', 'E-Transfer', 'Credit', 'Invoice'];
 
   // Commercial B2B Mode State
-  const [salesMode, setSalesMode] = useState('residential'); // 'residential' | 'commercial'
+  const [salesMode, setSalesMode] = useState(initialSalesMode || 'residential'); // 'residential' | 'commercial'
+
+  useEffect(() => {
+    if (initialSalesMode) {
+      setSalesMode(initialSalesMode);
+    }
+  }, [initialSalesMode]);
   const [commAddress, setCommAddress] = useState('');
   const [commUnit, setCommUnit] = useState('');
   const [commCompanyName, setCommCompanyName] = useState('');

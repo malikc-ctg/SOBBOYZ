@@ -12,6 +12,7 @@ import '@/components/sales/team/teamStyles.css';
 import '@/components/sales/historyStyles.css';
 import '@/components/sales/salesLayout.css';
 import '@/components/sales/phone/phoneStyles.css';
+import '@/components/sales/launchpadStyles.css';
 
 export default function SalesPortalPage() {
   const [session, setSession] = useState<any>({
