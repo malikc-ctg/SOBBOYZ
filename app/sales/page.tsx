@@ -10,6 +10,8 @@ import '@/components/sales/styles/knocklog.css';
 import '@/components/sales/mapStyles.css';
 import '@/components/sales/team/teamStyles.css';
 import '@/components/sales/historyStyles.css';
+import '@/components/sales/salesLayout.css';
+import '@/components/sales/phone/phoneStyles.css';
 
 export default function SalesPortalPage() {
   const [session, setSession] = useState<any>({
