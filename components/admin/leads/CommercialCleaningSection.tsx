@@ -78,6 +78,14 @@ function fmt(n: number) {
   return `$${n.toFixed(2)}`;
 }
 
+function fmtParts(n: number) {
+  const parts = n.toFixed(2).split('.');
+  return {
+    dollars: `$${Number(parts[0]).toLocaleString()}`,
+    cents: parts[1],
+  };
+}
+
 function fmtRange(lo: number, hi: number) {
   return `${fmt(lo)} to ${fmt(hi)}`;
 }
@@ -528,7 +536,7 @@ export function CommercialCleaningSection({
                       </div>
                       <div className="flex justify-between text-muted-foreground/70">
                         <span>× 4.33 weeks / month</span>
-                        <span></span>
+                        <span className="font-medium text-foreground font-[family-name:var(--font-inter)]">{fmt(result.monthlyTotal)}</span>
                       </div>
                     </div>
                   </div>
@@ -540,17 +548,20 @@ export function CommercialCleaningSection({
                     {/* Per-visit — small */}
                     <div className="flex justify-between items-center">
                       <span className="text-xs text-muted-foreground">Per visit</span>
-                      <span className="text-base font-semibold">{fmt(result.perVisitWithSurcharges)}</span>
+                      <span className="text-base font-semibold font-[family-name:var(--font-inter)]">{fmt(result.perVisitWithSurcharges)}</span>
                     </div>
                     {/* Weekly — medium */}
                     <div className="flex justify-between items-center">
                       <span className="text-sm text-muted-foreground">Weekly</span>
-                      <span className="text-lg font-bold">{fmt(result.weeklyTotal)}</span>
+                      <span className="text-lg font-bold font-[family-name:var(--font-inter)]">{fmt(result.weeklyTotal)}</span>
                     </div>
                     {/* Monthly — primary, largest */}
                     <div className="flex justify-between items-center py-2 px-3 rounded-lg bg-primary/5 border border-primary/20">
                       <span className="text-sm font-semibold text-primary">Monthly</span>
-                      <span className="text-3xl font-black text-primary">{fmt(result.monthlyTotal)}</span>
+                      <div className="flex items-baseline font-[family-name:var(--font-inter)] tracking-tight text-primary">
+                        <span className="text-3xl font-extrabold">{fmtParts(result.monthlyTotal).dollars}</span>
+                        <span className="text-lg font-bold text-primary/75">.{fmtParts(result.monthlyTotal).cents}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -565,14 +576,14 @@ export function CommercialCleaningSection({
                         .map((a, i) => (
                           <div key={i} className="flex justify-between text-xs mb-1 text-slate-700">
                             <span>{a.label}</span>
-                            <span className="font-medium">
+                            <span className="font-medium font-[family-name:var(--font-inter)]">
                               {a.isRange ? fmtRange(a.amountLow, a.amountHigh) : fmt(a.amountLow)}
                             </span>
                           </div>
                         ))}
                       <div className="flex justify-between text-sm font-semibold mt-1 pt-1 border-t">
                         <span>Monthly with recurring add-ons</span>
-                        <span>{fmt(result.monthlyWithRecurringAddOns)}</span>
+                        <span className="font-[family-name:var(--font-inter)]">{fmt(result.monthlyWithRecurringAddOns)}</span>
                       </div>
                     </div>
                   )}
