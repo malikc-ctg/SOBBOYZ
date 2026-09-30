@@ -10,12 +10,13 @@ import {
   OBJECTION_REBUTTALS,
   CALL_SCRIPTS
 } from '@/lib/sales/phoneService';
+import { Building2, Plus, Phone, MessageSquare, Clock, ArrowRight, Shield, Flame, Search, CheckCircle2 } from 'lucide-react';
 import './phoneStyles.css';
 
 export default function PhoneTab({ user, repName, isActive }) {
   // Navigation & Sub-views
   const [subView, setSubView] = useState('queue'); // 'queue' | 'dialpad' | 'scripts' | 'logs'
-  const [filter, setFilter] = useState('all'); // 'all' | 'hot' | 'past_customers' | 'commercial'
+  const [filter, setFilter] = useState('all'); // 'all' | 'hot' | 'callbacks'
   const [searchQuery, setSearchQuery] = useState('');
 
   // Data states
@@ -38,20 +39,22 @@ export default function PhoneTab({ user, repName, isActive }) {
   const [isCalling, setIsCalling] = useState(false);
   const [callNotes, setCallNotes] = useState('');
   const [selectedObjection, setSelectedObjection] = useState('');
-  const [selectedScriptKey, setSelectedScriptKey] = useState('RESIDENTIAL_INBOUND');
+  const [selectedScriptKey, setSelectedScriptKey] = useState('COMMERCIAL_B2B');
   const [callbackDateTime, setCallbackDateTime] = useState('');
   const [showSaleModal, setShowSaleModal] = useState(false);
-  const [saleAmount, setSaleAmount] = useState('220');
-  const [saleServiceType, setSaleServiceType] = useState('Seasonal Can Sanitizing & Deep Clean');
+  const [saleAmount, setSaleAmount] = useState('650');
+  const [saleServiceType, setSaleServiceType] = useState('Commercial Dumpster Pad Steam Sanitization & Exterior Wash');
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
 
-  // New Lead Form State
+  // New B2B Lead Form State
+  const [newLeadCompany, setNewLeadCompany] = useState('');
   const [newLeadName, setNewLeadName] = useState('');
   const [newLeadPhone, setNewLeadPhone] = useState('');
   const [newLeadCity, setNewLeadCity] = useState('');
-  const [newLeadCompany, setNewLeadCompany] = useState('');
-  const [newLeadService, setNewLeadService] = useState('standard_clean');
-  const [newLeadPrice, setNewLeadPrice] = useState('220');
+  const [newLeadFacility, setNewLeadFacility] = useState('Strip Plaza / Retail Center');
+  const [newLeadService, setNewLeadService] = useState('Dumpster Pad Steam Sanitization');
+  const [newLeadPrice, setNewLeadPrice] = useState('650');
+  const [newLeadNotes, setNewLeadNotes] = useState('');
 
   // Dialpad state
   const [dialNumber, setDialNumber] = useState('');
@@ -93,9 +96,11 @@ export default function PhoneTab({ user, repName, isActive }) {
       setContacts(data);
       if (data.length > 0 && !selectedContact) {
         setSelectedContact(data[0]);
+      } else if (data.length === 0) {
+        setSelectedContact(null);
       }
     } catch (e) {
-      console.error('[PhoneTab] Error loading contacts:', e);
+      console.error('[PhoneTab] Error loading B2B contacts:', e);
     } finally {
       setLoading(false);
     }
@@ -122,8 +127,8 @@ export default function PhoneTab({ user, repName, isActive }) {
     setCallNotes('');
     setSelectedObjection('');
     setCallbackDateTime('');
-    setSaleAmount(contact.estimated_value ? String(contact.estimated_value) : '220');
-    setSaleServiceType(contact.service_type || 'Seasonal Can Sanitizing & Deep Clean');
+    setSaleAmount(contact.estimated_value ? String(contact.estimated_value) : '650');
+    setSaleServiceType(contact.service_type || 'Commercial Dumpster Pad Steam Sanitization');
 
     // Trigger device dialer if on mobile
     if (contact.phone) {
@@ -160,6 +165,7 @@ export default function PhoneTab({ user, repName, isActive }) {
     setIsCalling(false);
     setActiveCallContact(null);
     refreshStats();
+    loadContacts();
   }
 
   // Confirm Sale Submission
@@ -179,7 +185,7 @@ export default function PhoneTab({ user, repName, isActive }) {
       saleDetails: {
         job_total: saleAmount,
         service_type: saleServiceType,
-        payment_method: 'Invoice / Phone Pay',
+        payment_method: 'Commercial Monthly Invoice',
         homeowner_name: contactToLog.name
       },
       repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
@@ -190,6 +196,7 @@ export default function PhoneTab({ user, repName, isActive }) {
     setIsCalling(false);
     setActiveCallContact(null);
     refreshStats();
+    loadContacts();
   }
 
   // Dialpad key press
@@ -204,35 +211,38 @@ export default function PhoneTab({ user, repName, isActive }) {
     if (!dialNumber) return;
     const manualContact = {
       id: `manual_${Date.now()}`,
-      name: 'Direct Outbound Call',
+      name: 'Commercial Prospect',
+      company: 'Outbound Plaza / B2B Target',
       phone: dialNumber,
-      city: 'Toronto',
-      service_type: 'Inquiry / Direct Call',
-      estimated_value: 220
+      city: 'GTA',
+      service_type: 'Commercial Dumpster Steam Sanitization',
+      estimated_value: 650
     };
     startCall(manualContact);
   }
 
-  // Add new lead form submission
+  // Add new B2B lead form submission
   async function handleAddNewLead(e) {
     e.preventDefault();
-    if (!newLeadPhone) return;
+    if (!newLeadPhone || !newLeadCompany) return;
 
     const res = await createNewPhoneLead({
-      customer_name: newLeadName || 'Direct Prospect',
+      company_name: newLeadCompany,
+      customer_name: newLeadName || 'Property Manager / DM',
       customer_phone: newLeadPhone,
-      city: newLeadCity || 'Toronto',
-      company_name: newLeadCompany || null,
+      city: newLeadCity || 'GTA',
       service_type: newLeadService,
-      quoted_price: newLeadPrice
+      quoted_price: newLeadPrice,
+      notes: `${newLeadFacility} — ${newLeadNotes}`
     });
 
     if (res?.success) {
       setShowAddLeadModal(false);
+      setNewLeadCompany('');
       setNewLeadName('');
       setNewLeadPhone('');
       setNewLeadCity('');
-      setNewLeadCompany('');
+      setNewLeadNotes('');
       loadContacts();
     }
   }
@@ -242,31 +252,34 @@ export default function PhoneTab({ user, repName, isActive }) {
     if (!searchQuery) return true;
     const q = searchQuery.toLowerCase();
     return (
+      (c.company || '').toLowerCase().includes(q) ||
       (c.name || '').toLowerCase().includes(q) ||
       (c.phone || '').includes(q) ||
-      (c.city || '').toLowerCase().includes(q) ||
-      (c.company || '').toLowerCase().includes(q)
+      (c.city || '').toLowerCase().includes(q)
     );
   });
 
   return (
-    <div className="phone-workspace-root">
+    <div className="phone-workspace-root font-sans">
       {/* 2-Column Workstation Grid */}
       <div className="phone-grid-layout">
         
-        {/* LEFT COLUMN: Lead Pipeline & Queue */}
+        {/* LEFT COLUMN: B2B Lead Pipeline & Queue */}
         <div className="phone-panel">
           <div className="phone-panel-header">
             <div className="phone-panel-title">
-              <span>⚡ Lead Pipeline</span>
-              <span className="phone-badge">{loading ? 'Loading...' : `${contacts.length} Leads`}</span>
+              <Building2 className="w-4 h-4 text-emerald-500" />
+              <span>B2B Commercial Pipeline</span>
+              <span className="phone-badge">
+                {loading ? 'Syncing...' : `${contacts.length} Accounts`}
+              </span>
             </div>
             <button
               className="phone-subtab-btn active"
               style={{ padding: '4px 10px', fontSize: '11px', flex: 'none' }}
               onClick={() => setShowAddLeadModal(true)}
             >
-              + Add Lead
+              + Add B2B Lead
             </button>
           </div>
 
@@ -277,7 +290,7 @@ export default function PhoneTab({ user, repName, isActive }) {
               <input
                 type="text"
                 className="phone-search-input"
-                placeholder="Search name, phone, city..."
+                placeholder="Search plaza, company, contact, phone..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
@@ -289,36 +302,45 @@ export default function PhoneTab({ user, repName, isActive }) {
                 className={`phone-filter-pill ${filter === 'all' ? 'active' : ''}`}
                 onClick={() => setFilter('all')}
               >
-                All Leads ({contacts.length})
+                All B2B ({contacts.length})
               </button>
               <button
                 className={`phone-filter-pill ${filter === 'hot' ? 'active' : ''}`}
                 onClick={() => setFilter('hot')}
               >
-                🔥 Hot Inbound
+                🔥 Hot Outreach
               </button>
               <button
-                className={`phone-filter-pill ${filter === 'past_customers' ? 'active' : ''}`}
-                onClick={() => setFilter('past_customers')}
+                className={`phone-filter-pill ${filter === 'callbacks' ? 'active' : ''}`}
+                onClick={() => setFilter('callbacks')}
               >
-                🔄 Past Customers
-              </button>
-              <button
-                className={`phone-filter-pill ${filter === 'commercial' ? 'active' : ''}`}
-                onClick={() => setFilter('commercial')}
-              >
-                🏢 Commercial
+                📅 Follow-ups
               </button>
             </div>
 
             {/* Scrollable Lead List */}
             {loading ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#8888a0', fontSize: '13px' }}>
-                <p>Loading sales contacts...</p>
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#88a2c0', fontSize: '13px' }}>
+                <p>Loading commercial pipeline...</p>
               </div>
             ) : filteredContacts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#8888a0', fontSize: '13px' }}>
-                <p>No leads found matching query.</p>
+              <div style={{ textAlign: 'center', padding: '48px 16px', color: '#88a2c0' }}>
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <Building2 className="w-6 h-6" />
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
+                  No B2B Commercial Prospects
+                </div>
+                <p style={{ fontSize: '12px', color: '#88a2c0', maxWidth: 280, margin: '0 auto 16px', lineHeight: 1.5 }}>
+                  This workstation is dedicated strictly to commercial plazas, facility directors, and property managers.
+                </p>
+                <button
+                  className="phone-call-btn"
+                  style={{ padding: '8px 14px', fontSize: '12px', margin: '0 auto' }}
+                  onClick={() => setShowAddLeadModal(true)}
+                >
+                  + Add First B2B Prospect
+                </button>
               </div>
             ) : (
               <div className="phone-lead-list">
@@ -334,31 +356,30 @@ export default function PhoneTab({ user, repName, isActive }) {
                     >
                       <div className="phone-lead-top">
                         <div className="phone-lead-name">
-                          {c.name}
+                          {c.company || c.name}
                           {isLiveCalling && (
                             <span style={{ color: '#10b981', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                              <span className="phone-timer-dot" /> CALLING
+                              <span className="phone-timer-dot" /> LIVE CALL
                             </span>
                           )}
                         </div>
-                        <span className={`phone-lead-type-badge ${
-                          c.type === 'COMMERCIAL' ? 'badge-commercial' :
-                          c.type === 'PAST_CUSTOMER' ? 'badge-winback' : 'badge-inbound'
-                        }`}>
-                          {c.type === 'COMMERCIAL' ? 'Commercial' :
-                           c.type === 'PAST_CUSTOMER' ? 'Customer' : 'Inbound'}
+                        <span className="phone-lead-type-badge badge-commercial">
+                          Commercial B2B
                         </span>
                       </div>
 
+                      <div style={{ fontSize: '12px', color: '#cbd5e1', fontWeight: 600 }}>
+                        Attn: {c.name || 'Property Manager'}
+                      </div>
                       <div className="phone-lead-phone">{c.phone || 'No phone'}</div>
                       <div className="phone-lead-service">
-                        {c.service_type || 'Cleaning Inquiry'}
+                        {c.service_type || 'Dumpster Pad Steam Sanitization'}
                       </div>
 
                       <div className="phone-lead-meta">
                         <span>📍 {c.city || 'GTA'}</span>
-                        <span className="phone-lead-val">${c.estimated_value || '220'}</span>
-                        <span>{c.status || 'New'}</span>
+                        <span className="phone-lead-val">${c.estimated_value || '650'}/mo</span>
+                        <span className="uppercase text-[10px]">{c.status || 'New'}</span>
                       </div>
                     </div>
                   );
@@ -385,11 +406,11 @@ export default function PhoneTab({ user, repName, isActive }) {
               </div>
               <div className="phone-metric-item">
                 <span className="phone-metric-num" style={{ color: '#10b981' }}>{callStats.sales}</span>
-                <span className="phone-metric-label">Sales Won</span>
+                <span className="phone-metric-label">Contracts Won</span>
               </div>
               <div className="phone-metric-item">
                 <span className="phone-metric-num" style={{ color: '#f59e0b' }}>${callStats.revenue}</span>
-                <span className="phone-metric-label">Revenue</span>
+                <span className="phone-metric-label">MRR Revenue</span>
               </div>
             </div>
 
@@ -405,16 +426,16 @@ export default function PhoneTab({ user, repName, isActive }) {
               <button
                 className={`phone-subtab-btn ${subView === 'dialpad' ? 'active' : ''}`}
                 onClick={() => setSubView('dialpad')}
-                title="Dial Pad"
+                title="Manual Keypad"
               >
                 <span>🔢 Dial Pad</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'scripts' ? 'active' : ''}`}
                 onClick={() => setSubView('scripts')}
-                title="Sales Scripts & Rebuttals"
+                title="B2B Commercial Battle-Cards"
               >
-                <span>📋 Scripts</span>
+                <span>📋 B2B Scripts</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'logs' ? 'active' : ''}`}
@@ -436,8 +457,11 @@ export default function PhoneTab({ user, repName, isActive }) {
                     <div className="phone-active-dossier">
                       <div className="phone-dossier-top">
                         <div>
-                          <div className="phone-dossier-name">{selectedContact.name}</div>
-                          <div style={{ color: '#818cf8', fontWeight: 700, fontSize: '14px', marginTop: 2 }}>
+                          <div className="phone-dossier-name">{selectedContact.company}</div>
+                          <div style={{ color: '#93c5fd', fontSize: '13px', fontWeight: 600 }}>
+                            Contact: {selectedContact.name}
+                          </div>
+                          <div style={{ color: '#60a5fa', fontWeight: 800, fontSize: '14px', marginTop: 2 }}>
                             {selectedContact.phone}
                           </div>
                         </div>
@@ -464,23 +488,23 @@ export default function PhoneTab({ user, repName, isActive }) {
                       <div className="phone-dossier-grid">
                         <div className="phone-dossier-cell">
                           <span className="phone-dossier-label">City / Territory</span>
-                          <span className="phone-dossier-val">📍 {selectedContact.city || 'Toronto'}</span>
+                          <span className="phone-dossier-val">📍 {selectedContact.city || 'GTA'}</span>
                         </div>
                         <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">Quoted Service</span>
-                          <span className="phone-dossier-val">{selectedContact.service_type || 'Cleaning'}</span>
+                          <span className="phone-dossier-label">Service Scope</span>
+                          <span className="phone-dossier-val">{selectedContact.service_type || 'Dumpster Steam Wash'}</span>
                         </div>
                         <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">Est. Value</span>
+                          <span className="phone-dossier-label">Est. Contract</span>
                           <span className="phone-dossier-val" style={{ color: '#10b981' }}>
-                            ${selectedContact.estimated_value || '220'}
+                            ${selectedContact.estimated_value || '650'}/mo
                           </span>
                         </div>
                       </div>
 
-                      {selectedContact.address && (
-                        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                          🏠 <strong>Property:</strong> {selectedContact.address}
+                      {selectedContact.notes && (
+                        <div style={{ fontSize: '11px', color: '#94a3b8', background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: '8px' }}>
+                          📋 <strong>Account Notes:</strong> {selectedContact.notes}
                         </div>
                       )}
                     </div>
@@ -503,7 +527,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                       <div>
                         <textarea
                           className="phone-notes-area"
-                          placeholder="Type notes from conversation... (e.g. Needs quote emailed, dog in backyard, spouse decides Friday)"
+                          placeholder="Type notes from conversation... (e.g. Spoke with property manager Dan, needs quote emailed for 2 dumpster corrals, walkthrough next Tuesday)"
                           value={callNotes}
                           onChange={e => setCallNotes(e.target.value)}
                         />
@@ -519,29 +543,45 @@ export default function PhoneTab({ user, repName, isActive }) {
                             className="phone-disp-btn won"
                             onClick={() => handleDisposition('SALE')}
                           >
-                            🏆 WON / BOOKED SALE ($)
+                            🏆 WON COMMERCIAL CONTRACT ($)
                           </button>
                           
                           <button
                             className="phone-disp-btn"
                             style={{ borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa' }}
-                            onClick={() => handleDisposition('CALLBACK')}
+                            onClick={() => handleDisposition('WALKTHROUGH')}
                           >
-                            📅 Callback Set
+                            🚶‍♂️ Walkthrough Booked
                           </button>
 
                           <button
                             className="phone-disp-btn"
-                            style={{ borderColor: 'rgba(99, 102, 241, 0.4)', color: '#c7d2fe' }}
-                            onClick={() => handleDisposition('GOOD_CONVO')}
+                            style={{ borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c084fc' }}
+                            onClick={() => handleDisposition('CALLBACK')}
                           >
-                            🗣️ Good Convo
+                            📅 Callback Scheduled
+                          </button>
+
+                          <button
+                            className="phone-disp-btn"
+                            style={{ color: '#38bdf8' }}
+                            onClick={() => handleDisposition('CONVO')}
+                          >
+                            🗣️ Qualified Interest
+                          </button>
+
+                          <button
+                            className="phone-disp-btn"
+                            style={{ color: '#fbbf24' }}
+                            onClick={() => handleDisposition('GATEKEEPER')}
+                          >
+                            🚪 Gatekeeper / Left Info
                           </button>
 
                           <button
                             className="phone-disp-btn"
                             style={{ color: '#94a3b8' }}
-                            onClick={() => handleDisposition('LEFT_VOICEMAIL')}
+                            onClick={() => handleDisposition('VOICEMAIL')}
                           >
                             📼 Left Voicemail
                           </button>
@@ -568,41 +608,44 @@ export default function PhoneTab({ user, repName, isActive }) {
                     {/* Quick Script & Objection Helper */}
                     <div className="phone-scripts-card">
                       <div className="phone-scripts-header">
-                        <span>🛡️ Objection Battle-Cards (Quick Rebuttals)</span>
+                        <span>🛡️ B2B Commercial Objection Battle-Cards</span>
                       </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
-                        {OBJECTION_REBUTTALS.map(obj => (
+                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                        {OBJECTION_REBUTTALS.map((r, idx) => (
                           <button
-                            key={obj.title}
-                            type="button"
-                            className={`phone-filter-pill ${selectedObjection === obj.title ? 'active' : ''}`}
-                            onClick={() => setSelectedObjection(selectedObjection === obj.title ? '' : obj.title)}
+                            key={idx}
+                            className={`phone-filter-pill ${selectedObjection === r.title ? 'active' : ''}`}
+                            onClick={() => setSelectedObjection(selectedObjection === r.title ? '' : r.title)}
                           >
-                            "{obj.title}"
+                            "{r.title}"
                           </button>
                         ))}
                       </div>
 
                       {selectedObjection && (
-                        <div className="phone-script-box">
-                          {(() => {
-                            const found = OBJECTION_REBUTTALS.find(o => o.title === selectedObjection);
-                            if (!found) return null;
-                            return (
-                              <>
-                                <div style={{ color: '#fbbf24', fontWeight: 800 }}>When they say: {found.trigger}</div>
-                                <div style={{ marginTop: 6, color: '#f3f4f6', lineHeight: 1.5 }}>{found.rebuttal}</div>
-                              </>
-                            );
-                          })()}
+                        <div className="phone-script-box" style={{ marginTop: 10 }}>
+                          <strong style={{ color: '#60a5fa' }}>Rebuttal: </strong>
+                          {OBJECTION_REBUTTALS.find(r => r.title === selectedObjection)?.rebuttal}
                         </div>
                       )}
                     </div>
                   </>
                 ) : (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', color: '#8888a0' }}>
-                    <p style={{ fontSize: '16px', fontWeight: 700, color: '#fff' }}>No Lead Selected</p>
-                    <p style={{ fontSize: '13px', marginTop: 6 }}>Select any contact from the Lead Pipeline on the left to start calling.</p>
+                  <div style={{ textAlign: 'center', padding: '60px 20px', color: '#88a2c0' }}>
+                    <div style={{ fontSize: 32, marginBottom: 12 }}>🏢</div>
+                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginBottom: 8 }}>
+                      B2B Inside Tele-Sales Console
+                    </div>
+                    <p style={{ fontSize: '13px', color: '#88a2c0', maxWidth: 360, margin: '0 auto 20px', lineHeight: 1.5 }}>
+                      Select a commercial target on the left or add a new plaza to start cold calling, run scripts, and book property walkthroughs.
+                    </p>
+                    <button
+                      className="phone-call-btn"
+                      style={{ padding: '9px 18px', fontSize: '13px', margin: '0 auto' }}
+                      onClick={() => setShowAddLeadModal(true)}
+                    >
+                      + Add B2B Commercial Target
+                    </button>
                   </div>
                 )}
               </>
@@ -612,7 +655,7 @@ export default function PhoneTab({ user, repName, isActive }) {
             {subView === 'dialpad' && (
               <div className="phone-dialpad-container">
                 <div className="phone-dial-display">
-                  <span>{dialNumber || '___-___-____'}</span>
+                  <span>{dialNumber || 'Enter Phone #'}</span>
                   {dialNumber && (
                     <button className="phone-dial-clear" onClick={() => setDialNumber('')}>
                       ✕
@@ -622,7 +665,11 @@ export default function PhoneTab({ user, repName, isActive }) {
 
                 <div className="phone-keypad-grid">
                   {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(k => (
-                    <button key={k} className="phone-key-btn" onClick={() => handleDialPress(k)}>
+                    <button
+                      key={k}
+                      className="phone-key-btn"
+                      onClick={() => handleDialPress(k)}
+                    >
                       <span className="phone-key-num">{k}</span>
                     </button>
                   ))}
@@ -630,139 +677,129 @@ export default function PhoneTab({ user, repName, isActive }) {
 
                 <button
                   className="phone-call-btn"
-                  style={{ width: '100%', padding: '14px', fontSize: '16px' }}
+                  style={{ width: '100%', padding: '14px', fontSize: '15px' }}
                   onClick={launchManualDial}
+                  disabled={!dialNumber}
                 >
-                  📞 Call {dialNumber || 'Number'}
+                  📞 Call B2B Number
                 </button>
               </div>
             )}
 
-            {/* VIEW 3: FULL SCRIPTS & BATTLE CARDS */}
+            {/* VIEW 3: B2B COMMERCIAL SCRIPTS */}
             {subView === 'scripts' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  {Object.keys(CALL_SCRIPTS).map(scriptKey => (
+                <div style={{ display: 'flex', gap: 8, background: '#001326', padding: 4, borderRadius: 10 }}>
+                  {Object.entries(CALL_SCRIPTS).map(([key, script]) => (
                     <button
-                      key={scriptKey}
-                      className={`phone-filter-pill ${selectedScriptKey === scriptKey ? 'active' : ''}`}
-                      onClick={() => setSelectedScriptKey(scriptKey)}
+                      key={key}
+                      className={`phone-subtab-btn ${selectedScriptKey === key ? 'active' : ''}`}
+                      onClick={() => setSelectedScriptKey(key)}
                     >
-                      {scriptKey.replace('_', ' ')}
+                      {script.title}
                     </button>
                   ))}
                 </div>
 
-                <div className="phone-active-dossier">
-                  <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginBottom: 6 }}>
-                    {CALL_SCRIPTS[selectedScriptKey]?.title}
-                  </div>
-                  
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#818cf8', textTransform: 'uppercase' }}>1. The Opener</div>
-                    <div className="phone-script-box" style={{ background: '#121221', marginTop: 4 }}>
-                      <p style={{ lineHeight: 1.5 }}>{CALL_SCRIPTS[selectedScriptKey]?.opener}</p>
-                    </div>
-                  </div>
+                {CALL_SCRIPTS[selectedScriptKey] && (
+                  <div className="phone-scripts-card">
+                    <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#fff', marginBottom: 12 }}>
+                      {CALL_SCRIPTS[selectedScriptKey].title}
+                    </h4>
 
-                  <div style={{ marginBottom: 10 }}>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase' }}>2. Discovery Question</div>
-                    <div className="phone-script-box" style={{ background: '#121221', marginTop: 4 }}>
-                      <p style={{ lineHeight: 1.5 }}>{CALL_SCRIPTS[selectedScriptKey]?.discovery}</p>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>3. Closing Hook</div>
-                    <div className="phone-script-box" style={{ background: '#121221', marginTop: 4 }}>
-                      <p style={{ lineHeight: 1.5 }}>{CALL_SCRIPTS[selectedScriptKey]?.close}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="phone-active-dossier">
-                  <div style={{ fontSize: '15px', fontWeight: 800, color: '#fff', marginBottom: 10 }}>
-                    All Objection Battle Cards
-                  </div>
-                  {OBJECTION_REBUTTALS.map(obj => (
-                    <div key={obj.title} style={{ marginBottom: 14 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#fbbf24' }}>
-                        Customer says: {obj.trigger}
-                      </div>
-                      <div className="phone-script-box" style={{ marginTop: 4 }}>
-                        {obj.rebuttal}
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase' }}>
+                        1. Opener & Hook:
+                      </span>
+                      <div className="phone-script-box">
+                        {CALL_SCRIPTS[selectedScriptKey].opener}
                       </div>
                     </div>
-                  ))}
-                </div>
+
+                    <div style={{ marginBottom: 12 }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase' }}>
+                        2. Discovery & Need:
+                      </span>
+                      <div className="phone-script-box" style={{ borderLeftColor: '#f59e0b' }}>
+                        {CALL_SCRIPTS[selectedScriptKey].discovery}
+                      </div>
+                    </div>
+
+                    <div>
+                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>
+                        3. Walkthrough Close:
+                      </span>
+                      <div className="phone-script-box" style={{ borderLeftColor: '#10b981' }}>
+                        {CALL_SCRIPTS[selectedScriptKey].close}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* VIEW 4: CALL ACTIVITY LOG */}
+            {/* VIEW 4: CALL HISTORY */}
             {subView === 'logs' && (
-              <div style={{ overflowX: 'auto' }}>
-                <table className="phone-logs-table">
-                  <thead>
-                    <tr>
-                      <th>Time</th>
-                      <th>Prospect</th>
-                      <th>Phone</th>
-                      <th>Duration</th>
-                      <th>Outcome</th>
-                      <th>Notes</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {callStats.todayCalls && callStats.todayCalls.length > 0 ? (
-                      callStats.todayCalls.map((c, i) => (
-                        <tr key={i}>
-                          <td>{new Date(c.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                          <td style={{ fontWeight: 700, color: '#fff' }}>{c.contact_name || 'Outbound'}</td>
-                          <td style={{ color: '#818cf8' }}>{c.phone_number}</td>
-                          <td>{formatDuration(c.duration_seconds || 0)}</td>
+              <div className="phone-scripts-card">
+                <div className="phone-scripts-header">
+                  <span>📊 Today's Commercial Call Logs</span>
+                </div>
+
+                {callStats.todayCalls.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '30px 0', color: '#88a2c0', fontSize: '12px' }}>
+                    No calls recorded yet today. Dial contacts to build history.
+                  </div>
+                ) : (
+                  <table className="phone-logs-table">
+                    <thead>
+                      <tr>
+                        <th>Time</th>
+                        <th>Target</th>
+                        <th>Outcome</th>
+                        <th>Duration</th>
+                        <th>Notes</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {callStats.todayCalls.map((call, idx) => (
+                        <tr key={idx}>
+                          <td>{new Date(call.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                           <td>
-                            <span style={{
-                              fontWeight: 700,
-                              color: c.outcome_type === 'SALE' ? '#10b981' :
-                                     c.outcome_type === 'GOOD_CONVO' ? '#60a5fa' :
-                                     c.outcome_type === 'CALLBACK' ? '#fbbf24' : '#94a3b8'
-                            }}>
-                              {c.outcome_type}
+                            <strong>{call.contact_name || 'Prospect'}</strong>
+                            <div style={{ fontSize: '11px', color: '#88a2c0' }}>{call.phone_number}</div>
+                          </td>
+                          <td>
+                            <span className="phone-lead-type-badge badge-commercial">
+                              {call.outcome_type}
                             </span>
                           </td>
-                          <td style={{ color: '#94a3b8', fontSize: '11px' }}>{c.notes || '—'}</td>
+                          <td>{formatDuration(call.duration_seconds || 0)}</td>
+                          <td style={{ fontSize: '11px', color: '#94a3b8' }}>{call.notes || '—'}</td>
                         </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={6} style={{ textAlign: 'center', color: '#8888a0', padding: '30px 0' }}>
-                          No calls logged yet today.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             )}
           </div>
         </div>
-
       </div>
 
-      {/* Sale Won Confirmation Modal */}
+      {/* Sale Won Modal */}
       {showSaleModal && (
         <div className="phone-modal-overlay">
           <div className="phone-modal-content">
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', marginBottom: 12 }}>
-              🎉 Record Closed Sale!
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', marginBottom: 8 }}>
+              🏆 Commercial Contract Won!
             </h3>
-            <p style={{ fontSize: '13px', color: '#94a3b8', marginBottom: 16 }}>
-              Log the job total and service package to credit your commission and update the lead.
+            <p style={{ fontSize: '12px', color: '#88a2c0', marginBottom: 16 }}>
+              Enter the monthly contract value and service scope to credit your commission and book the account.
             </p>
 
             <div style={{ marginBottom: 12 }}>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
-                Job Total ($)
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                Monthly Contract Value ($)
               </label>
               <input
                 type="number"
@@ -774,8 +811,8 @@ export default function PhoneTab({ user, repName, isActive }) {
             </div>
 
             <div style={{ marginBottom: 16 }}>
-              <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
-                Service Type
+              <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                Commercial Scope / Route
               </label>
               <input
                 type="text"
@@ -797,38 +834,56 @@ export default function PhoneTab({ user, repName, isActive }) {
                 className="phone-call-btn"
                 onClick={confirmSale}
               >
-                Confirm Sale ($)
+                Confirm Contract ($)
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Quick Add Lead Modal */}
+      {/* Quick Add B2B Lead Modal */}
       {showAddLeadModal && (
         <div className="phone-modal-overlay">
           <div className="phone-modal-content">
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', marginBottom: 12 }}>
-              + Add Sales Prospect
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', marginBottom: 4 }}>
+              🏢 Add B2B Commercial Prospect
             </h3>
+            <p style={{ fontSize: '12px', color: '#88a2c0', marginBottom: 16 }}>
+              Add a commercial plaza, facility, or property manager for outbound tele-sales.
+            </p>
 
             <form onSubmit={handleAddNewLead}>
               <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
-                  Contact Name
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                  Company / Plaza Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="phone-search-input"
+                  style={{ padding: '10px 14px' }}
+                  placeholder="e.g. Cambridge Professional Plaza"
+                  value={newLeadCompany}
+                  onChange={e => setNewLeadCompany(e.target.value)}
+                />
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                  Decision Maker / Property Manager
                 </label>
                 <input
                   type="text"
                   className="phone-search-input"
                   style={{ padding: '10px 14px' }}
-                  placeholder="e.g. John Smith"
+                  placeholder="e.g. Dan Miller (Facilities Director)"
                   value={newLeadName}
                   onChange={e => setNewLeadName(e.target.value)}
                 />
               </div>
 
               <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
                   Phone Number *
                 </label>
                 <input
@@ -836,27 +891,74 @@ export default function PhoneTab({ user, repName, isActive }) {
                   required
                   className="phone-search-input"
                   style={{ padding: '10px 14px' }}
-                  placeholder="(416) 555-0192"
+                  placeholder="(519) 555-0199"
                   value={newLeadPhone}
                   onChange={e => setNewLeadPhone(e.target.value)}
                 />
               </div>
 
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                    City / Territory
+                  </label>
+                  <input
+                    type="text"
+                    className="phone-search-input"
+                    style={{ padding: '10px 14px' }}
+                    placeholder="Cambridge / Kitchener"
+                    value={newLeadCity}
+                    onChange={e => setNewLeadCity(e.target.value)}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                    Est. Monthly Value ($)
+                  </label>
+                  <input
+                    type="number"
+                    className="phone-search-input"
+                    style={{ padding: '10px 14px' }}
+                    placeholder="650"
+                    value={newLeadPrice}
+                    onChange={e => setNewLeadPrice(e.target.value)}
+                  />
+                </div>
+              </div>
+
               <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', display: 'block', marginBottom: 4 }}>
-                  City / Location
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                  Facility Type
                 </label>
-                <input
-                  type="text"
+                <select
                   className="phone-search-input"
-                  style={{ padding: '10px 14px' }}
-                  placeholder="Toronto / Mississauga"
-                  value={newLeadCity}
-                  onChange={e => setNewLeadCity(e.target.value)}
+                  style={{ padding: '10px 14px', background: '#001326' }}
+                  value={newLeadFacility}
+                  onChange={e => setNewLeadFacility(e.target.value)}
+                >
+                  <option value="Strip Plaza / Retail Center">Strip Plaza / Retail Center</option>
+                  <option value="Professional Office Building">Professional Office Building</option>
+                  <option value="Medical / Dental Clinic">Medical / Dental Clinic</option>
+                  <option value="Restaurant / Food Service">Restaurant / Food Service</option>
+                  <option value="Industrial / Warehouse">Industrial / Warehouse</option>
+                </select>
+              </div>
+
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                  Notes & Gatekeeper Info
+                </label>
+                <textarea
+                  className="phone-search-input"
+                  style={{ padding: '8px 12px', minHeight: 60 }}
+                  placeholder="Gatekeeper name, best time to call DM, 2 dumpster corrals..."
+                  value={newLeadNotes}
+                  onChange={e => setNewLeadNotes(e.target.value)}
                 />
               </div>
 
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 16 }}>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
                 <button
                   type="button"
                   className="phone-text-btn"
@@ -868,7 +970,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                   type="submit"
                   className="phone-call-btn"
                 >
-                  Save Lead
+                  Save B2B Prospect
                 </button>
               </div>
             </form>

@@ -21,7 +21,7 @@ const CONVO_OPTIONS = [
   'CONSTRUCTION'
 ];
 
-export default function Logger({ user, repName, onLogout, isActive, initialSalesMode = 'residential' }) {
+export default function Logger({ user, repName, onLogout, isActive, initialSalesMode = 'residential', hideHeader = true }) {
   const [dayState, setDayState] = useState('NOT_STARTED');
   const [session, setSession] = useState(null);
   const [street, setStreet] = useState('');
@@ -717,22 +717,26 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
     return (
       <div className="logger-container">
         <SyncIndicator />
-        <header className="logger-header">
-          <div className="header-left">
-            <img src="/knocklog-logo.png" alt="KnockLog" className="app-logo" />
-            <span className="rep-badge" onClick={() => setShowProfile(!showProfile)}>
-              {repName}
-            </span>
-          </div>
-        </header>
+        {!hideHeader && (
+          <>
+            <header className="logger-header">
+              <div className="header-left">
+                <img src="/knocklog-logo.png" alt="KnockLog" className="app-logo" />
+                <span className="rep-badge" onClick={() => setShowProfile(!showProfile)}>
+                  {repName}
+                </span>
+              </div>
+            </header>
 
-        {showProfile && (
-          <div className="profile-dropdown">
-            <p className="profile-email">{user.email}</p>
-            <button id="logout-btn" className="logout-btn" onClick={onLogout}>
-              Sign Out
-            </button>
-          </div>
+            {showProfile && (
+              <div className="profile-dropdown">
+                <p className="profile-email">{user.email}</p>
+                <button id="logout-btn" className="logout-btn" onClick={onLogout}>
+                  Sign Out
+                </button>
+              </div>
+            )}
+          </>
         )}
 
         {error && (
@@ -1027,33 +1031,57 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
         </div>
       )}
 
-      <header className="logger-header">
-        <div className="header-left">
-          <img src="/knocklog-logo.png" alt="KnockLog" className="app-logo" />
-          <span className="rep-badge" onClick={() => setShowProfile(!showProfile)}>
-            {repName}
-          </span>
-          <a href="/sobadmin" className="admin-nav-pill" title="Return to SOB Admin Dashboard">
-            ← SOB Admin
-          </a>
-        </div>
-        <div className="header-right">
-          <button className="break-btn" onClick={startBreak} disabled={logging}>BREAK</button>
-          <button className="end-day-btn" onClick={endDay} disabled={logging}>
-            {logging ? 'CLOSING...' : 'END'}
-          </button>
-        </div>
-      </header>
+      {!hideHeader ? (
+        <>
+          <header className="logger-header">
+            <div className="header-left">
+              <img src="/knocklog-logo.png" alt="KnockLog" className="app-logo" />
+              <span className="rep-badge" onClick={() => setShowProfile(!showProfile)}>
+                {repName}
+              </span>
+              <a href="/sobadmin" className="admin-nav-pill" title="Return to SOB Admin Dashboard">
+                ← SOB Admin
+              </a>
+            </div>
+            <div className="header-right">
+              <button className="break-btn" onClick={startBreak} disabled={logging}>BREAK</button>
+              <button className="end-day-btn" onClick={endDay} disabled={logging}>
+                {logging ? 'CLOSING...' : 'END'}
+              </button>
+            </div>
+          </header>
 
-      {showProfile && (
-        <div className="profile-dropdown">
-          <p className="profile-email">{user.email}</p>
-          <a href="/sobadmin" className="admin-return-btn">
-            🛡️ Return to SOB Admin
-          </a>
-          <button id="logout-btn" className="logout-btn" onClick={onLogout}>
-            Sign Out
-          </button>
+          {showProfile && (
+            <div className="profile-dropdown">
+              <p className="profile-email">{user.email}</p>
+              <a href="/sobadmin" className="admin-return-btn">
+                🛡️ Return to SOB Admin
+              </a>
+              <button id="logout-btn" className="logout-btn" onClick={onLogout}>
+                Sign Out
+              </button>
+            </div>
+          )}
+        </>
+      ) : (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 4px', marginBottom: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', display: 'inline-block' }} />
+            <span style={{ fontSize: '11px', fontWeight: 800, color: '#e2e8f0', letterSpacing: '0.5px' }}>
+              SESSION LIVE
+            </span>
+            <span style={{ fontSize: '11px', color: '#88a2c0', background: 'rgba(255,255,255,0.06)', padding: '2px 6px', borderRadius: '4px' }}>
+              {totalDoors} Doors
+            </span>
+          </div>
+          <div style={{ display: 'flex', gap: '6px' }}>
+            <button className="break-btn" onClick={startBreak} disabled={logging} style={{ padding: '6px 12px', fontSize: '11px' }}>
+              BREAK
+            </button>
+            <button className="end-day-btn" onClick={endDay} disabled={logging} style={{ padding: '6px 12px', fontSize: '11px' }}>
+              {logging ? 'CLOSING...' : 'END'}
+            </button>
+          </div>
         </div>
       )}
 
@@ -1062,44 +1090,6 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
           {error} <span className="error-dismiss">x</span>
         </div>
       )}
-
-      {/* Mode Switcher: Residential vs Commercial */}
-      <div style={{ display: 'flex', gap: 6, margin: '8px 0 14px', background: 'var(--bg-card)', padding: '4px', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)' }}>
-        <button
-          onClick={() => setSalesMode('residential')}
-          style={{
-            flex: 1,
-            padding: '8px 12px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            border: 'none',
-            background: salesMode === 'residential' ? 'var(--accent)' : 'transparent',
-            color: salesMode === 'residential' ? '#fff' : 'var(--text-secondary)',
-            transition: 'all 0.2s',
-          }}
-        >
-          🏡 Residential
-        </button>
-        <button
-          onClick={() => setSalesMode('commercial')}
-          style={{
-            flex: 1,
-            padding: '8px 12px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            fontWeight: 700,
-            cursor: 'pointer',
-            border: 'none',
-            background: salesMode === 'commercial' ? '#8b5cf6' : 'transparent',
-            color: salesMode === 'commercial' ? '#fff' : 'var(--text-secondary)',
-            transition: 'all 0.2s',
-          }}
-        >
-          🏢 Commercial B2B
-        </button>
-      </div>
 
       {salesMode === 'commercial' ? (
         <div className="commercial-panel" style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>

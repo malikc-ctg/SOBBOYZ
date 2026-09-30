@@ -3,9 +3,9 @@
 import React from 'react';
 import { 
   Home, Building2, PhoneCall, 
-  Map, Trophy, ArrowRight,
+  Map, ArrowRight,
   Waves, ShieldCheck,
-  Flame, CheckCircle2
+  Flame, Briefcase
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -21,7 +21,7 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
       iconBg: 'bg-blue-500/10 text-blue-500',
       icon: <Home className="w-6 h-6" />,
       desc: 'Door-to-door residential canvassing, automated house # stepping, soft-wash & bin pitch, and instant pin logging.',
-      features: ['Auto Step #', 'Soft-Wash Pitch', 'GPS Drop'],
+      features: ['Auto Step #', 'Soft-Wash Pitch', 'GPS Pins'],
       actionLabel: 'Launch Residential'
     },
     {
@@ -33,19 +33,19 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
       iconBg: 'bg-purple-500/10 text-purple-400',
       icon: <Building2 className="w-6 h-6" />,
       desc: 'Plaza & storefront canvassing. Track company name, facility type, decision-maker status, and walkthrough bookings.',
-      features: ['Storefronts & Plazas', 'DM Tracking', 'Walkthroughs'],
+      features: ['Plazas & Stores', 'DM Tracking', 'Walkthroughs'],
       actionLabel: 'Launch Commercial'
     },
     {
       id: 'phone',
-      title: 'Phone Sales OS',
-      badge: '122 Lead Queue',
+      title: 'B2B Phone Sales OS',
+      badge: 'B2B Tele-Sales',
       badgeColor: 'text-emerald-500',
       badgeBg: 'bg-emerald-500/10',
       iconBg: 'bg-emerald-500/10 text-emerald-500',
       icon: <PhoneCall className="w-6 h-6" />,
-      desc: 'Inside tele-sales workstation with live CRM queue, click-to-call dialer, objection battle-cards, and call dispositions.',
-      features: ['122 Lead Queue', '1-Click Dialer', 'Objection Battle-Cards'],
+      desc: 'Inside tele-sales workstation for commercial property managers, plaza facilities, 1-click dialer, and objection battle-cards.',
+      features: ['B2B Dialer', 'Plaza Cold Calls', 'Objection Cards'],
       actionLabel: 'Launch Workstation'
     },
     {
@@ -56,21 +56,9 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
       badgeBg: 'bg-cyan-500/10',
       iconBg: 'bg-cyan-500/10 text-cyan-400',
       icon: <Map className="w-6 h-6" />,
-      desc: 'Interactive territory map with route tracking, boundary polygons, pinned addresses, heatmaps, and coverage.',
+      desc: 'Interactive territory map with route tracking, boundary polygons, pinned addresses, heatmaps, and canvassing coverage.',
       features: ['Satellite GPS', 'Zone Boundaries', 'Heatmap Overlay'],
       actionLabel: 'Open Live Map'
-    },
-    {
-      id: 'team',
-      title: 'Team Leaderboard',
-      badge: 'Rep Rankings',
-      badgeColor: 'text-amber-500',
-      badgeBg: 'bg-amber-500/10',
-      iconBg: 'bg-amber-500/10 text-amber-500',
-      icon: <Trophy className="w-6 h-6" />,
-      desc: 'Real-time sales leaderboard, field knocking rankings, conversion rates, and accrued commission earnings.',
-      features: ['Live Rep Rankings', 'Conversion Rates', 'Commission Tracker'],
-      actionLabel: 'View Leaderboard'
     }
   ];
 
@@ -87,7 +75,7 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
             Sales OS Suite
           </h1>
           <p className="text-xs text-muted-foreground mt-1 font-sans">
-            Dedicated field canvassing, inside phone sales, and territory operations.
+            Dedicated field canvassing, commercial B2B, and inside tele-sales workstations.
           </p>
         </div>
 
@@ -99,7 +87,7 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
               </Button>
             </a>
           )}
-          <Badge variant="outline" className="h-9 px-3 text-xs gap-2 border-border bg-card">
+          <Badge variant="outline" className="h-9 px-3 text-xs gap-2 border-border bg-card font-sans">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
             <span className="text-muted-foreground">Rep:</span>
             <span className="font-bold text-foreground">{repName || 'Malik'}</span>
@@ -109,25 +97,25 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
 
       {/* Metrics Grid Matching SOB Admin Dashboard 1:1 */}
       <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {/* Metric 1: CRM Queue */}
+        {/* Metric 1: B2B Phone Pipeline */}
         <div
           onClick={() => onSelectApp('phone')}
           className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-sm cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-500">
-              <Flame className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500">
+              <Briefcase className="w-4 h-4" />
             </div>
             <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
           </div>
           <div className="text-2xl md:text-3xl font-black tracking-tight text-foreground font-display">
-            122
+            0
           </div>
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-1 font-sans">
-            CRM Lead Queue
+            B2B Phone Pipeline
           </div>
           <div className="text-[11px] text-muted-foreground/80 mt-0.5 font-sans">
-            62 Hot Inbound • 60 Win-Backs
+            Commercial tele-sales queue
           </div>
         </div>
 
@@ -137,7 +125,7 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
           className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-sm cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/10 text-emerald-500">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-blue-500/10 text-blue-500">
               <Home className="w-4 h-4" />
             </div>
             <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
@@ -153,14 +141,14 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
           </div>
         </div>
 
-        {/* Metric 3: Sales Won */}
+        {/* Metric 3: Total Knock Sales */}
         <div
-          onClick={() => onSelectApp('team')}
+          onClick={() => onSelectApp('residential')}
           className="bg-card border border-border rounded-2xl p-4 md:p-5 shadow-xs transition-all hover:border-primary/50 hover:shadow-sm cursor-pointer group"
         >
           <div className="flex items-center justify-between mb-2">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-500/10 text-amber-500">
-              <Trophy className="w-4 h-4" />
+              <Flame className="w-4 h-4" />
             </div>
             <ArrowRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground transition-colors" />
           </div>
@@ -168,7 +156,7 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
             53
           </div>
           <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground mt-1 font-sans">
-            Sales Closed
+            Total Knock Sales
           </div>
           <div className="text-[11px] text-muted-foreground/80 mt-0.5 font-sans">
             $3,249 Accrued Commission
@@ -199,8 +187,8 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
         </div>
       </div>
 
-      {/* Application Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+      {/* 4 Dedicated Application Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5">
         {APPS.map((app) => (
           <div
             key={app.id}

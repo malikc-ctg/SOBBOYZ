@@ -342,10 +342,6 @@ export function AdminDashboard() {
           <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
           Employees
         </a>
-        <a href="/sobadmin/zones" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
-          <Globe className="h-3.5 w-3.5 text-blue-600" />
-          Zones
-        </a>
         <a href="/sobadmin/finance" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
           <TrendingUp className="h-3.5 w-3.5 text-green-600" />
           Finance

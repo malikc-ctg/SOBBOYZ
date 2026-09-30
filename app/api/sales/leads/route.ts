@@ -5,85 +5,50 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createServiceClient();
     const { searchParams } = new URL(request.url);
-    const filter = searchParams.get('filter') || 'all'; // all, hot, callbacks, past_customers, commercial
+    const filter = searchParams.get('filter') || 'all'; // all, hot, commercial, callbacks
 
-    // 1. Fetch leads from SOB leads table
+    // Fetch ONLY B2B Commercial Phone leads (created specifically for B2B Phone Sales OS)
     const { data: leads, error: leadsError } = await supabase
       .from('leads')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(100);
+      .eq('source', 'phone_sales_os')
+      .order('created_at', { ascending: false });
 
     if (leadsError) {
-      console.error('[API /api/sales/leads] Leads query error:', leadsError);
+      console.error('[API /api/sales/leads] B2B Leads query error:', leadsError);
     }
 
-    // 2. Fetch past customers for renewal/winback queue
-    const { data: customers, error: custError } = await supabase
-      .from('customers')
-      .select('id, full_name, phone, email, city, company_name, customer_type, created_at, customer_score')
-      .order('created_at', { ascending: false })
-      .limit(60);
-
-    if (custError) {
-      console.error('[API /api/sales/leads] Customers query error:', custError);
-    }
-
-    // Format leads into unified Sales OS tele-sales contacts
-    const formattedLeads = (leads || []).map((l: any) => ({
+    // Format into B2B tele-sales contacts
+    let b2bQueue = (leads || []).map((l: any) => ({
       id: l.id,
       contact_id: `lead_${l.id}`,
-      type: 'INBOUND_LEAD',
-      name: l.customer_name || 'Prospect',
-      company: l.company_name || null,
+      type: 'B2B_LEAD',
+      name: l.customer_name || 'Decision Maker',
+      company: l.company_name || 'Commercial Account',
       phone: l.customer_phone || '',
       email: l.customer_email || '',
-      city: l.city || 'Toronto',
-      service_type: l.service_type || 'Trash Can Sanitizing / Deep Clean',
-      estimated_value: l.quoted_price ? Number(l.quoted_price) : 220,
-      status: l.status || 'new', // new, quoted, contacted, converted, lost
+      city: l.city || 'GTA',
+      service_type: l.service_type || 'Commercial Exterior / Dumpster Sanitization',
+      estimated_value: l.quoted_price ? Number(l.quoted_price) : 500,
+      status: l.status || 'new', // new, contacted, quoted, won, lost
       notes: l.notes || '',
       created_at: l.created_at,
-      priority: l.quoted_price ? 'HIGH' : 'MEDIUM',
+      priority: 'HIGH',
     }));
-
-    // Format customers into winback queue contacts
-    const formattedCustomers = (customers || []).map((c: any) => ({
-      id: c.id,
-      contact_id: `cust_${c.id}`,
-      type: c.customer_type === 'commercial' ? 'COMMERCIAL_WINBACK' : 'PAST_CUSTOMER_WINBACK',
-      name: c.full_name || 'Customer',
-      company: c.company_name || null,
-      phone: c.phone || '',
-      email: c.email || '',
-      city: c.city || 'Toronto',
-      service_type: c.customer_type === 'commercial' ? 'Commercial Maintenance Renewal' : 'Seasonal Can Cleaning & Power Wash',
-      estimated_value: c.customer_type === 'commercial' ? 850 : 180,
-      status: 'active_client',
-      notes: `Past customer score: ${c.customer_score || 5}/5. Due for seasonal maintenance follow-up.`,
-      created_at: c.created_at,
-      priority: c.customer_type === 'commercial' ? 'HIGH' : 'NORMAL',
-    }));
-
-    // Combine queues
-    let unifiedQueue = [...formattedLeads, ...formattedCustomers];
 
     if (filter === 'hot') {
-      unifiedQueue = unifiedQueue.filter(c => c.type === 'INBOUND_LEAD' && (c.status === 'new' || c.status === 'quoted'));
-    } else if (filter === 'past_customers') {
-      unifiedQueue = unifiedQueue.filter(c => c.type === 'PAST_CUSTOMER_WINBACK');
-    } else if (filter === 'commercial') {
-      unifiedQueue = unifiedQueue.filter(c => c.type === 'COMMERCIAL_WINBACK' || (c.company && c.company.length > 0));
+      b2bQueue = b2bQueue.filter((c: any) => c.status === 'new' || c.status === 'quoted');
+    } else if (filter === 'callbacks') {
+      b2bQueue = b2bQueue.filter((c: any) => c.status === 'contacted');
     }
 
     return NextResponse.json({
       success: true,
-      contacts: unifiedQueue,
-      total: unifiedQueue.length,
+      contacts: b2bQueue,
+      total: b2bQueue.length,
       metrics: {
-        total_leads: (leads || []).length,
-        hot_leads: (leads || []).filter((l: any) => l.status === 'new' || l.status === 'quoted').length,
-        past_customers: (customers || []).length,
+        total_leads: b2bQueue.length,
+        hot_leads: b2bQueue.filter((l: any) => l.status === 'new' || l.status === 'quoted').length,
       }
     });
   } catch (err: any) {
@@ -102,9 +67,7 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'lead_id is required' }, { status: 400 });
     }
 
-    // Strip prefix if any
     const rawId = lead_id.replace(/^lead_/, '');
-
     const updatePayload: any = { updated_at: new Date().toISOString() };
     if (status) updatePayload.status = status;
     if (notes) updatePayload.notes = notes;
@@ -136,14 +99,14 @@ export async function POST(request: NextRequest) {
       .from('leads')
       .insert({
         source: 'phone_sales_os',
-        customer_name: body.customer_name || 'Phone Prospect',
-        company_name: body.company_name || null,
+        customer_name: body.customer_name || 'Decision Maker',
+        company_name: body.company_name || 'Commercial Account',
         customer_phone: body.customer_phone || '',
         customer_email: body.customer_email || null,
-        city: body.city || 'Toronto',
-        service_type: body.service_type || 'standard_clean',
-        quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : 220,
-        notes: body.notes || 'Created via Sales OS Phone Dialer',
+        city: body.city || 'GTA',
+        service_type: body.service_type || 'Commercial Exterior / Dumpster Sanitization',
+        quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : 500,
+        notes: body.notes || 'Created via B2B Phone Sales OS',
         status: body.status || 'new',
       })
       .select()

@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Briefcase, UserCheck,
   Settings, ClipboardList, Waves,
   Package,
-  TrendingUp, Globe, Shield,
+  TrendingUp, Shield,
   Menu, X, LogOut,
 } from 'lucide-react';
 
@@ -22,7 +22,6 @@ const sidebarItems = [
   { href: '/sobadmin/customers', label: 'Customers', icon: Users },
   { href: '/sobadmin/employees', label: 'Employees', icon: UserCheck },
   { href: '/sobadmin/supply', label: 'Supply', icon: Package },
-  { href: '/sobadmin/zones', label: 'Zones', icon: Globe },
   { href: '/sobadmin/finance', label: 'Finance', icon: TrendingUp },
   { href: '/sobadmin/audit', label: 'Audit Trail', icon: Shield },
   { href: '/sobadmin/settings', label: 'Settings', icon: Settings },
