@@ -21,6 +21,17 @@ const CONVO_OPTIONS = [
   'CONSTRUCTION'
 ];
 
+const COMMERCIAL_CONVO_OPTIONS = [
+  'BOOK WALKTHROUGH',
+  'SEND PROPOSAL',
+  'HAS CLEANER',
+  'DECISION MAKER',
+  'GATEKEEPER ONLY',
+  'CALLBACK',
+  'NOT INTERESTED',
+  'NO SOLICITING'
+];
+
 export default function Logger({ user, repName, onLogout, isActive, initialSalesMode = 'residential', hideHeader = true }) {
   const [dayState, setDayState] = useState('NOT_STARTED');
   const [session, setSession] = useState(null);
@@ -425,7 +436,7 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
   async function logKnock(outcomeType, convoOpt = null, cbTime = null, saleDetails = null) {
     if (dayState !== 'ACTIVE') return;
     if (!street || !houseNum) {
-      setError('Set street & house number first');
+      setError(salesMode === 'commercial' ? 'Set plaza/street & unit number first' : 'Set street & house number first');
       return;
     }
     setLogging(true);
@@ -452,8 +463,12 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
     const payload = {
       event_id: eventId,
       session_id: session.session_id,
+      mode: salesMode,
+      service_type: salesMode === 'commercial' ? 'commercial_b2b' : 'residential',
       street_name: street,
       house_number: houseNum,
+      unit_number: salesMode === 'commercial' ? houseNum : null,
+      company_name: salesMode === 'commercial' ? (commCompanyName.trim() || null) : null,
       timestamp: new Date().toISOString(),
       outcome_type: outcomeType,
       convo_status: cStatus,
@@ -495,6 +510,9 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
       const nextNum = num + stepSize;
       setHouseNum(houseNum.replace(numPart[0], nextNum.toString()));
     }
+    if (salesMode === 'commercial') {
+      setCommCompanyName('');
+    }
 
     setFlashOutcome(outcomeType);
     setTimeout(() => setFlashOutcome(null), 600);
@@ -503,6 +521,8 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
     setShowCallbackPicker(false);
     setCallbackTime('');
     setShowSaleForm(false);
+    setShowWalkthroughModal(false);
+    setShowCommSaleModal(false);
     setSaleHomeownerName('');
     setSalePhone('');
     setSaleEmail('');
@@ -519,8 +539,11 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
     if (outcomeType === 'CONVO') {
       setShowObjections(true);
     } else if (outcomeType === 'SALE') {
-      // Intercept SALE to collect homeowner details first
-      setShowSaleForm(true);
+      if (salesMode === 'commercial') {
+        setShowCommSaleModal(true);
+      } else {
+        setShowSaleForm(true);
+      }
     } else {
       logKnock(outcomeType);
     }
@@ -543,6 +566,8 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
   function handleConvoOption(opt) {
     if (opt === 'CALLBACK') {
       setShowCallbackPicker(true);
+    } else if (opt === 'BOOK WALKTHROUGH') {
+      setShowWalkthroughModal(true);
     } else {
       logKnock('CONVO', opt);
     }
@@ -1066,7 +1091,7 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
             <div className="profile-dropdown">
               <p className="profile-email">{user.email}</p>
               <a href="/sobadmin" className="admin-return-btn">
-                🛡️ Return to SOB Admin
+                Return to SOB Admin
               </a>
               <button id="logout-btn" className="logout-btn" onClick={onLogout}>
                 Sign Out
@@ -1102,197 +1127,7 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
         </div>
       )}
 
-      {salesMode === 'commercial' ? (
-        <div className="commercial-panel" style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '16px', marginBottom: '20px' }}>
-          <div style={{ fontSize: '13px', fontWeight: 800, color: '#a78bfa', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '12px' }}>
-            🏢 Commercial B2B Target
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px', gap: '8px', marginBottom: '10px' }}>
-            <input
-              type="text"
-              className="street-input"
-              style={{ width: '100%' }}
-              placeholder="Building / Plaza Address *"
-              value={commAddress}
-              onChange={e => setCommAddress(e.target.value)}
-            />
-            <input
-              type="text"
-              className="street-input"
-              style={{ width: '100%' }}
-              placeholder="Suite #"
-              value={commUnit}
-              onChange={e => setCommUnit(e.target.value)}
-            />
-          </div>
-
-          <div style={{ marginBottom: '10px' }}>
-            <input
-              type="text"
-              className="street-input"
-              style={{ width: '100%' }}
-              placeholder="Company / Business Name *"
-              value={commCompanyName}
-              onChange={e => setCommCompanyName(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '10px' }}>
-            <select
-              value={commFacilityType}
-              onChange={e => setCommFacilityType(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '8px',
-                padding: '10px',
-                fontSize: '12px',
-                fontWeight: 600
-              }}
-            >
-              <option value="Professional Office">Office / Corporate</option>
-              <option value="Medical / Dental Clinic">Medical / Dental Clinic</option>
-              <option value="Retail / Showroom">Retail / Showroom</option>
-              <option value="Gym / Fitness Facility">Gym / Fitness</option>
-              <option value="School / Daycare">School / Daycare</option>
-              <option value="Warehouse / Industrial">Warehouse / Industrial</option>
-              <option value="Restaurant / Food Service">Restaurant / Food</option>
-            </select>
-
-            <select
-              value={commDmStatus}
-              onChange={e => setCommDmStatus(e.target.value)}
-              style={{
-                width: '100%',
-                background: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                border: '1px solid rgba(255,255,255,0.08)',
-                borderRadius: '8px',
-                padding: '10px',
-                fontSize: '12px',
-                fontWeight: 600
-              }}
-            >
-              <option value="DIRECT">Direct Decision Maker</option>
-              <option value="GATEKEEPER">Gatekeeper Only</option>
-            </select>
-          </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-            <input
-              type="text"
-              className="street-input"
-              style={{ width: '100%' }}
-              placeholder="Contact Person (opt)"
-              value={commContactName}
-              onChange={e => setCommContactName(e.target.value)}
-            />
-            <input
-              type="tel"
-              className="street-input"
-              style={{ width: '100%' }}
-              placeholder="Phone (opt)"
-              value={commContactPhone}
-              onChange={e => setCommContactPhone(e.target.value)}
-            />
-          </div>
-
-          {/* Commercial 4 Outcome Action Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button
-              onClick={() => setShowWalkthroughModal(true)}
-              style={{
-                padding: '14px 10px',
-                background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 4px 14px rgba(99, 102, 241, 0.3)'
-              }}
-            >
-              <span>📅 BOOK WALKTHROUGH</span>
-              <span style={{ fontSize: '10px', opacity: 0.8, fontWeight: 500 }}>Schedule On-Site Tour</span>
-            </button>
-
-            <button
-              onClick={() => logCommercialKnock('PROPOSAL_REQUEST')}
-              style={{
-                padding: '14px 10px',
-                background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 4px 14px rgba(59, 130, 246, 0.3)'
-              }}
-            >
-              <span>📄 SEND PROPOSAL</span>
-              <span style={{ fontSize: '10px', opacity: 0.8, fontWeight: 500 }}>Email Quote & Scope</span>
-            </button>
-
-            <button
-              onClick={() => logCommercialKnock('COMPETITOR_RADAR', { objection_type: 'HAS_CLEANER' })}
-              style={{
-                padding: '14px 10px',
-                background: 'rgba(245, 158, 11, 0.12)',
-                color: '#f59e0b',
-                border: '1px solid rgba(245, 158, 11, 0.3)',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <span>⏳ HAS CLEANER</span>
-              <span style={{ fontSize: '10px', opacity: 0.8, fontWeight: 500 }}>Competitor Radar</span>
-            </button>
-
-            <button
-              onClick={() => setShowCommSaleModal(true)}
-              style={{
-                padding: '14px 10px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '12px',
-                cursor: 'pointer',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: '4px',
-                boxShadow: '0 4px 14px rgba(16, 185, 129, 0.3)'
-              }}
-            >
-              <span>🏆 WON CONTRACT</span>
-              <span style={{ fontSize: '10px', opacity: 0.8, fontWeight: 500 }}>Closed Monthly MRR</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="location-panel">
+      <div className="location-panel">
         {street ? (
           <>
             <div className="active-street-container">
@@ -1300,14 +1135,16 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
                 {street}
                 {isReknock && <span style={{ marginLeft: 8, fontSize: '0.65em', background: '#f59e0b', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>REKNOCK</span>}
               </div>
-              <button className="end-street-btn" onClick={() => { setStreet(''); setStreetInput(''); setStreetCoords(null); }}>END STREET</button>
+              <button className="end-street-btn" onClick={() => { setStreet(''); setStreetInput(''); setStreetCoords(null); }}>
+                {salesMode === 'commercial' ? 'END PLAZA' : 'END STREET'}
+              </button>
             </div>
             
             <div className="house-cursor-bar">
               <input
                 type="text"
                 className="house-input"
-                placeholder="House #"
+                placeholder={salesMode === 'commercial' ? "Unit / Suite #" : "House #"}
                 value={houseNum}
                 onChange={e => setHouseNum(e.target.value)}
               />
@@ -1320,19 +1157,36 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
                 </button>
                 <button 
                   className="step-btn active" 
-                  onClick={() => setStepSize(prev => (prev > 0 ? 1 : -1) * (Math.abs(prev) === 1 ? 2 : 1))}
+                  onClick={() => setStepSize(prev => {
+                    const abs = Math.abs(prev);
+                    const next = abs === 1 ? 2 : abs === 2 ? 10 : 1;
+                    return (prev > 0 ? 1 : -1) * next;
+                  })}
                 >
                   {Math.abs(stepSize)}
                 </button>
               </div>
             </div>
+
+            {salesMode === 'commercial' && (
+              <div style={{ marginTop: '8px' }}>
+                <input
+                  type="text"
+                  className="house-input"
+                  style={{ width: '100%', boxSizing: 'border-box' }}
+                  placeholder="Business / Tenant Name (optional)"
+                  value={commCompanyName}
+                  onChange={e => setCommCompanyName(e.target.value)}
+                />
+              </div>
+            )}
           </>
         ) : (
           <div className="street-bar" style={{ position: 'relative' }}>
             <input
               type="text"
               className="street-input"
-              placeholder="Enter street name..."
+              placeholder={salesMode === 'commercial' ? "Enter plaza address, building, or street..." : "Enter street name..."}
               value={streetInput}
               onChange={handleStreetInputChange}
               onKeyDown={e => { if (e.key === 'Enter') commitStreet(); }}
@@ -1369,13 +1223,13 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
 
       <div className="hero-metric">
         <span className="hero-count">{totalDoors}</span>
-        <span className="hero-label">TOTAL DOORS</span>
+        <span className="hero-label">{salesMode === 'commercial' ? 'TOTAL BUSINESSES' : 'TOTAL DOORS'}</span>
       </div>
 
       <div className="metrics-strip sub-metrics">
         <div className="metric-item">
           <span className="metric-count" style={{ color: '#10b981' }}>{totalSales}</span>
-          <span className="metric-label">SALE</span>
+          <span className="metric-label">{salesMode === 'commercial' ? 'WON' : 'SALE'}</span>
         </div>
         <div className="metric-item">
           <span className="metric-count" style={{ color: '#3b82f6' }}>{totalConvos}</span>
@@ -1504,21 +1358,20 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
             disabled={logging || !saleHomeownerName.trim() || !salePhone.trim()}
             onClick={submitSaleForm}
           >
-            {logging ? 'LOGGING...' : '✅ LOG SALE'}
+            {logging ? 'LOGGING...' : 'LOG SALE'}
           </button>
         </div>
       ) : showObjections ? (
-
         <div className="objection-panel">
           <div className="objection-header">
             <span>Select Result</span>
             <button className="objection-cancel" onClick={() => setShowObjections(false)}>x</button>
           </div>
           <div className="objection-grid">
-            {CONVO_OPTIONS.map(opt => (
+            {(salesMode === 'commercial' ? COMMERCIAL_CONVO_OPTIONS : CONVO_OPTIONS).map(opt => (
               <button
                 key={opt}
-                className={`objection-btn ${opt === 'CALLBACK' ? 'cb-highlight' : ''}`}
+                className={`objection-btn ${opt === 'CALLBACK' || opt === 'BOOK WALKTHROUGH' ? 'cb-highlight' : ''}`}
                 disabled={logging}
                 onClick={() => handleConvoOption(opt)}
               >
@@ -1538,20 +1391,20 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
               disabled={logging || !street || !houseNum}
               onClick={() => handleOutcome(o.key)}
             >
-              <span className="outcome-label">{o.label}</span>
+              <span className="outcome-label">
+                {o.key === 'SALE' && salesMode === 'commercial' ? 'WON CONTRACT' : o.label}
+              </span>
             </button>
           ))}
         </div>
-      )}
-        </>
       )}
 
       {/* Walkthrough Booking Modal */}
       {showWalkthroughModal && (
         <div className="reset-modal-overlay">
           <div className="reset-modal-card" style={{ maxWidth: 360 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, color: '#fff' }}>📅 Schedule Walkthrough</h3>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>Set on-site assessment date for {commCompanyName}</p>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, color: '#fff' }}>Schedule Walkthrough</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>Set on-site assessment date for {commCompanyName || 'business'}</p>
             <input
               type="datetime-local"
               className="street-input"
@@ -1564,7 +1417,7 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
                 className="street-set-btn"
                 style={{ flex: 1, background: 'var(--accent)' }}
                 onClick={() => {
-                  logCommercialKnock('WALKTHROUGH_BOOKED', { walkthrough_time: walkthroughDate });
+                  logKnock('CONVO', 'BOOK WALKTHROUGH', walkthroughDate);
                   setShowWalkthroughModal(false);
                 }}
               >
@@ -1585,8 +1438,8 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
       {showCommSaleModal && (
         <div className="reset-modal-overlay">
           <div className="reset-modal-card" style={{ maxWidth: 360 }}>
-            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, color: '#10b981' }}>🏆 Won Commercial Contract</h3>
-            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>Enter recurring contract value for {commCompanyName}</p>
+            <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8, color: '#10b981' }}>Won Commercial Contract</h3>
+            <p style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 16 }}>Enter recurring contract value for {commCompanyName || 'business'}</p>
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-secondary)', display: 'block', marginBottom: 4 }}>MONTHLY RECURRING REVENUE ($ MRR)</label>
               <input
@@ -1617,10 +1470,10 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
                 className="street-set-btn"
                 style={{ flex: 1, background: '#10b981' }}
                 onClick={() => {
-                  logCommercialKnock('SALE', {
+                  logKnock('SALE', null, null, {
                     contract_mrr: parseFloat(commMrr) || 0,
                     service_frequency: commFrequency,
-                    sale_details: { job_total: commMrr, payment_method: 'Invoice', homeowner_name: commCompanyName }
+                    sale_details: { job_total: commMrr, payment_method: 'Invoice', homeowner_name: commCompanyName || street }
                   });
                   setShowCommSaleModal(false);
                 }}
@@ -1641,7 +1494,11 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
       <div className="recent-logs">
         <h2 className="recent-title">Recent</h2>
         {events.length === 0 ? (
-          <p className="no-logs">No events logged yet. Set a street, house #, and start knocking.</p>
+          <p className="no-logs">
+            {salesMode === 'commercial' 
+              ? 'No businesses logged yet. Set a plaza/street address, unit #, and start canvassing.'
+              : 'No events logged yet. Set a street, house #, and start knocking.'}
+          </p>
         ) : (
           <div className="log-list">
             {feedItems.slice(0, 30).map(e => (
@@ -1679,7 +1536,17 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
                           (e.objection_type || e.convo_status)}
                       </div>
                     )}
-                    <div className="log-street">{e.house_number ? `${e.house_number} ` : ''}{e.street_name}</div>
+                    <div className="log-street">
+                      {e.service_type === 'commercial_b2b' || e.mode === 'commercial' ? (
+                        <>
+                          {e.unit_number || e.house_number ? `Unit ${e.unit_number || e.house_number} ` : ''}
+                          {e.company_name ? `• ${e.company_name} ` : ''}
+                          <span style={{ opacity: 0.75 }}>({e.street_name})</span>
+                        </>
+                      ) : (
+                        `${e.house_number ? `${e.house_number} ` : ''}${e.street_name}`
+                      )}
+                    </div>
                   </>
                 )}
                 <div className="log-time">

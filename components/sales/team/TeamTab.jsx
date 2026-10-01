@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { BarChart3, TrendingUp, Calendar, MessageSquare, DollarSign } from 'lucide-react';
 import {
   getTeamStats,
   getTeamActivity,
@@ -465,7 +466,9 @@ export default function TeamTab({ user, repName, isActive, salesMode = 'resident
               ))
             ) : stats.length === 0 ? (
               <div className="leaderboard-empty">
-                <div className="leaderboard-empty-icon">📊</div>
+                <div className="leaderboard-empty-icon" style={{ display: 'flex', justifyContent: 'center' }}>
+                  <BarChart3 size={32} style={{ color: 'var(--text-muted)' }} />
+                </div>
                 <p>
                   {salesMode === 'commercial'
                     ? `No commercial knocks recorded${boardDate === 'TODAY' ? ' today yet' : boardDate === 'ALL_TIME' ? ' yet' : ' on this date'}.`
@@ -484,8 +487,8 @@ export default function TeamTab({ user, repName, isActive, salesMode = 'resident
                 const isMe = rep.rep_id === user?.id;
                 return (
                   <div className={`leaderboard-card ${rankClass}`} key={rep.rep_id}>
-                    <span className="lb-rank">
-                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    <span className={`lb-rank ${idx < 3 ? `top-${idx + 1}` : ''}`} style={{ fontWeight: 800, fontSize: '13px' }}>
+                      #{idx + 1}
                     </span>
                     <div className="lb-avatar" style={{ background: avatarGrad }}>
                       {getInitials(rep.rep_name)}
@@ -574,7 +577,9 @@ export default function TeamTab({ user, repName, isActive, salesMode = 'resident
           <div className="activity-feed-list">
             {activityData.feed.length === 0 ? (
               <div className="activity-empty" style={{ marginTop: 24 }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>🔥</div>
+                <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 8 }}>
+                  <TrendingUp size={32} style={{ color: 'var(--text-muted)' }} />
+                </div>
                 <p>{salesMode === 'commercial' ? 'No commercial wins logged yet today.' : 'No wins logged yet today.'}</p>
               </div>
             ) : (
@@ -585,8 +590,8 @@ export default function TeamTab({ user, repName, isActive, salesMode = 'resident
                 const sd = event.sale_details;
                 return (
                   <div className="feed-card" key={event.id}>
-                    <div className="feed-icon" style={{ background: `${color}1A`, color: color }}>
-                      {isSale ? '💰' : isCallback ? '📅' : '💬'}
+                    <div className="feed-icon" style={{ background: `${color}1A`, color: color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      {isSale ? <DollarSign size={16} /> : isCallback ? <Calendar size={16} /> : <MessageSquare size={16} />}
                     </div>
                     <div className="feed-content">
                       <div className="feed-text">

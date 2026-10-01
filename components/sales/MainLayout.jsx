@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Home, Building2, PhoneCall, Map as MapIcon, Users, Zap } from 'lucide-react';
 import SalesLaunchpad from './SalesLaunchpad';
 import Logger from './Logger';
 import PhoneTab from './phone/PhoneTab';
@@ -18,11 +19,11 @@ export default function MainLayout({ user, repName, onLogout }) {
 
   // App Metadata Helper
   const APP_METAS = {
-    residential: { title: 'KnockLog (Residential)', badge: 'Field Canvassing', color: '#10b981', icon: '🚪' },
-    commercial: { title: 'KnockLog (Commercial)', badge: 'Commercial B2B', color: '#c084fc', icon: '🏢' },
-    phone: { title: 'Phone Sales OS', badge: 'Inside CRM', color: '#fb923c', icon: '📞' },
-    map: { title: 'Territory Map', badge: 'Satellite GPS', color: '#22d3ee', icon: '🗺️' },
-    team: { title: 'Team Hub', badge: 'Leaderboard', color: '#fbbf24', icon: '🏆' },
+    residential: { title: 'KnockLog (Residential)', badge: 'Field Canvassing', color: '#10b981', icon: <Home size={15} /> },
+    commercial: { title: 'KnockLog (Commercial)', badge: 'Commercial B2B', color: '#c084fc', icon: <Building2 size={15} /> },
+    phone: { title: 'Phone Sales OS', badge: 'Inside CRM', color: '#fb923c', icon: <PhoneCall size={15} /> },
+    map: { title: 'Territory Map', badge: 'Satellite GPS', color: '#22d3ee', icon: <MapIcon size={15} /> },
+    team: { title: 'Team Hub', badge: 'Leaderboard', color: '#fbbf24', icon: <Users size={15} /> },
   };
 
   // If on launcher home screen, render SalesLaunchpad
@@ -40,7 +41,7 @@ export default function MainLayout({ user, repName, onLogout }) {
     );
   }
 
-  const currentMeta = APP_METAS[activeApp] || { title: 'Sales OS', badge: 'App', color: '#6366f1', icon: '⚡' };
+  const currentMeta = APP_METAS[activeApp] || { title: 'Sales OS', badge: 'App', color: '#6366f1', icon: <Zap size={15} /> };
 
   return (
     <div className="sales-os-root">

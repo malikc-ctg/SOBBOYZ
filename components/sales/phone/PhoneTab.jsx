@@ -286,7 +286,7 @@ export default function PhoneTab({ user, repName, isActive }) {
           <div style={{ padding: '14px 16px' }}>
             {/* Search Box */}
             <div className="phone-search-box">
-              <span className="phone-search-icon">🔍</span>
+              <Search size={14} style={{ color: '#88a2c0', marginLeft: 8, marginRight: 4 }} />
               <input
                 type="text"
                 className="phone-search-input"
@@ -308,13 +308,13 @@ export default function PhoneTab({ user, repName, isActive }) {
                 className={`phone-filter-pill ${filter === 'hot' ? 'active' : ''}`}
                 onClick={() => setFilter('hot')}
               >
-                🔥 Hot Outreach
+                Hot Outreach
               </button>
               <button
                 className={`phone-filter-pill ${filter === 'callbacks' ? 'active' : ''}`}
                 onClick={() => setFilter('callbacks')}
               >
-                📅 Follow-ups
+                Follow-ups
               </button>
             </div>
 
@@ -377,7 +377,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                       </div>
 
                       <div className="phone-lead-meta">
-                        <span>📍 {c.city || 'GTA'}</span>
+                        <span>{c.city || 'GTA'}</span>
                         <span className="phone-lead-val">${c.estimated_value || '650'}/mo</span>
                         <span className="uppercase text-[10px]">{c.status || 'New'}</span>
                       </div>
@@ -421,28 +421,28 @@ export default function PhoneTab({ user, repName, isActive }) {
                 onClick={() => setSubView('queue')}
                 title="Active Call Console"
               >
-                <span>⚡ Console</span>
+                <span>Console</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'dialpad' ? 'active' : ''}`}
                 onClick={() => setSubView('dialpad')}
                 title="Manual Keypad"
               >
-                <span>🔢 Dial Pad</span>
+                <span>Dial Pad</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'scripts' ? 'active' : ''}`}
                 onClick={() => setSubView('scripts')}
                 title="B2B Commercial Battle-Cards"
               >
-                <span>📋 B2B Scripts</span>
+                <span>B2B Scripts</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'logs' ? 'active' : ''}`}
                 onClick={() => setSubView('logs')}
                 title="Call History Logs"
               >
-                <span>📊 History</span>
+                <span>History</span>
               </button>
             </div>
           </div>
@@ -471,14 +471,14 @@ export default function PhoneTab({ user, repName, isActive }) {
                             className="phone-call-btn"
                             onClick={() => startCall(selectedContact)}
                           >
-                            📞 Call Now
+                            <Phone size={13} style={{ marginRight: 6 }} /> Call Now
                           </button>
                           {selectedContact.phone && (
                             <a
                               href={`sms:${selectedContact.phone.replace(/[^0-9+]/g, '')}`}
                               className="phone-text-btn"
                             >
-                              💬 Text
+                              <MessageSquare size={13} style={{ marginRight: 6 }} /> Text
                             </a>
                           )}
                         </div>
@@ -488,7 +488,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                       <div className="phone-dossier-grid">
                         <div className="phone-dossier-cell">
                           <span className="phone-dossier-label">City / Territory</span>
-                          <span className="phone-dossier-val">📍 {selectedContact.city || 'GTA'}</span>
+                          <span className="phone-dossier-val">{selectedContact.city || 'GTA'}</span>
                         </div>
                         <div className="phone-dossier-cell">
                           <span className="phone-dossier-label">Service Scope</span>
@@ -504,7 +504,7 @@ export default function PhoneTab({ user, repName, isActive }) {
 
                       {selectedContact.notes && (
                         <div style={{ fontSize: '11px', color: '#94a3b8', background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: '8px' }}>
-                          📋 <strong>Account Notes:</strong> {selectedContact.notes}
+                          <strong>Account Notes:</strong> {selectedContact.notes}
                         </div>
                       )}
                     </div>
@@ -543,7 +543,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             className="phone-disp-btn won"
                             onClick={() => handleDisposition('SALE')}
                           >
-                            🏆 WON COMMERCIAL CONTRACT ($)
+                            WON COMMERCIAL CONTRACT ($)
                           </button>
                           
                           <button
@@ -551,7 +551,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ borderColor: 'rgba(59, 130, 246, 0.4)', color: '#60a5fa' }}
                             onClick={() => handleDisposition('WALKTHROUGH')}
                           >
-                            🚶‍♂️ Walkthrough Booked
+                            Walkthrough Booked
                           </button>
 
                           <button
@@ -559,7 +559,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c084fc' }}
                             onClick={() => handleDisposition('CALLBACK')}
                           >
-                            📅 Callback Scheduled
+                            Callback Scheduled
                           </button>
 
                           <button
@@ -567,7 +567,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#38bdf8' }}
                             onClick={() => handleDisposition('CONVO')}
                           >
-                            🗣️ Qualified Interest
+                            Qualified Interest
                           </button>
 
                           <button
@@ -575,7 +575,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#fbbf24' }}
                             onClick={() => handleDisposition('GATEKEEPER')}
                           >
-                            🚪 Gatekeeper / Left Info
+                            Gatekeeper / Left Info
                           </button>
 
                           <button
@@ -583,7 +583,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#94a3b8' }}
                             onClick={() => handleDisposition('VOICEMAIL')}
                           >
-                            📼 Left Voicemail
+                            Left Voicemail
                           </button>
 
                           <button
@@ -591,7 +591,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#94a3b8' }}
                             onClick={() => handleDisposition('NO_ANSWER')}
                           >
-                            📵 No Answer
+                            No Answer
                           </button>
 
                           <button
@@ -599,7 +599,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#f87171' }}
                             onClick={() => handleDisposition('NOT_INTERESTED')}
                           >
-                            ⛔ Not Interested
+                            Not Interested
                           </button>
                         </div>
                       </div>
@@ -608,7 +608,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                     {/* Quick Script & Objection Helper */}
                     <div className="phone-scripts-card">
                       <div className="phone-scripts-header">
-                        <span>🛡️ B2B Commercial Objection Battle-Cards</span>
+                        <span>B2B Commercial Objection Battle-Cards</span>
                       </div>
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         {OBJECTION_REBUTTALS.map((r, idx) => (
@@ -632,7 +632,9 @@ export default function PhoneTab({ user, repName, isActive }) {
                   </>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: '#88a2c0' }}>
-                    <div style={{ fontSize: 32, marginBottom: 12 }}>🏢</div>
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
+                      <Building2 size={36} style={{ color: '#88a2c0' }} />
+                    </div>
                     <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginBottom: 8 }}>
                       B2B Inside Tele-Sales Console
                     </div>
@@ -681,7 +683,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                   onClick={launchManualDial}
                   disabled={!dialNumber}
                 >
-                  📞 Call B2B Number
+                  <Phone size={15} style={{ marginRight: 8 }} /> Call B2B Number
                 </button>
               </div>
             )}
@@ -742,7 +744,7 @@ export default function PhoneTab({ user, repName, isActive }) {
             {subView === 'logs' && (
               <div className="phone-scripts-card">
                 <div className="phone-scripts-header">
-                  <span>📊 Today's Commercial Call Logs</span>
+                  <span>Today's Commercial Call Logs</span>
                 </div>
 
                 {callStats.todayCalls.length === 0 ? (
@@ -791,7 +793,7 @@ export default function PhoneTab({ user, repName, isActive }) {
         <div className="phone-modal-overlay">
           <div className="phone-modal-content">
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', marginBottom: 8 }}>
-              🏆 Commercial Contract Won!
+              Commercial Contract Won!
             </h3>
             <p style={{ fontSize: '12px', color: '#88a2c0', marginBottom: 16 }}>
               Enter the monthly contract value and service scope to credit your commission and book the account.
@@ -846,7 +848,7 @@ export default function PhoneTab({ user, repName, isActive }) {
         <div className="phone-modal-overlay">
           <div className="phone-modal-content">
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', marginBottom: 4 }}>
-              🏢 Add B2B Commercial Prospect
+              Add B2B Commercial Prospect
             </h3>
             <p style={{ fontSize: '12px', color: '#88a2c0', marginBottom: 16 }}>
               Add a commercial plaza, facility, or property manager for outbound tele-sales.

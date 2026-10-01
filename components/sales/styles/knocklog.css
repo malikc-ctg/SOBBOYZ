@@ -1205,10 +1205,13 @@
 .house-cursor-bar {
   display: flex;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .house-input {
   flex: 1;
+  min-width: 0;
   padding: 12px 14px;
   background: var(--bg-input);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -1218,6 +1221,7 @@
   font-weight: 700;
   font-family: inherit;
   outline: none;
+  box-sizing: border-box;
 }
 
 .house-input:focus {
