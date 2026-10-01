@@ -47,7 +47,18 @@ export type TimesheetStatus = 'open' | 'completed' | 'approved' | 'rejected';
 
 export type LeadStatus = 'new' | 'contacted' | 'quoted' | 'converted' | 'lost';
 
-export type LeadSource = 'lsa' | 'referral' | 'realtor' | 'inbound_call' | 'website';
+export type LeadSource = 'lsa' | 'referral' | 'realtor' | 'inbound_call' | 'website' | 'cold_call' | 'google_search' | 'd2d';
+
+export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
+  inbound_call: 'Inbound Call',
+  website: 'Website',
+  referral: 'Referral',
+  realtor: 'Realtor / GC',
+  cold_call: 'Cold Call / Outreach',
+  d2d: 'D2D',
+  lsa: 'Local Service Ads (LSA)',
+  google_search: 'Google Search',
+};
 
 export type HomeCondition = 'well_maintained' | 'average' | 'heavy_clean_needed';
 

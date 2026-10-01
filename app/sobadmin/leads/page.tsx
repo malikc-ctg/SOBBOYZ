@@ -20,7 +20,7 @@ import {
 import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { SERVICE_TYPE_LABELS, DEFAULT_PRICING } from '@/types';
+import { SERVICE_TYPE_LABELS, DEFAULT_PRICING, LEAD_SOURCE_LABELS } from '@/types';
 import type { Lead, ServiceType, TimeWindow, AddOn } from '@/types';
 import Link from 'next/link';
 import { CRMPricingModal } from '@/components/admin/leads/CRMPricingModal';
@@ -166,7 +166,7 @@ export default function LeadsPage() {
                 filtered.map((lead) => (
                   <TableRow key={lead.id}>
                     <TableCell className="text-xs">{format(new Date(lead.created_at), 'MMM d')}</TableCell>
-                    <TableCell className="text-xs capitalize">{lead.source}</TableCell>
+                    <TableCell className="text-xs">{LEAD_SOURCE_LABELS[lead.source as keyof typeof LEAD_SOURCE_LABELS] || lead.source}</TableCell>
                     <TableCell className="text-sm">
                       {lead.company_name ? (
                         <div>

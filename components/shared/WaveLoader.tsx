@@ -179,12 +179,12 @@ export default function WaveLoader({
     };
   }, [isLoading]);
 
-  const isCustomerSite = pathname?.startsWith('/customer-site') || pathname === '/';
+  const isExcluded = pathname?.startsWith('/customer-site') || pathname === '/' || pathname?.startsWith('/sales');
 
   return (
     <>
       {children}
-      {isLoading && !isCustomerSite && (
+      {isLoading && !isExcluded && (
         <div className="sob-wl" data-lifting={lifting} style={{ background }}>
           <WaveMark fill={fill} track={track} progress={progress} />
           <div className="sob-wl__rule" style={{ background: track }}>

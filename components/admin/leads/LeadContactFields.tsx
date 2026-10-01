@@ -107,6 +107,7 @@ export function LeadContactFields({
                   <SelectItem value="referral">Referral</SelectItem>
                   <SelectItem value="realtor">Realtor / GC</SelectItem>
                   <SelectItem value="cold_call">Cold Call / Outreach</SelectItem>
+                  <SelectItem value="d2d">D2D</SelectItem>
                   <SelectItem value="lsa">Local Service Ads (LSA)</SelectItem>
                   <SelectItem value="google_search">Google Search</SelectItem>
                 </SelectContent>
@@ -167,6 +168,8 @@ export function LeadContactFields({
                   <SelectItem value="website">Website</SelectItem>
                   <SelectItem value="referral">Referral</SelectItem>
                   <SelectItem value="realtor">Realtor</SelectItem>
+                  <SelectItem value="cold_call">Cold Call / Outreach</SelectItem>
+                  <SelectItem value="d2d">D2D</SelectItem>
                   <SelectItem value="lsa">Local Service Ads (LSA)</SelectItem>
                   <SelectItem value="google_search">Google Search</SelectItem>
                 </SelectContent>

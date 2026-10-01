@@ -1,0 +1,1325 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import {
+  getTeamStats,
+  getTeamActivity,
+  getAllSales,
+  updateSaleDetails,
+  deleteSaleEvent,
+  calculateCommission,
+  getLeads,
+  updateLeadStage,
+  updateLeadDetails,
+} from '@/lib/sales/teamService';
+import { sqlocal } from '@/lib/sales/db';
+import { MODES, LEAD_STAGES, LEAD_STAGE_LABELS, LEAD_STAGE_COLORS } from '@/lib/sales/modes';
+import '@/components/sales/team/teamStyles.css';
+import '@/components/sales/mapStyles.css';
+
+const STATUS_COLORS = {
+  NO_ANSWER:      '#6b7280',
+  CONVO:          '#3b82f6',
+  SALE:           '#10b981',
+  NOT_INTERESTED: '#ef4444',
+  CALLBACK:       '#a855f7',
+  THINKING:       '#60a5fa',
+  NO_SOLICITING:  '#dc2626',
+  CONSTRUCTION:   '#f59e0b',
+};
+
+const AVATAR_COLORS = [
+  'linear-gradient(135deg,#6366f1,#8b5cf6)',
+  'linear-gradient(135deg,#10b981,#059669)',
+  'linear-gradient(135deg,#f59e0b,#d97706)',
+  'linear-gradient(135deg,#ef4444,#dc2626)',
+  'linear-gradient(135deg,#3b82f6,#2563eb)',
+  'linear-gradient(135deg,#ec4899,#db2777)',
+];
+
+// ── Close-Rate Ring Component ──
+function CloseRing({ pct, size = 44 }) {
+  const radius = (size - 6) / 2;
+  const circ = 2 * Math.PI * radius;
+  const stroke = (parseFloat(pct) / 100) * circ;
+  const color = parseFloat(pct) >= 10 ? '#10b981' : parseFloat(pct) >= 5 ? '#f59e0b' : '#6b7280';
+
+  return (
+    <div className="lb-close-ring" style={{ width: size, height: size }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={3} />
+        <circle
+          cx={size/2} cy={size/2} r={radius} fill="none"
+          stroke={color} strokeWidth={3}
+          strokeDasharray={`${stroke} ${circ}`}
+          strokeLinecap="round"
+        />
+      </svg>
+      <div className="lb-close-pct">{pct}%</div>
+    </div>
+  );
+}
+
+// ── Custom Calendar Date Picker ──
+function CustomDatePicker({ onSelect, onClose, currentDate }) {
+  const today = new Date();
+  const [viewYear, setViewYear] = useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = useState(today.getMonth());
+
+  const monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dayNames = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+
+  function getDaysInMonth(year, month) {
+    return new Date(year, month + 1, 0).getDate();
+  }
+  function getFirstDayOfMonth(year, month) {
+    return new Date(year, month, 1).getDay();
+  }
+
+  function prevMonth() {
+    if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); }
+    else setViewMonth(m => m - 1);
+  }
+  function nextMonth() {
+    const now = new Date();
+    if (viewYear > now.getFullYear() || (viewYear === now.getFullYear() && viewMonth >= now.getMonth())) return;
+    if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); }
+    else setViewMonth(m => m + 1);
+  }
+
+  const daysInMonth = getDaysInMonth(viewYear, viewMonth);
+  const firstDay = getFirstDayOfMonth(viewYear, viewMonth);
+  const todayISO = today.toISOString().split('T')[0];
+
+  function isFuture(day) {
+    const d = new Date(viewYear, viewMonth, day);
+    return d > today;
+  }
+
+  function isSelected(day) {
+    if (!currentDate || currentDate === 'TODAY' || currentDate === 'YESTERDAY' || currentDate === 'ALL_TIME') return false;
+    const iso = `${viewYear}-${String(viewMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    return iso === currentDate;
+  }
+
+  function isToday(day) {
+    const iso = `${viewYear}-${String(viewMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    return iso === todayISO;
+  }
+
+  function handleDayClick(day) {
+    if (isFuture(day)) return;
+    const iso = `${viewYear}-${String(viewMonth + 1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    onSelect(iso);
+    onClose();
+  }
+
+  const isAtCurrentMonth = viewYear === today.getFullYear() && viewMonth === today.getMonth();
+
+  return (
+    <div className="datepicker-overlay" onClick={onClose}>
+      <div className="datepicker-panel" onClick={e => e.stopPropagation()}>
+        <div className="datepicker-header">
+          <button className="datepicker-nav" onClick={prevMonth}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <span className="datepicker-month-label">{monthNames[viewMonth]} {viewYear}</span>
+          <button className="datepicker-nav" onClick={nextMonth} disabled={isAtCurrentMonth} style={{ opacity: isAtCurrentMonth ? 0.2 : 1 }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
+        <div className="datepicker-day-names">
+          {dayNames.map(d => <span key={d} className="datepicker-day-name">{d}</span>)}
+        </div>
+        <div className="datepicker-grid">
+          {Array.from({ length: firstDay }, (_, i) => (
+            <span key={`empty-${i}`} />
+          ))}
+          {Array.from({ length: daysInMonth }, (_, i) => {
+            const day = i + 1;
+            const future = isFuture(day);
+            const selected = isSelected(day);
+            const todayDay = isToday(day);
+            return (
+              <button
+                key={day}
+                className={`datepicker-day ${selected ? 'selected' : ''} ${todayDay ? 'today' : ''} ${future ? 'future' : ''}`}
+                onClick={() => handleDayClick(day)}
+                disabled={future}
+              >
+                {day}
+              </button>
+            );
+          })}
+        </div>
+        <button className="datepicker-cancel" onClick={onClose}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+export default function TeamTab({
+  user,
+  repName = '',
+  isActive = false,
+  mode: controlledMode = '',
+  salesMode = '',
+}) {
+  const mode = controlledMode || (salesMode === 'commercial' ? MODES.COMMERCIAL : MODES.RESIDENTIAL);
+  const [segment, setSegment] = useState('LEADERBOARD'); // 'LEADERBOARD' | 'ACTIVITY' | 'SALES'
+  const [stats, setStats] = useState([]);
+  const [activityData, setActivityData] = useState({ feed: [], radar: [] });
+  const [allSales, setAllSales] = useState([]);
+  const [leads, setLeads] = useState([]);
+  const [stageFilter, setStageFilter] = useState('ALL');
+  const [operationsSale, setOperationsSale] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [toast, setToast] = useState(null);
+  const [boardDate, setBoardDate] = useState('TODAY');
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [salesSearch, setSalesSearch] = useState('');
+  const [editSale, setEditSale] = useState(null);   // sale or lead object being edited
+  const [editForm, setEditForm] = useState({});      // controlled form values
+  const [saving, setSaving] = useState(false);
+
+  const longPressTimerRef = useRef(null);
+
+  // ── Handlers ──
+  function handleCardPressStart(sale) {
+    longPressTimerRef.current = setTimeout(() => {
+      setOperationsSale(sale);
+    }, 500);
+  }
+
+  function handleCardPressEnd() {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }
+
+  function openEditModal(sale) {
+    setEditSale(sale);
+    setEditForm({
+      rep_override:    sale.details?.rep_override    || sale.rep_name || sale.owner_name || '',
+      homeowner_name:  sale.details?.homeowner_name  || sale.details?.contact_name || sale.business_name || '',
+      business_name:   sale.business_name            || '',
+      contact_name:    sale.details?.contact_name    || sale.contacts?.[0]?.name || '',
+      job_total:       sale.details?.job_total       || sale.est_monthly_value || '',
+      quote_amount:    sale.quote_amount             || '',
+      phone:           sale.details?.phone           || sale.contacts?.[0]?.phone || '',
+      email:           sale.details?.email           || sale.contacts?.[0]?.email || '',
+      service_date:    sale.details?.service_date    || sale.details?.walkthrough_at || sale.next_follow_up_at || '',
+      payment_method:  sale.details?.payment_method  || '',
+      stage:           sale.stage                    || 'WALKTHROUGH_BOOKED',
+      job_status:      sale.job_status              || (sale.mode === MODES.COMMERCIAL ? 'WALKTHROUGH' : 'PREBOOKED'),
+      notes:           sale.notes                    || '',
+    });
+  }
+
+  async function handleSaveEdit() {
+    setSaving(true);
+    try {
+      if (mode === MODES.COMMERCIAL && editSale?.target_key && editSale?.stage) {
+        // Direct lead update
+        await updateLeadStage(editSale.id, editForm.stage, {
+          business_name: editForm.business_name || editSale.business_name,
+          est_monthly_value: editForm.job_total ? parseFloat(editForm.job_total) : null,
+          quote_amount: editForm.quote_amount ? parseFloat(editForm.quote_amount) : null,
+          next_follow_up_at: editForm.service_date || null,
+          notes: editForm.notes || null,
+        });
+        showToast('Lead updated!', 'success');
+        setEditSale(null);
+        loadData();
+        return;
+      }
+
+      if (!editSale?.event_id) {
+        showToast('Cannot edit — no event ID found.', 'error');
+        return;
+      }
+      await updateSaleDetails(editSale.event_id, editForm);
+      // Optimistically update local state
+      setAllSales(prev => prev.map(s =>
+        s.id === editSale.id
+          ? { ...s, rep_name: editForm.rep_override || s.rep_name, details: { ...s.details, ...editForm }, job_status: editForm.job_status }
+          : s
+      ));
+      showToast('Record updated!', 'success');
+      setEditSale(null);
+      loadData(); // Sync leaderboard
+    } catch (err) {
+      showToast(err.message || 'Save failed.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteSale() {
+    if (!editSale?.event_id) return;
+    if (!window.confirm('Are you sure you want to permanently delete this item? This action cannot be undone.')) return;
+    
+    setSaving(true);
+    try {
+      await deleteSaleEvent(editSale.event_id);
+      
+      try {
+        await sqlocal.sql`DELETE FROM events WHERE event_id = ${editSale.event_id}`;
+        window.dispatchEvent(new Event('sync-local-events'));
+      } catch (localErr) {
+        console.warn('Local delete failed:', localErr);
+      }
+
+      setAllSales(prev => prev.filter(s => s.id !== editSale.id));
+      showToast('Item permanently deleted.', 'success');
+      setEditSale(null);
+      loadData(); // Sync leaderboard
+    } catch (err) {
+      showToast(err.message || 'Delete failed.', 'error');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  // ── Load non-map data ──
+  const loadData = useCallback(async (dateOverride) => {
+    if (!navigator.onLine) return;
+    const dateToUse = dateOverride !== undefined ? dateOverride : boardDate;
+    try {
+      const promises = [
+        getTeamStats(dateToUse, mode),
+        getTeamActivity(mode),
+        getAllSales(mode)
+      ];
+      if (mode === MODES.COMMERCIAL) {
+        promises.push(getLeads());
+      }
+      const results = await Promise.all(promises);
+      setStats(results[0]);
+      setActivityData(results[1]);
+      setAllSales(results[2]);
+      if (mode === MODES.COMMERCIAL && results[3]) {
+        setLeads(results[3]);
+      }
+    } catch (err) {
+      console.error('[TeamTab] loadData error:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [boardDate, mode]);
+
+  useEffect(() => {
+    if (!isActive) return;
+    loadData();
+    const id = setInterval(loadData, 30000); // refresh every 30s when active
+    return () => clearInterval(id);
+  }, [isActive, loadData]);
+
+  function showToast(msg, type) {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3100);
+  }
+
+  function getInitials(name) {
+    return (name || '?').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
+  }
+
+  function getTimeAgo(dateStr) {
+    if (!dateStr) return '';
+    const diffMs = new Date() - new Date(dateStr);
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHrs = Math.floor(diffMins / 60);
+    return `${diffHrs}h ago`;
+  }
+
+  function handleDateChange(value) {
+    setBoardDate(value);
+    setLoading(true);
+    loadData(value);
+  }
+
+  function getBoardTitle() {
+    const prefix = mode === MODES.COMMERCIAL ? 'Commercial ' : '';
+    if (boardDate === 'TODAY') return `${prefix}Today's Board`;
+    if (boardDate === 'YESTERDAY') return `${prefix}Yesterday's Board`;
+    if (boardDate === 'ALL_TIME') return `${prefix}All Time`;
+    return `${prefix}${new Date(boardDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}`;
+  }
+
+  // Team totals
+  const isCommercial = mode === MODES.COMMERCIAL;
+  const teamTotals = stats.reduce((acc, r) => {
+    if (isCommercial) {
+      acc.targets = (acc.targets || 0) + (r.targets || 0);
+      acc.dm_reached = (acc.dm_reached || 0) + (r.dm_reached || 0);
+      acc.walkthroughs = (acc.walkthroughs || 0) + (r.walkthroughs || 0);
+    } else {
+      acc.doors = (acc.doors || 0) + (r.doors || 0);
+      acc.convos = (acc.convos || 0) + (r.convos || 0);
+      acc.sales = (acc.sales || 0) + (r.sales || 0);
+      acc.revenue = (acc.revenue || 0) + (r.revenue || 0);
+    }
+    return acc;
+  }, isCommercial ? { targets: 0, dm_reached: 0, walkthroughs: 0 } : { doors: 0, convos: 0, sales: 0, revenue: 0 });
+
+  if (isCommercial) {
+    teamTotals.reach_rate = teamTotals.targets > 0 ? ((teamTotals.dm_reached / teamTotals.targets) * 100).toFixed(1) : '0.0';
+  } else {
+    teamTotals.close_rate = teamTotals.doors > 0 ? ((teamTotals.sales / teamTotals.doors) * 100).toFixed(1) : '0.0';
+  }
+
+  return (
+    <div className="team-container">
+
+      {/* ── Segment Nav ── */}
+      <nav className="team-segment-nav">
+        <button
+          id="team-seg-leaderboard"
+          className={`team-seg-btn ${segment === 'LEADERBOARD' ? 'active' : ''}`}
+          onClick={() => setSegment('LEADERBOARD')}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"></line>
+            <line x1="12" y1="20" x2="12" y2="4"></line>
+            <line x1="6" y1="20" x2="6" y2="14"></line>
+          </svg>
+          Board
+        </button>
+        <button
+          id="team-seg-activity"
+          className={`team-seg-btn ${segment === 'ACTIVITY' ? 'active' : ''}`}
+          onClick={() => setSegment('ACTIVITY')}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+          </svg>
+          Activity
+        </button>
+        <button
+          id="team-seg-sales"
+          className={`team-seg-btn ${segment === 'SALES' ? 'active' : ''}`}
+          onClick={() => setSegment('SALES')}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="16" y1="13" x2="8" y2="13"></line>
+            <line x1="16" y1="17" x2="8" y2="17"></line>
+            <polyline points="10 9 9 9 8 9"></polyline>
+          </svg>
+          Sales
+        </button>
+      </nav>
+
+      {/* Date Picker Modal */}
+      {showDatePicker && (
+        <CustomDatePicker
+          currentDate={boardDate}
+          onSelect={(iso) => handleDateChange(iso)}
+          onClose={() => setShowDatePicker(false)}
+        />
+      )}
+
+      {/* ════════════════════════════════════
+           SEGMENT: LEADERBOARD
+         ════════════════════════════════════ */}
+      {segment === 'LEADERBOARD' && (
+        <div className="team-segment-content">
+          {/* Quick Date Tabs */}
+          <div className="board-quick-tabs">
+            <div className="board-quick-tab-group">
+              <button
+                id="board-tab-today"
+                className={`board-quick-tab ${boardDate === 'TODAY' ? 'active' : ''}`}
+                onClick={() => handleDateChange('TODAY')}
+              >Today</button>
+              <button
+                id="board-tab-yesterday"
+                className={`board-quick-tab ${boardDate === 'YESTERDAY' ? 'active' : ''}`}
+                onClick={() => handleDateChange('YESTERDAY')}
+              >Yesterday</button>
+              <button
+                id="board-tab-alltime"
+                className={`board-quick-tab ${boardDate === 'ALL_TIME' ? 'active' : ''}`}
+                onClick={() => handleDateChange('ALL_TIME')}
+              >All Time</button>
+            </div>
+            <button
+              id="board-date-picker-btn"
+              className={`board-cal-btn ${boardDate !== 'TODAY' && boardDate !== 'YESTERDAY' && boardDate !== 'ALL_TIME' ? 'cal-active' : ''}`}
+              onClick={() => setShowDatePicker(true)}
+              title="Pick a specific date"
+            >
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              {boardDate !== 'TODAY' && boardDate !== 'YESTERDAY' && boardDate !== 'ALL_TIME' && (
+                <span className="cal-active-dot" />
+              )}
+            </button>
+          </div>
+
+          {/* Team Totals */}
+          {!loading && stats.length > 0 && (
+            <div className="board-team-totals">
+              {isCommercial ? (
+                <>
+                  <div className="team-total-item">
+                    <span className="team-total-val">{teamTotals.targets}</span>
+                    <span className="team-total-lbl">Targets</span>
+                  </div>
+                  <div className="team-total-item">
+                    <span className="team-total-val" style={{ color: '#3b82f6' }}>{teamTotals.dm_reached}</span>
+                    <span className="team-total-lbl">DM Reached</span>
+                  </div>
+                  <div className="team-total-item">
+                    <span className="team-total-val" style={{ color: '#10b981' }}>{teamTotals.walkthroughs}</span>
+                    <span className="team-total-lbl">Walkthroughs</span>
+                  </div>
+                  <div className="team-total-item">
+                    <span className="team-total-val" style={{ color: '#f59e0b' }}>{teamTotals.reach_rate}%</span>
+                    <span className="team-total-lbl">Reach %</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="team-total-item">
+                    <span className="team-total-val">{teamTotals.doors}</span>
+                    <span className="team-total-lbl">Doors</span>
+                  </div>
+                  <div className="team-total-item">
+                    <span className="team-total-val" style={{ color: '#3b82f6' }}>{teamTotals.convos}</span>
+                    <span className="team-total-lbl">Convos</span>
+                  </div>
+                  <div className="team-total-item">
+                    <span className="team-total-val" style={{ color: '#10b981' }}>{teamTotals.sales}</span>
+                    <span className="team-total-lbl">Sales</span>
+                  </div>
+                  <div className="team-total-item">
+                    <span className="team-total-val" style={{ color: '#f59e0b' }}>{teamTotals.close_rate}%</span>
+                    <span className="team-total-lbl">Close</span>
+                  </div>
+                  {teamTotals.revenue > 0 && (
+                    <div className="team-total-item">
+                      <span className="team-total-val" style={{ color: '#a78bfa' }}>${teamTotals.revenue.toLocaleString()}</span>
+                      <span className="team-total-lbl">Revenue</span>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          <div className="team-section-header">
+            <h2 className="team-section-title">{getBoardTitle()}</h2>
+            <button className="team-refresh-btn" onClick={() => loadData()}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+            </button>
+          </div>
+
+          <div className="leaderboard-list">
+            {loading ? (
+              [0,1,2].map(i => (
+                <div className="lb-skeleton" key={i}>
+                  <div className="skel skel-circle" />
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div className="skel skel-line" />
+                    <div className="skel skel-line-sm" />
+                  </div>
+                </div>
+              ))
+            ) : stats.length === 0 ? (
+              <div className="leaderboard-empty">
+                <div className="leaderboard-empty-icon">📊</div>
+                <p>No activity logged{boardDate === 'TODAY' ? ' today yet' : boardDate === 'ALL_TIME' ? ' yet' : ' on this day'}.</p>
+                <p style={{ fontSize: 12, marginTop: 4 }}>{boardDate === 'TODAY' ? (isCommercial ? 'Start commercial canvassing to fill up the board.' : 'Start knocking and watch the board fill up.') : 'Try selecting a different date range.'}</p>
+              </div>
+            ) : (
+              stats.map((rep, idx) => {
+                const rankClass = idx === 0 ? 'rank-1' : idx === 1 ? 'rank-2' : idx === 2 ? 'rank-3' : '';
+                const avatarGrad = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+                const isMe = rep.rep_id === user?.id;
+                return (
+                  <div className={`leaderboard-card ${rankClass}`} key={rep.rep_id}>
+                    <span className="lb-rank">
+                      {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx + 1}`}
+                    </span>
+                    <div className="lb-avatar" style={{ background: avatarGrad }}>
+                      {getInitials(rep.rep_name)}
+                    </div>
+                    <div className="lb-info">
+                      <div className="lb-name">
+                        {rep.rep_name}{isMe && <span style={{ marginLeft: 6, fontSize: 10, color: '#818cf8', fontWeight: 900 }}>YOU</span>}
+                      </div>
+                      <div className="lb-stats-row">
+                        {isCommercial ? (
+                          <>
+                            <div className="lb-stat">
+                              <span className="lb-stat-val">{rep.targets}</span>
+                              <span className="lb-stat-lbl">Targets</span>
+                            </div>
+                            <div className="lb-stat">
+                              <span className="lb-stat-val" style={{ color: '#3b82f6' }}>{rep.dm_reached}</span>
+                              <span className="lb-stat-lbl">DM</span>
+                            </div>
+                            <div className="lb-stat">
+                              <span className="lb-stat-val" style={{ color: '#10b981' }}>{rep.walkthroughs}</span>
+                              <span className="lb-stat-lbl">Walkthrough</span>
+                            </div>
+                            {rep.dph && (
+                              <div className="lb-stat">
+                                <span className="lb-stat-val" style={{ color: '#f59e0b' }}>{rep.dph}</span>
+                                <span className="lb-stat-lbl">TPH</span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <>
+                            <div className="lb-stat">
+                              <span className="lb-stat-val">{rep.doors}</span>
+                              <span className="lb-stat-lbl">Doors</span>
+                            </div>
+                            <div className="lb-stat">
+                              <span className="lb-stat-val" style={{ color: '#3b82f6' }}>{rep.convos}</span>
+                              <span className="lb-stat-lbl">Convos</span>
+                            </div>
+                            <div className="lb-stat">
+                              <span className="lb-stat-val" style={{ color: '#10b981' }}>{rep.sales}</span>
+                              <span className="lb-stat-lbl">Sales</span>
+                            </div>
+                            {rep.revenue > 0 && (
+                              <div className="lb-stat">
+                                <span className="lb-stat-val" style={{ color: '#a78bfa' }}>${rep.revenue.toLocaleString()}</span>
+                                <span className="lb-stat-lbl">Rev</span>
+                              </div>
+                            )}
+                            {rep.dph && (
+                              <div className="lb-stat">
+                                <span className="lb-stat-val" style={{ color: '#f59e0b' }}>{rep.dph}</span>
+                                <span className="lb-stat-lbl">DPH</span>
+                              </div>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="lb-close-rate">
+                      <CloseRing pct={isCommercial ? rep.reach_rate : rep.close_rate} />
+                      <span className="lb-close-lbl">{isCommercial ? 'Reach' : 'Close'}</span>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════
+           SEGMENT: ACTIVITY (Feed & Radar)
+         ════════════════════════════════════ */}
+      {segment === 'ACTIVITY' && (
+        <div className="team-segment-content" style={{ paddingBottom: 24 }}>
+          {/* Team Radar */}
+          <div className="team-section-header">
+            <h2 className="team-section-title">Team Radar</h2>
+            <button className="team-refresh-btn" onClick={loadData}>
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+            </button>
+          </div>
+          <div className="activity-radar-list">
+            {activityData.radar.length === 0 ? (
+              <div className="activity-empty">No active reps today yet.</div>
+            ) : (
+              activityData.radar.map((rep, idx) => (
+                <div className="radar-card" key={rep.rep_id}>
+                  <div className="radar-avatar" style={{ background: AVATAR_COLORS[idx % AVATAR_COLORS.length] }}>
+                    {getInitials(rep.rep_name)}
+                  </div>
+                  <div className="radar-info">
+                    <div className="radar-name">{rep.rep_name}{rep.rep_id === user?.id && <span style={{ marginLeft: 6, fontSize: 10, color: '#818cf8', fontWeight: 900 }}>YOU</span>}</div>
+                    <div className="radar-loc">{rep.street_name}</div>
+                  </div>
+                  <div className="radar-time">{getTimeAgo(rep.timestamp)}</div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Live Feed */}
+          <div className="team-section-header" style={{ marginTop: 12 }}>
+            <h2 className="team-section-title">Live Feed</h2>
+          </div>
+          <div className="activity-feed-list">
+            {activityData.feed.length === 0 ? (
+              <div className="activity-empty" style={{ marginTop: 24 }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🔥</div>
+                <p>No wins logged yet today.</p>
+              </div>
+            ) : (
+              activityData.feed.map((event) => {
+                const isCommercialEvent = event.mode === MODES.COMMERCIAL;
+                const isWalkthrough = event.status === 'WALKTHROUGH_BOOKED';
+                const isSale = event.status === 'SALE';
+                const isCallback = event.status === 'CALLBACK' || event.status === 'NOT_NOW';
+                const color = isWalkthrough ? STATUS_COLORS.WALKTHROUGH_BOOKED : isSale ? STATUS_COLORS.SALE : isCallback ? STATUS_COLORS.CALLBACK : STATUS_COLORS.CONVO;
+                const sd = event.sale_details;
+                return (
+                  <div className="feed-card" key={event.id}>
+                    <div className="feed-icon" style={{ background: `${color}1A`, color: color }}>
+                      {isWalkthrough ? '📋' : isSale ? '💰' : isCallback ? '📅' : '💬'}
+                    </div>
+                    <div className="feed-content">
+                      <div className="feed-text">
+                        {isWalkthrough && sd ? (
+                          <><strong>{event.rep_name}</strong> booked walkthrough for <span style={{ color: '#10b981', fontWeight: 800 }}>{event.business_name || sd.contact_name || 'Business'}</span></>
+                        ) : isSale && sd ? (
+                          <><strong>{event.rep_name}</strong> closed <span style={{ color: '#10b981', fontWeight: 800 }}>{sd.homeowner_name}</span>{sd.job_total ? <span style={{ color: '#a78bfa', fontWeight: 700 }}> · {sd.job_total}</span> : ''}{sd.payment_method ? <span style={{ color: '#8888a0', fontWeight: 500 }}> ({sd.payment_method})</span> : ''}</>
+                        ) : (
+                          <><strong>{event.rep_name}</strong> reached <span style={{ color, fontWeight: 800 }}>{event.status.replace(/_/g, ' ')}</span></>
+                        )}
+                      </div>
+                      <div className="feed-street">
+                        {event.business_name ? `${event.business_name} · ` : ''}{event.suite ? `Unit ${event.suite}, ` : ''}{event.street_name || event.address}
+                        {(isSale || isWalkthrough) && sd?.phone && <span style={{ marginLeft: 8, color: '#818cf8', fontSize: 11 }}>{sd.phone}</span>}
+                        {isSale && sd?.service_date && <span style={{ marginLeft: 8, color: '#f59e0b', fontSize: 11 }}>{new Date(sd.service_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                        {isWalkthrough && sd?.walkthrough_at && <span style={{ marginLeft: 8, color: '#10b981', fontSize: 11 }}>Walkthrough: {new Date(sd.walkthrough_at).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>}
+                      </div>
+                    </div>
+                    <div className="feed-time">{getTimeAgo(event.timestamp)}</div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════
+           SEGMENT: SALES BOOK (Persistent)
+         ════════════════════════════════════ */}
+      {segment === 'SALES' && (
+        <div className="team-segment-content">
+          {/* Header: title + total revenue or lead counts */}
+          <div className="team-section-header">
+            <h2 className="team-section-title">{isCommercial ? 'Commercial Pipeline' : 'Sales Book'}</h2>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {!isCommercial && (
+                <>
+                  <div className="team-total-revenue-pill" title="Total Revenue">
+                     ${allSales.reduce((sum, s) => {
+                       const val = parseFloat(String(s.details?.job_total || '0').replace(/[^0-9.]/g, ''));
+                       return sum + (isNaN(val) ? 0 : val);
+                     }, 0).toLocaleString()}
+                  </div>
+                  <div className="team-total-revenue-pill" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }} title="Your Commission">
+                     ${allSales.reduce((sum, s) => {
+                       if (s.rep_id !== user?.id) return sum;
+                       return sum + calculateCommission(s.details?.job_total);
+                     }, 0).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  </div>
+                </>
+              )}
+              {isCommercial && (
+                <div className="team-total-revenue-pill" style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderColor: 'rgba(16, 185, 129, 0.3)' }}>
+                  {leads.length > 0 ? `${leads.length} Leads` : `${allSales.length} Walkthroughs`}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Commercial Stage filter tabs */}
+          {isCommercial && leads.length > 0 && (
+            <div className="board-quick-tabs" style={{ marginBottom: 12, overflowX: 'auto', flexWrap: 'nowrap' }}>
+              <div className="board-quick-tab-group" style={{ overflowX: 'auto', maxWidth: '100%' }}>
+                <button
+                  className={`board-quick-tab ${stageFilter === 'ALL' ? 'active' : ''}`}
+                  onClick={() => setStageFilter('ALL')}
+                >
+                  All ({leads.length})
+                </button>
+                {LEAD_STAGES.map(st => {
+                  const count = leads.filter(l => l.stage === st).length;
+                  if (count === 0 && st !== 'WALKTHROUGH_BOOKED' && st !== 'DM_IDENTIFIED') return null;
+                  return (
+                    <button
+                      key={st}
+                      className={`board-quick-tab ${stageFilter === st ? 'active' : ''}`}
+                      onClick={() => setStageFilter(st)}
+                    >
+                      {LEAD_STAGE_LABELS[st] || st} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Search bar */}
+          <div className="sales-search-wrap">
+            <svg className="sales-search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              id="sales-search-input"
+              className="sales-search-input"
+              type="text"
+              placeholder={isCommercial ? "Search business, contact, rep, address…" : "Search homeowner, rep, address…"}
+              value={salesSearch}
+              onChange={e => setSalesSearch(e.target.value)}
+            />
+            {salesSearch && (
+              <button className="sales-search-clear" onClick={() => setSalesSearch('')}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            )}
+          </div>
+
+          <div className="sales-book-list">
+            {(() => {
+              const q = salesSearch.toLowerCase().trim();
+
+              // In Commercial mode, prefer persistent leads table if available
+              if (isCommercial && leads.length > 0) {
+                let filteredLeads = leads;
+                if (stageFilter !== 'ALL') {
+                  filteredLeads = filteredLeads.filter(l => l.stage === stageFilter);
+                }
+                if (q) {
+                  filteredLeads = filteredLeads.filter(l =>
+                    (l.business_name || '').toLowerCase().includes(q) ||
+                    (l.owner_name || '').toLowerCase().includes(q) ||
+                    (l.address || '').toLowerCase().includes(q) ||
+                    (l.notes || '').toLowerCase().includes(q) ||
+                    (l.contacts && JSON.stringify(l.contacts).toLowerCase().includes(q))
+                  );
+                }
+
+                if (filteredLeads.length === 0) {
+                  return (
+                    <div className="activity-empty">
+                      {q ? `No leads matching "${q}"` : 'No leads in this stage.'}
+                    </div>
+                  );
+                }
+
+                return filteredLeads.map((lead) => {
+                  const stageColor = LEAD_STAGE_COLORS[lead.stage] || '#3b82f6';
+                  return (
+                    <div
+                      className="sale-book-card"
+                      key={lead.id}
+                      onTouchStart={() => handleCardPressStart(lead)}
+                      onTouchEnd={handleCardPressEnd}
+                      onTouchMove={handleCardPressEnd}
+                      onMouseDown={() => handleCardPressStart(lead)}
+                      onMouseUp={handleCardPressEnd}
+                      onMouseLeave={handleCardPressEnd}
+                      style={{ cursor: 'pointer', userSelect: 'none' }}
+                    >
+                      <div className="sale-book-header">
+                        <div className="sale-book-main">
+                          <div className="sale-homeowner">
+                            {lead.business_name}
+                            {lead.contacts?.[0]?.name && (
+                              <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text-secondary)', marginLeft: 6 }}>
+                                ({lead.contacts[0].name})
+                              </span>
+                            )}
+                          </div>
+                          <div className="sale-address">
+                            <span
+                              className="sale-status-badge"
+                              style={{ background: `${stageColor}25`, color: stageColor, borderColor: `${stageColor}40` }}
+                            >
+                              {LEAD_STAGE_LABELS[lead.stage] || lead.stage}
+                            </span>
+                            <span className="sale-address-text">{lead.suite ? `Unit ${lead.suite}, ` : ''}{lead.address}</span>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          {lead.est_monthly_value && (
+                            <div className="sale-amount-badge" style={{ color: '#10b981' }}>
+                              ${Number(lead.est_monthly_value).toLocaleString()}/mo
+                            </div>
+                          )}
+                          <button
+                            className="sale-edit-btn"
+                            id={`lead-edit-${lead.id}`}
+                            onClick={e => { e.stopPropagation(); openEditModal(lead); }}
+                            onTouchStart={e => e.stopPropagation()}
+                            onMouseDown={e => e.stopPropagation()}
+                            title="Edit lead"
+                          >
+                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="sale-details-grid">
+                        <div className="sale-detail-item">
+                          <span className="sale-detail-lbl">Rep</span>
+                          <span className="sale-detail-val">{lead.owner_name}</span>
+                        </div>
+                        <div className="sale-detail-item">
+                          <span className="sale-detail-lbl">Updated</span>
+                          <span className="sale-detail-val">{new Date(lead.updated_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                        </div>
+                        {lead.next_follow_up_at && (
+                          <div className="sale-detail-item">
+                            <span className="sale-detail-lbl">Next Follow-Up</span>
+                            <span className="sale-detail-val" style={{ color: '#10b981' }}>
+                              {new Date(lead.next_follow_up_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                          </div>
+                        )}
+                        {lead.current_vendor && (
+                          <div className="sale-detail-item">
+                            <span className="sale-detail-lbl">Vendor</span>
+                            <span className="sale-detail-val" style={{ color: '#f59e0b' }}>{lead.current_vendor}</span>
+                          </div>
+                        )}
+                        {lead.frequency && (
+                          <div className="sale-detail-item">
+                            <span className="sale-detail-lbl">Freq</span>
+                            <span className="sale-detail-val">{lead.frequency}</span>
+                          </div>
+                        )}
+                      </div>
+                      {lead.notes && (
+                        <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 6 }}>
+                          "{lead.notes}"
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              }
+
+              // Fallback to allSales (events-based walkthroughs)
+              const filtered = q
+                ? allSales.filter(s =>
+                    (s.business_name || '').toLowerCase().includes(q) ||
+                    (s.details.contact_name || s.details.homeowner_name || '').toLowerCase().includes(q) ||
+                    (s.rep_name || '').toLowerCase().includes(q) ||
+                    (s.address || '').toLowerCase().includes(q) ||
+                    (s.details.phone || '').includes(q) ||
+                    (String(s.details.job_total || '')).includes(q)
+                  )
+                : allSales;
+
+              if (filtered.length === 0) {
+                return (
+                  <div className="activity-empty">
+                    {q ? `No items matching "${q}"` : (isCommercial ? 'No commercial walkthroughs or leads recorded yet.' : 'No sales history found.')}
+                  </div>
+                );
+              }
+
+              return filtered.map((sale) => {
+                const isCancelled = sale.job_status === 'CANCELLED';
+                const isCommercialSale = sale.mode === MODES.COMMERCIAL;
+                return (
+                <div
+                  className={`sale-book-card ${isCancelled ? 'sale-cancelled' : ''}`}
+                  key={sale.id}
+                  onTouchStart={() => handleCardPressStart(sale)}
+                  onTouchEnd={handleCardPressEnd}
+                  onTouchMove={handleCardPressEnd}
+                  onMouseDown={() => handleCardPressStart(sale)}
+                  onMouseUp={handleCardPressEnd}
+                  onMouseLeave={handleCardPressEnd}
+                  style={{ cursor: 'pointer', userSelect: 'none', WebkitTouchCallout: 'none' }}
+                >
+                  <div className="sale-book-header">
+                    <div className="sale-book-main">
+                      <div className="sale-homeowner">
+                        {sale.business_name
+                          ? `${sale.business_name} (${sale.details.contact_name || 'Contact'})`
+                          : (sale.details.homeowner_name || sale.details.contact_name || <span style={{ color: '#55556a', fontStyle: 'italic' }}>Anonymous</span>)}
+                      </div>
+                      <div className="sale-address">
+                        <span className={`sale-status-badge status-${(sale.job_status || 'PREBOOKED').toLowerCase()}`}>
+                          {sale.job_status || (isCommercialSale ? 'WALKTHROUGH' : 'PREBOOKED')}
+                        </span>
+                        <span className="sale-address-text">{sale.suite ? `Unit ${sale.suite}, ` : ''}{sale.address}</span>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {!isCommercialSale && (
+                        <div className="sale-amount-badge">
+                          {sale.details.job_total ? `$${sale.details.job_total}` : <span style={{ color: '#55556a' }}>—</span>}
+                        </div>
+                      )}
+                      <button
+                        className="sale-edit-btn"
+                        id={`sale-edit-${sale.id}`}
+                        onClick={e => { e.stopPropagation(); openEditModal(sale); }}
+                        onTouchStart={e => e.stopPropagation()}
+                        onMouseDown={e => e.stopPropagation()}
+                        title="Edit sale"
+                      >
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="sale-details-grid">
+                    <div className="sale-detail-item">
+                      <span className="sale-detail-lbl">Rep</span>
+                      <span className="sale-detail-val">{sale.rep_name}</span>
+                    </div>
+                    <div className="sale-detail-item">
+                      <span className="sale-detail-lbl">Date</span>
+                      <span className="sale-detail-val">{new Date(sale.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+                    </div>
+                    {sale.details.phone && (
+                      <div className="sale-detail-item">
+                        <span className="sale-detail-lbl">Phone</span>
+                        <span className="sale-detail-val" style={{ color: '#818cf8' }}>{sale.details.phone}</span>
+                      </div>
+                    )}
+                    {sale.details.email && (
+                      <div className="sale-detail-item">
+                        <span className="sale-detail-lbl">Email</span>
+                        <span className="sale-detail-val" style={{ color: '#818cf8', fontSize: '10px' }}>{sale.details.email}</span>
+                      </div>
+                    )}
+                    {sale.details.walkthrough_at && (
+                      <div className="sale-detail-item">
+                        <span className="sale-detail-lbl">Walkthrough</span>
+                        <span className="sale-detail-val" style={{ color: '#10b981' }}>{new Date(sale.details.walkthrough_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                    )}
+                    {sale.details.service_date && (
+                      <div className="sale-detail-item">
+                        <span className="sale-detail-lbl">Service</span>
+                        <span className="sale-detail-val" style={{ color: '#f59e0b' }}>{new Date(sale.details.service_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                      </div>
+                    )}
+                    {sale.details.payment_method && (
+                      <div className="sale-detail-item">
+                        <span className="sale-detail-lbl">Pay</span>
+                        <span className="sale-detail-val">{sale.details.payment_method}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit Sale Modal ── */}
+      {editSale && (
+        <div className="ops-modal-overlay" onClick={() => setEditSale(null)}>
+          <div className="ops-modal-content edit-sale-modal" onClick={e => e.stopPropagation()}>
+            <div className="ops-modal-header">
+              <div>
+                <h3 style={{ marginBottom: 2 }}>Edit Sale</h3>
+                <div style={{ fontSize: 12, color: '#8888a0' }}>{editSale.address}</div>
+              </div>
+              <button className="ops-close-btn" onClick={() => setEditSale(null)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+              </button>
+            </div>
+
+            {isCommercial && editSale?.stage ? (
+              <div className="edit-form-grid">
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Lifecycle Stage</label>
+                  <select
+                    className="edit-form-input edit-form-select"
+                    style={{ fontWeight: 800, color: LEAD_STAGE_COLORS[editForm.stage] || '#3b82f6' }}
+                    value={editForm.stage}
+                    onChange={e => setEditForm(f => ({ ...f, stage: e.target.value }))}
+                  >
+                    {Object.entries(LEAD_STAGE_LABELS).map(([k, label]) => (
+                      <option key={k} value={k}>{label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Business Name</label>
+                  <input
+                    className="edit-form-input"
+                    type="text"
+                    placeholder="Business Name"
+                    value={editForm.business_name}
+                    onChange={e => setEditForm(f => ({ ...f, business_name: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Est. Monthly Value ($/mo)</label>
+                  <input
+                    className="edit-form-input"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g. 1500"
+                    value={editForm.job_total}
+                    onChange={e => setEditForm(f => ({ ...f, job_total: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Quote Amount ($/mo)</label>
+                  <input
+                    className="edit-form-input"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g. 1250"
+                    value={editForm.quote_amount}
+                    onChange={e => setEditForm(f => ({ ...f, quote_amount: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Next Follow-Up</label>
+                  <input
+                    className="edit-form-input"
+                    type="datetime-local"
+                    value={editForm.service_date}
+                    onChange={e => setEditForm(f => ({ ...f, service_date: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field" style={{ gridColumn: 'span 2' }}>
+                  <label className="edit-form-label">Notes</label>
+                  <textarea
+                    className="edit-form-input"
+                    rows="3"
+                    placeholder="Decision maker preferences, vendor notes..."
+                    value={editForm.notes}
+                    onChange={e => setEditForm(f => ({ ...f, notes: e.target.value }))}
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="edit-form-grid">
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Job Status</label>
+                  <select
+                    className="edit-form-input edit-form-select"
+                    style={{ fontWeight: 800, color: editForm.job_status === 'COMPLETED' ? '#10b981' : editForm.job_status === 'CANCELLED' ? '#ef4444' : '#f59e0b' }}
+                    value={editForm.job_status}
+                    onChange={e => setEditForm(f => ({ ...f, job_status: e.target.value }))}
+                  >
+                    <option value="PREBOOKED">Prebooked</option>
+                    <option value="COMPLETED">Completed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Closed By (Rep)</label>
+                  <input
+                    className="edit-form-input"
+                    type="text"
+                    placeholder="Rep name"
+                    value={editForm.rep_override}
+                    onChange={e => setEditForm(f => ({ ...f, rep_override: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Homeowner Name</label>
+                  <input
+                    className="edit-form-input"
+                    type="text"
+                    placeholder="Full name"
+                    value={editForm.homeowner_name}
+                    onChange={e => setEditForm(f => ({ ...f, homeowner_name: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Deal Size ($)</label>
+                  <input
+                    className="edit-form-input"
+                    type="text"
+                    inputMode="decimal"
+                    placeholder="e.g. 350"
+                    value={editForm.job_total}
+                    onChange={e => setEditForm(f => ({ ...f, job_total: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Phone</label>
+                  <input
+                    className="edit-form-input"
+                    type="tel"
+                    placeholder="(555) 000-0000"
+                    value={editForm.phone}
+                    onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Email</label>
+                  <input
+                    className="edit-form-input"
+                    type="email"
+                    placeholder="customer@email.com"
+                    value={editForm.email}
+                    onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Service Date</label>
+                  <input
+                    className="edit-form-input"
+                    type="date"
+                    value={editForm.service_date}
+                    onChange={e => setEditForm(f => ({ ...f, service_date: e.target.value }))}
+                  />
+                </div>
+                <div className="edit-form-field">
+                  <label className="edit-form-label">Payment Method</label>
+                  <select
+                    className="edit-form-input edit-form-select"
+                    value={editForm.payment_method}
+                    onChange={e => setEditForm(f => ({ ...f, payment_method: e.target.value }))}
+                  >
+                    <option value="">Select…</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Check">Check</option>
+                    <option value="Card">Card</option>
+                    <option value="Venmo">Venmo</option>
+                    <option value="Zelle">Zelle</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+              </div>
+            )}
+
+            <div className="edit-form-actions" style={{ justifyContent: 'space-between' }}>
+              <button className="edit-cancel-btn" style={{ background: '#ef444420', color: '#ef4444', borderColor: 'transparent' }} onClick={handleDeleteSale} disabled={saving}>
+                Delete Sale
+              </button>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="edit-cancel-btn" onClick={() => setEditSale(null)} disabled={saving}>Cancel</button>
+                <button className="edit-save-btn" onClick={handleSaveEdit} disabled={saving}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Operations Modal ── */}
+      {operationsSale && (
+        <div className="ops-modal-overlay" onClick={() => setOperationsSale(null)}>
+          <div className="ops-modal-content" onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="ops-modal-header">
+              <div>
+                <h3 style={{ marginBottom: 2 }}>{operationsSale.details.homeowner_name || 'Anonymous Customer'}</h3>
+                <div style={{ fontSize: 12, color: '#8888a0', fontWeight: 500 }}>{operationsSale.address}</div>
+              </div>
+              <button className="ops-close-btn" onClick={() => setOperationsSale(null)}>
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
+            </div>
+
+            {/* Sale Details */}
+            <div className="ops-section-label">Sale Details</div>
+            <div className="ops-sale-details-grid">
+              <div className="ops-sale-detail">
+                <span className="ops-sale-lbl">Rep</span>
+                <span className="ops-sale-val">{operationsSale.rep_name}</span>
+              </div>
+              <div className="ops-sale-detail">
+                <span className="ops-sale-lbl">Date</span>
+                <span className="ops-sale-val">{new Date(operationsSale.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}</span>
+              </div>
+              {operationsSale.details.phone && (
+                <div className="ops-sale-detail">
+                  <span className="ops-sale-lbl">Phone</span>
+                  <span className="ops-sale-val" style={{ color: '#818cf8' }}>{operationsSale.details.phone}</span>
+                </div>
+              )}
+              {operationsSale.details.email && (
+                <div className="ops-sale-detail">
+                  <span className="ops-sale-lbl">Email</span>
+                  <span className="ops-sale-val" style={{ color: '#818cf8', fontSize: 10 }}>{operationsSale.details.email}</span>
+                </div>
+              )}
+              {operationsSale.details.service_date && (
+                <div className="ops-sale-detail">
+                  <span className="ops-sale-lbl">Service</span>
+                  <span className="ops-sale-val" style={{ color: '#f59e0b' }}>{new Date(operationsSale.details.service_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</span>
+                </div>
+              )}
+              {operationsSale.details.payment_method && (
+                <div className="ops-sale-detail">
+                  <span className="ops-sale-lbl">Pay</span>
+                  <span className="ops-sale-val">{operationsSale.details.payment_method}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Operations Breakdown */}
+            <div className="ops-section-label" style={{ marginTop: 20 }}>Operations Breakdown</div>
+            {(() => {
+              const totalValStr = String(operationsSale.details?.job_total || '0').replace(/[^0-9.]/g, '');
+              const jobTotal = parseFloat(totalValStr);
+              if (isNaN(jobTotal) || jobTotal <= 0) {
+                return <p style={{ color: '#8888a0', textAlign: 'center', marginTop: 12, fontSize: 13 }}>No job total on record.</p>;
+              }
+
+              const commissionVal = calculateCommission(jobTotal);
+              const commissionPct = (commissionVal / jobTotal) * 100;
+              const labourCost = 40;
+              const companyProfit = jobTotal - commissionVal - labourCost;
+
+              return (
+                <div className="ops-calc-grid">
+                  <div className="ops-calc-row">
+                    <span>Job Total</span>
+                    <span style={{ fontWeight: 800 }}>${jobTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="ops-calc-row">
+                    <span>Commission ({commissionPct * 100}%)</span>
+                    <span style={{ color: '#10b981' }}>-${commissionVal.toFixed(2)}</span>
+                  </div>
+                  <div className="ops-calc-row" style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: 12, marginBottom: 4 }}>
+                    <span>Labour Cost</span>
+                    <span style={{ color: '#ef4444' }}>-${labourCost.toFixed(2)}</span>
+                  </div>
+                  <div className="ops-calc-row ops-total">
+                    <span>Net Profit</span>
+                    <span style={{ color: companyProfit >= 0 ? '#a78bfa' : '#ef4444' }}>${companyProfit.toFixed(2)}</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className={`team-toast ${toast.type}`}>{toast.msg}</div>
+      )}
+    </div>
+  );
+}

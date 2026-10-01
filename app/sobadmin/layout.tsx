@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, Briefcase, UserCheck,
   Settings, ClipboardList, Waves,
   Package,
-  TrendingUp, Globe, Shield,
+  TrendingUp, Shield,
   Menu, X, LogOut,
 } from 'lucide-react';
 
@@ -17,11 +17,11 @@ import { createClient } from '@/lib/supabase/client';
 const sidebarItems = [
   { href: '/sobadmin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/sobadmin/leads', label: 'Leads', icon: ClipboardList },
+  { href: '/sobadmin/sales', label: 'Sales OS', icon: Waves },
   { href: '/sobadmin/jobs', label: 'Jobs', icon: Briefcase },
   { href: '/sobadmin/customers', label: 'Customers', icon: Users },
   { href: '/sobadmin/employees', label: 'Employees', icon: UserCheck },
   { href: '/sobadmin/supply', label: 'Supply', icon: Package },
-  { href: '/sobadmin/zones', label: 'Zones', icon: Globe },
   { href: '/sobadmin/finance', label: 'Finance', icon: TrendingUp },
   { href: '/sobadmin/audit', label: 'Audit Trail', icon: Shield },
   { href: '/sobadmin/settings', label: 'Settings', icon: Settings },
@@ -177,7 +177,7 @@ export default function AdminLayout({
 
       {/* Main content — add top padding on mobile for the top bar */}
       <main className="flex-1 overflow-auto min-w-0 pt-14 lg:pt-0">
-        <div className={pathname === '/sobadmin' ? '' : 'p-4 md:p-6 lg:p-8 min-w-0'}>
+        <div className={pathname === '/sobadmin' || pathname === '/sobadmin/sales' ? 'p-0 md:p-6 lg:p-8 min-w-0' : 'p-4 md:p-6 lg:p-8 min-w-0'}>
           {children}
         </div>
       </main>

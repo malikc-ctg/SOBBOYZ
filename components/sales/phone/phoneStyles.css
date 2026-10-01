@@ -1,0 +1,704 @@
+/* ========================================================
+   PHONE SALES OS — Sea of Blue Admin Workstation Theme
+   ======================================================== */
+
+.phone-workspace-root {
+  width: 100%;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 16px 60px;
+  box-sizing: border-box;
+  color: #fffcf6;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* Desktop Split Layout (Two Columns) */
+.phone-grid-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+/* Single column on mobile / tablet */
+@media (max-width: 960px) {
+  .phone-grid-layout {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+}
+
+.phone-panel {
+  background: #001d40;
+  border: 1px solid rgba(60, 108, 168, 0.25);
+  border-radius: 16px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+@media (min-width: 961px) {
+  .phone-panel {
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+  }
+}
+
+.phone-panel-header {
+  padding: 14px 18px;
+  border-bottom: 1px solid rgba(60, 108, 168, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.phone-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  letter-spacing: -0.3px;
+}
+
+.phone-badge {
+  font-size: 10px;
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  padding: 2px 7px;
+  border-radius: 6px;
+  font-weight: 700;
+}
+
+/* Hero Metrics Strip (Clean Row Matching SOB Admin) */
+.phone-metrics-strip {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.phone-metric-item {
+  background: #001733;
+  border: 1px solid rgba(60, 108, 168, 0.25);
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+
+.phone-metric-item:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-1px);
+}
+
+.phone-metric-num {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+}
+
+.phone-metric-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #88a2c0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 3px;
+}
+
+/* Sub-Tab Navigation Pills */
+.phone-subtabs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid rgba(60, 108, 168, 0.2);
+  margin-bottom: 16px;
+}
+
+.phone-subtab-btn {
+  padding: 8px 6px;
+  border-radius: 8px;
+  border: none;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  background: transparent;
+  color: #88a2c0;
+  transition: all 0.18s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-subtab-btn:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.phone-subtab-btn.active {
+  background: #2563eb;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.35);
+}
+
+/* Search Bar */
+.phone-search-box {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.phone-search-input {
+  width: 100%;
+  padding: 10px 14px 10px 36px;
+  background: #001326;
+  border: 1px solid rgba(60, 108, 168, 0.3);
+  border-radius: 10px;
+  color: #fff;
+  font-size: 13px;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.18s;
+}
+
+.phone-search-input:focus {
+  border-color: #3b82f6;
+  background: #001733;
+}
+
+.phone-search-icon {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #64748b;
+  pointer-events: none;
+}
+
+/* Filter Chips */
+.phone-filter-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+
+.phone-filter-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.phone-filter-pill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+  border: 1px solid rgba(60, 108, 168, 0.25);
+  background: rgba(255, 255, 255, 0.03);
+  color: #88a2c0;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.phone-filter-pill:hover {
+  color: #fff;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.phone-filter-pill.active {
+  background: rgba(37, 99, 235, 0.2);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+
+/* Lead List Container */
+.phone-lead-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 580px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.phone-lead-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.phone-lead-list::-webkit-scrollbar-thumb {
+  background: rgba(60, 108, 168, 0.3);
+  border-radius: 4px;
+}
+
+/* Lead Cards */
+.phone-lead-card {
+  background: #001733;
+  border: 1px solid rgba(60, 108, 168, 0.2);
+  border-radius: 12px;
+  padding: 12px 14px;
+  transition: all 0.15s ease;
+  position: relative;
+  cursor: pointer;
+}
+
+.phone-lead-card:hover {
+  background: #001d40;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.phone-lead-card.selected {
+  border-color: #3b82f6;
+  background: rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.2);
+}
+
+.phone-lead-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.phone-lead-name {
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phone-lead-type-badge {
+  font-size: 9px;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  letter-spacing: 0.4px;
+}
+
+.badge-inbound {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.badge-winback {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.badge-commercial {
+  background: rgba(139, 92, 246, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(139, 92, 246, 0.3);
+}
+
+.phone-lead-phone {
+  font-size: 13px;
+  font-weight: 700;
+  color: #60a5fa;
+  margin-bottom: 4px;
+}
+
+.phone-lead-service {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.phone-lead-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #64748b;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid rgba(60, 108, 168, 0.15);
+}
+
+.phone-lead-val {
+  color: #10b981;
+  font-weight: 800;
+}
+
+/* Right Panel: Workstation Canvas */
+.phone-workstation-content {
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Active Lead Header Dossier */
+.phone-active-dossier {
+  background: #001733;
+  border: 1px solid rgba(60, 108, 168, 0.25);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phone-dossier-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phone-dossier-name {
+  font-size: 18px;
+  font-weight: 800;
+  color: #fff;
+}
+
+.phone-dossier-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.phone-dossier-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.2);
+  padding: 10px 12px;
+  border-radius: 10px;
+}
+
+.phone-dossier-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.phone-dossier-label {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.phone-dossier-val {
+  font-size: 13px;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-top: 2px;
+}
+
+/* Call Control Buttons */
+.phone-call-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px 16px;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 3px 12px rgba(16, 185, 129, 0.25);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.phone-call-btn:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.phone-text-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  background: #00244c;
+  border: 1px solid rgba(60, 108, 168, 0.3);
+  border-radius: 10px;
+  color: #93c5fd;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s;
+}
+
+.phone-text-btn:hover {
+  background: #002f66;
+  color: #fff;
+}
+
+/* Active Call Console Banner */
+.phone-active-call-box {
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.phone-call-timer-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.phone-timer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 16px;
+  font-weight: 900;
+  color: #10b981;
+  font-variant-numeric: tabular-nums;
+}
+
+.phone-timer-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* Dispositions Grid */
+.phone-dispositions-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.phone-disp-btn {
+  padding: 9px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(60, 108, 168, 0.25);
+  background: #001733;
+  color: #e2e8f0;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.phone-disp-btn:hover {
+  filter: brightness(1.15);
+  transform: translateY(-1px);
+}
+
+.phone-disp-btn.won {
+  background: linear-gradient(135deg, #10b981, #047857);
+  border-color: #10b981;
+  color: #fff;
+  grid-column: span 3;
+  padding: 12px;
+  font-size: 14px;
+}
+
+/* Notes Scratchpad */
+.phone-notes-area {
+  width: 100%;
+  min-height: 80px;
+  background: #001326;
+  border: 1px solid rgba(60, 108, 168, 0.3);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.phone-notes-area:focus {
+  border-color: #3b82f6;
+}
+
+/* Scripts & Battle Cards Accordion */
+.phone-scripts-card {
+  background: #001733;
+  border: 1px solid rgba(60, 108, 168, 0.25);
+  border-radius: 12px;
+  padding: 14px 16px;
+}
+
+.phone-scripts-header {
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.phone-script-box {
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 3px solid #3b82f6;
+  padding: 10px 12px;
+  border-radius: 0 8px 8px 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #cbd5e1;
+  margin-top: 8px;
+}
+
+/* Dialpad Container */
+.phone-dialpad-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 320px;
+  margin: 0 auto;
+  padding: 20px 0;
+  width: 100%;
+}
+
+.phone-dial-display {
+  width: 100%;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: #fff;
+  background: #001326;
+  border: 1px solid rgba(60, 108, 168, 0.3);
+  border-radius: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  min-height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  box-sizing: border-box;
+}
+
+.phone-dial-clear {
+  position: absolute;
+  right: 12px;
+  background: transparent;
+  border: none;
+  color: #ef4444;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.phone-keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.phone-key-btn {
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: #001733;
+  border: 1px solid rgba(60, 108, 168, 0.25);
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.phone-key-btn:hover {
+  background: #00244c;
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.phone-key-num {
+  font-size: 22px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.phone-key-letters {
+  font-size: 8px;
+  font-weight: 700;
+  color: #64748b;
+  letter-spacing: 1px;
+  margin-top: 2px;
+}
+
+/* Call Logs Table */
+.phone-logs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.phone-logs-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 11px;
+  color: #64748b;
+  text-transform: uppercase;
+  border-bottom: 1px solid rgba(60, 108, 168, 0.2);
+}
+
+.phone-logs-table td {
+  padding: 12px;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(60, 108, 168, 0.1);
+}
+
+/* Modals */
+.phone-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(6px);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.phone-modal-content {
+  background: #001d40;
+  border: 1px solid rgba(60, 108, 168, 0.3);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 460px;
+  padding: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8);
+}
