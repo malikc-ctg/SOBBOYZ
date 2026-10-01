@@ -24,6 +24,7 @@ import '@/components/sales/phone/phoneStyles.css';
 import '@/components/sales/launchpadStyles.css';
 
 import { createClient } from '@/lib/supabase/client';
+import { syncEngine } from '@/lib/sales/syncEngine';
 
 export default function AdminSalesOSPage() {
   const searchParams = useSearchParams();
@@ -61,6 +62,15 @@ export default function AdminSalesOSPage() {
     }
     loadAuth();
   }, []);
+
+  useEffect(() => {
+    if (user?.id) {
+      syncEngine.setUserId(user.id);
+      syncEngine.start();
+    } else {
+      syncEngine.stop();
+    }
+  }, [user?.id]);
 
   const APP_METAS: Record<string, { title: string; badge: string; icon: any; iconColor: string }> = {
     residential: { title: 'KnockLog Residential', badge: 'Field Canvassing', icon: Home, iconColor: 'text-blue-500' },

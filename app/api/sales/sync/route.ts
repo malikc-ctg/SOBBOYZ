@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
         type: e.type,
         payload: {
           ...p,
+          rep_id: repId,
           mode: (p.mode || 'residential').toLowerCase(),
         },
         created_at: e.created_at || new Date().toISOString(),
