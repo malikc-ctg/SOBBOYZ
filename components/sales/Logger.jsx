@@ -470,26 +470,54 @@ export default function Logger({
     const val = e.target.value;
     setStreetInput(val);
     
-    if (val.trim().length > 2) {
+    if (val.trim().length > 1) {
       try {
-        // Use live GPS for proximity when available, fallback to Toronto center
         const prox = geoRef.current.lat
           ? `${geoRef.current.lng},${geoRef.current.lat}`
           : '-79.3832,43.6532';
-        // In commercial mode, search POIs (plazas, businesses) + addresses
-        const types = mode === MODES.COMMERCIAL
-          ? 'poi,poi.landmark,address,neighborhood'
-          : 'address,street';
-        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?access_token=${MAPBOX_TOKEN}&autocomplete=true&limit=5&country=ca&types=${types}&proximity=${prox}&bbox=-80.8,42.9,-78.5,44.4`);
-        const data = await res.json();
-        const results = data.features || [];
+        
+        let results = [];
+        // First try the specialized server endpoint (searches businesses, plazas, POIs via Mapbox SearchBox)
+        try {
+          const res = await fetch(`/api/sales/places-search?q=${encodeURIComponent(val)}&proximity=${encodeURIComponent(prox)}&mode=${mode}`);
+          if (res.ok) {
+            const data = await res.json();
+            results = data.suggestions || [];
+          }
+        } catch {
+          // Fallback to client-side fetch if server route unavailable
+        }
+
+        // If server returned nothing and we have MAPBOX_TOKEN, fallback to direct Mapbox client geocoding
+        if (results.length === 0 && MAPBOX_TOKEN) {
+          const types = mode === MODES.COMMERCIAL ? 'poi,poi.landmark,address,neighborhood' : 'address,street';
+          const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(val)}.json?access_token=${MAPBOX_TOKEN}&autocomplete=true&limit=5&country=ca&types=${types}&proximity=${prox}`);
+          if (res.ok) {
+            const data = await res.json();
+            results = (data.features || []).map(f => ({
+              id: f.id,
+              name: f.text,
+              text: f.text,
+              place_name: f.place_name,
+              address: f.place_name,
+              center: f.center,
+              lat: f.center?.[1],
+              lng: f.center?.[0],
+              is_poi: f.place_type?.includes('poi') || false,
+            }));
+          }
+        }
+
         // In commercial mode, append a "Use with GPS" fallback option
-        if (mode === MODES.COMMERCIAL && val.trim().length > 2 && geoRef.current.lat) {
+        if (mode === MODES.COMMERCIAL && val.trim().length > 1) {
           results.push({
             id: '__gps_fallback__',
+            name: val.trim(),
             text: val.trim(),
-            place_name: 'Use this name with current GPS location',
-            center: [geoRef.current.lng, geoRef.current.lat],
+            place_name: geoRef.current.lat ? 'Use this name with current GPS location' : 'Use this custom name',
+            center: [geoRef.current.lng || -79.3832, geoRef.current.lat || 43.6532],
+            lat: geoRef.current.lat,
+            lng: geoRef.current.lng,
             _isGpsFallback: true,
           });
         }
@@ -502,27 +530,41 @@ export default function Logger({
     }
   };
 
-  const selectStreetSuggestion = (feature) => {
-    if (mode === MODES.COMMERCIAL && (feature.place_type?.includes('poi') || feature._isGpsFallback)) {
-      // POI or GPS fallback — extract business/plaza name + underlying address
-      const poiName = feature.text || '';
+  const selectStreetSuggestion = async (feature) => {
+    if (mode === MODES.COMMERCIAL && (feature.is_poi || feature.place_type?.includes('poi') || feature._isGpsFallback)) {
+      const poiName = feature.name || feature.text || '';
       setBusinessName(poiName);
       if (feature._isGpsFallback) {
-        // Use typed text as street name with GPS coords
         setStreetInput(poiName);
+        if (geoRef.current.lat) {
+          setStreetCoords({ lng: geoRef.current.lng, lat: geoRef.current.lat });
+        }
       } else {
-        // Extract the street address from the POI's full place_name
-        // Format is typically "POI Name, 123 Street, City, Province, Country"
-        const parts = (feature.place_name || '').split(',').map(s => s.trim());
-        const addressPart = parts.length > 1 ? parts.slice(1, -2).join(', ') : poiName;
-        setStreetInput(addressPart || poiName);
+        const fullAddr = feature.address || feature.place_name || poiName;
+        setStreetInput(fullAddr);
+
+        if (feature.lat && feature.lng) {
+          setStreetCoords({ lng: feature.lng, lat: feature.lat });
+        } else if (feature.center) {
+          setStreetCoords({ lng: feature.center[0], lat: feature.center[1] });
+        } else if (feature.mapbox_id) {
+          try {
+            const rRes = await fetch(`/api/sales/places-search?mapbox_id=${encodeURIComponent(feature.mapbox_id)}`);
+            if (rRes.ok) {
+              const rData = await rRes.json();
+              if (rData.lat && rData.lng) {
+                setStreetCoords({ lng: rData.lng, lat: rData.lat });
+              }
+            }
+          } catch {}
+        }
       }
     } else {
-      const name = feature.text || feature.place_name?.split(',')[0] || ''; 
+      const name = feature.name || feature.text || feature.place_name?.split(',')[0] || ''; 
       setStreetInput(name);
-    }
-    if (feature.center) {
-      setStreetCoords({ lng: feature.center[0], lat: feature.center[1] });
+      if (feature.center) {
+        setStreetCoords({ lng: feature.center[0], lat: feature.center[1] });
+      }
     }
     setStreetSuggestions([]);
   };
@@ -1444,11 +1486,11 @@ export default function Logger({
                   >
                     <div style={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
                       {f._isGpsFallback && <span style={{ fontSize: 14 }}>📍</span>}
-                      {f.place_type?.includes('poi') && !f._isGpsFallback && <span style={{ fontSize: 14 }}>🏢</span>}
-                      {f.text}
+                      {(f.is_poi || f.place_type?.includes('poi') || f.feature_type === 'poi') && !f._isGpsFallback && <span style={{ fontSize: 14 }}>🏢</span>}
+                      {f.name || f.text}
                     </div>
                     <div style={{ fontSize: '11px', color: f._isGpsFallback ? '#3b82f6' : 'var(--text-muted)', marginTop: '2px' }}>
-                      {f._isGpsFallback ? 'Use this name with your current GPS location' : f.place_name}
+                      {f._isGpsFallback ? 'Use this name with your current GPS location' : (f.address || f.place_name)}
                     </div>
                   </div>
                 ))}
