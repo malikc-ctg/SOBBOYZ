@@ -19,7 +19,7 @@ const STATUS_COLORS = {
   'CONSTRUCTION':   '#f59e0b',
 };
 
-export default function MapTab({ user, repName, isActive }) {
+export default function MapTab({ user, repName, isActive, salesMode = 'residential' }) {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [pinCount, setPinCount] = useState(0);
@@ -328,7 +328,7 @@ export default function MapTab({ user, repName, isActive }) {
   const loadCoverage = useCallback(async (shouldFit = false) => {
     if (!mapRef.current || !mapReady) return;
     try {
-      const geo = await getTeamCoverageGeoJSON();
+      const geo = await getTeamCoverageGeoJSON(salesMode);
       const source = mapRef.current.getSource('team-coverage');
       if (source) {
         source.setData(geo);
@@ -346,7 +346,7 @@ export default function MapTab({ user, repName, isActive }) {
     } catch (err) {
       console.error('[MapTab] loadCoverage error:', err);
     }
-  }, [mapReady]);
+  }, [mapReady, salesMode]);
 
   // ── Load coverage once when switching to COVERAGE view ──
   useEffect(() => {
@@ -368,9 +368,9 @@ export default function MapTab({ user, repName, isActive }) {
   const refreshPins = useCallback(async () => {
     if (!mapRef.current || !mapReady) return;
     try {
-      let geojson = await getActiveSessionGeoJSON();
+      let geojson = await getActiveSessionGeoJSON(salesMode);
       if (!geojson?.features || geojson.features.length === 0) {
-        geojson = await getPropertiesAsGeoJSON();
+        geojson = await getPropertiesAsGeoJSON(salesMode);
       }
 
       const source = mapRef.current.getSource('properties');
@@ -383,23 +383,30 @@ export default function MapTab({ user, repName, isActive }) {
       const rsStart = await sqlocal.sql`SELECT payload FROM events WHERE type = 'DAY_START' ORDER BY created_at DESC LIMIT 1`;
       if (rsStart.length > 0) {
         const sessData = JSON.parse(rsStart[0].payload);
-        const knocksRs = await sqlocal.sql`SELECT payload FROM events WHERE type = 'KNOCK'`;
-        const knocks = knocksRs.filter(r => JSON.parse(r.payload).session_id === sessData.session_id);
+        const isCommSession = sessData.sales_mode === 'commercial' || sessData.mode === 'commercial';
+        if ((salesMode === 'commercial' && isCommSession) || (salesMode !== 'commercial' && !isCommSession)) {
+          const knocksRs = await sqlocal.sql`SELECT payload FROM events WHERE type = 'KNOCK'`;
+          const knocks = knocksRs.filter(r => JSON.parse(r.payload).session_id === sessData.session_id);
 
-        const uniqueKeys = new Set();
-        knocks.forEach(r => {
-          const p = JSON.parse(r.payload);
-          const key = `${p.house_number || ''} ${p.street_name || ''}`.trim().toLowerCase();
-          if (key) uniqueKeys.add(key);
-        });
-        setTotalKnocks(uniqueKeys.size);
+          const uniqueKeys = new Set();
+          knocks.forEach(r => {
+            const p = JSON.parse(r.payload);
+            const key = salesMode === 'commercial'
+              ? `${p.street_name || ''} ${p.company_name || ''}`.trim().toLowerCase()
+              : `${p.house_number || ''} ${p.street_name || ''}`.trim().toLowerCase();
+            if (key) uniqueKeys.add(key);
+          });
+          setTotalKnocks(uniqueKeys.size);
+        } else {
+          setTotalKnocks(0);
+        }
       } else {
         setTotalKnocks(0);
       }
 
       // Fetch team ghost data
       if (navigator.onLine && user?.id) {
-        const teamGeo = await getTeamGeoJSON(user.id);
+        const teamGeo = await getTeamGeoJSON(user.id, salesMode);
         const teamSource = mapRef.current.getSource('team-properties');
         if (teamSource) {
           teamSource.setData(teamGeo);
@@ -410,7 +417,7 @@ export default function MapTab({ user, repName, isActive }) {
     } catch (err) {
       console.error('[MapTab] Pin refresh error:', err);
     }
-  }, [mapReady, user?.id]);
+  }, [mapReady, user?.id, salesMode]);
 
   // ── Refresh pins only when tab is active ──
   useEffect(() => {
@@ -471,7 +478,7 @@ export default function MapTab({ user, repName, isActive }) {
       {/* ── Pin Count ── */}
       {mapView !== 'COVERAGE' && (
         <div className="map-pin-count" style={{ left: 16, top: 76 }}>
-          <span>{pinCount}</span> my properties
+          <span>{pinCount}</span> {salesMode === 'commercial' ? 'commercial targets' : 'my properties'}
           {mapView === 'TEAM' && teamPinCount > 0 && (
             <span style={{ marginLeft: 8, color: '#a78bfa', fontSize: 10 }}>
               + {teamPinCount} team

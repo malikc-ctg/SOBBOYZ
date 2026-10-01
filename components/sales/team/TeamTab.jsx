@@ -156,7 +156,7 @@ function CustomDatePicker({ onSelect, onClose, currentDate }) {
   );
 }
 
-export default function TeamTab({ user, repName, isActive }) {
+export default function TeamTab({ user, repName, isActive, salesMode = 'residential' }) {
   const [segment, setSegment] = useState('LEADERBOARD'); // 'LEADERBOARD' | 'ACTIVITY' | 'SALES'
   const [stats, setStats] = useState([]);
   const [activityData, setActivityData] = useState({ feed: [], radar: [] });
@@ -257,9 +257,9 @@ export default function TeamTab({ user, repName, isActive }) {
     const dateToUse = dateOverride !== undefined ? dateOverride : boardDate;
     try {
       const [s, a, sales] = await Promise.all([
-        getTeamStats(dateToUse),
-        getTeamActivity(),
-        getAllSales()
+        getTeamStats(dateToUse, salesMode),
+        getTeamActivity(salesMode),
+        getAllSales(salesMode)
       ]);
       setStats(s);
       setActivityData(a);
@@ -269,7 +269,7 @@ export default function TeamTab({ user, repName, isActive }) {
     } finally {
       setLoading(false);
     }
-  }, [boardDate]);
+  }, [boardDate, salesMode]);
 
   useEffect(() => {
     if (!isActive) return;
@@ -419,7 +419,7 @@ export default function TeamTab({ user, repName, isActive }) {
             <div className="board-team-totals">
               <div className="team-total-item">
                 <span className="team-total-val">{teamTotals.doors}</span>
-                <span className="team-total-lbl">Doors</span>
+                <span className="team-total-lbl">{salesMode === 'commercial' ? 'Targets' : 'Doors'}</span>
               </div>
               <div className="team-total-item">
                 <span className="team-total-val" style={{ color: '#3b82f6' }}>{teamTotals.convos}</span>
@@ -466,8 +466,16 @@ export default function TeamTab({ user, repName, isActive }) {
             ) : stats.length === 0 ? (
               <div className="leaderboard-empty">
                 <div className="leaderboard-empty-icon">📊</div>
-                <p>No activity logged{boardDate === 'TODAY' ? ' today yet' : boardDate === 'ALL_TIME' ? ' yet' : ' on this day'}.</p>
-                <p style={{ fontSize: 12, marginTop: 4 }}>{boardDate === 'TODAY' ? 'Start knocking and watch the board fill up.' : 'Try selecting a different date range.'}</p>
+                <p>
+                  {salesMode === 'commercial'
+                    ? `No commercial knocks recorded${boardDate === 'TODAY' ? ' today yet' : boardDate === 'ALL_TIME' ? ' yet' : ' on this date'}.`
+                    : `No activity logged${boardDate === 'TODAY' ? ' today yet' : boardDate === 'ALL_TIME' ? ' yet' : ' on this day'}.`}
+                </p>
+                <p style={{ fontSize: 12, marginTop: 4 }}>
+                  {salesMode === 'commercial'
+                    ? 'Start knocking B2B properties and targets will appear here.'
+                    : boardDate === 'TODAY' ? 'Start knocking and watch the board fill up.' : 'Try selecting a different date range.'}
+                </p>
               </div>
             ) : (
               stats.map((rep, idx) => {
@@ -489,7 +497,7 @@ export default function TeamTab({ user, repName, isActive }) {
                       <div className="lb-stats-row">
                         <div className="lb-stat">
                           <span className="lb-stat-val">{rep.doors}</span>
-                          <span className="lb-stat-lbl">Doors</span>
+                          <span className="lb-stat-lbl">{salesMode === 'commercial' ? 'Targets' : 'Doors'}</span>
                         </div>
                         <div className="lb-stat">
                           <span className="lb-stat-val" style={{ color: '#3b82f6' }}>{rep.convos}</span>
@@ -542,7 +550,7 @@ export default function TeamTab({ user, repName, isActive }) {
           </div>
           <div className="activity-radar-list">
             {activityData.radar.length === 0 ? (
-              <div className="activity-empty">No active reps today yet.</div>
+              <div className="activity-empty">{salesMode === 'commercial' ? 'No active commercial reps today yet.' : 'No active reps today yet.'}</div>
             ) : (
               activityData.radar.map((rep, idx) => (
                 <div className="radar-card" key={rep.rep_id}>
@@ -567,7 +575,7 @@ export default function TeamTab({ user, repName, isActive }) {
             {activityData.feed.length === 0 ? (
               <div className="activity-empty" style={{ marginTop: 24 }}>
                 <div style={{ fontSize: 32, marginBottom: 8 }}>🔥</div>
-                <p>No wins logged yet today.</p>
+                <p>{salesMode === 'commercial' ? 'No commercial wins logged yet today.' : 'No wins logged yet today.'}</p>
               </div>
             ) : (
               activityData.feed.map((event) => {
@@ -610,7 +618,7 @@ export default function TeamTab({ user, repName, isActive }) {
         <div className="team-segment-content">
           {/* Header: title + total revenue */}
           <div className="team-section-header">
-            <h2 className="team-section-title">Sales Book</h2>
+            <h2 className="team-section-title">{salesMode === 'commercial' ? 'Commercial Deals' : 'Sales Book'}</h2>
             <div style={{ display: 'flex', gap: 8 }}>
               <div className="team-total-revenue-pill" title="Total Revenue">
                  ${allSales.reduce((sum, s) => {
@@ -636,7 +644,7 @@ export default function TeamTab({ user, repName, isActive }) {
               id="sales-search-input"
               className="sales-search-input"
               type="text"
-              placeholder="Search homeowner, rep, address…"
+              placeholder={salesMode === 'commercial' ? "Search business, rep, address…" : "Search homeowner, rep, address…"}
               value={salesSearch}
               onChange={e => setSalesSearch(e.target.value)}
             />
@@ -665,7 +673,7 @@ export default function TeamTab({ user, repName, isActive }) {
               if (filtered.length === 0) {
                 return (
                   <div className="activity-empty">
-                    {q ? `No sales matching "${q}"` : 'No sales history found.'}
+                    {q ? `No sales matching "${q}"` : salesMode === 'commercial' ? 'No commercial contracts booked yet.' : 'No sales history found.'}
                   </div>
                 );
               }

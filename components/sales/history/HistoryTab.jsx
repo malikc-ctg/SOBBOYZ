@@ -15,7 +15,7 @@ function getInitials(name) {
   return (name || '?').split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 }
 
-export default function HistoryTab({ user }) {
+export default function HistoryTab({ user, salesMode = 'residential' }) {
   const [subTab, setSubTab] = useState('my'); // 'my' | 'team'
   const [sessions, setSessions] = useState([]);
   const [teamSessions, setTeamSessions] = useState([]);
@@ -28,7 +28,7 @@ export default function HistoryTab({ user }) {
     let mounted = true;
 
     async function loadData() {
-      const localData = await getLocalHistory();
+      const localData = await getLocalHistory(salesMode);
       if (mounted) {
         setSessions(localData);
         setLoading(false);
@@ -37,7 +37,7 @@ export default function HistoryTab({ user }) {
       const hasNewData = await forceSyncHistoryDeltas(user.id);
       
       if (hasNewData && mounted) {
-        const mergedData = await getLocalHistory();
+        const mergedData = await getLocalHistory(salesMode);
         setSessions(mergedData);
       }
     }
@@ -45,7 +45,7 @@ export default function HistoryTab({ user }) {
     loadData();
 
     const interval = setInterval(async () => {
-      const liveData = await getLocalHistory();
+      const liveData = await getLocalHistory(salesMode);
       if (mounted) setSessions(liveData);
     }, 5000);
 
@@ -53,7 +53,7 @@ export default function HistoryTab({ user }) {
       mounted = false;
       clearInterval(interval);
     };
-  }, [user.id]);
+  }, [user.id, salesMode]);
 
   // 2. Fetch team history (Supabase)
   useEffect(() => {
@@ -62,7 +62,7 @@ export default function HistoryTab({ user }) {
 
     async function loadTeamData() {
       setTeamLoading(true);
-      const teamData = await getTeamHistory();
+      const teamData = await getTeamHistory(salesMode);
       if (mounted) {
         setTeamSessions(teamData);
         setTeamLoading(false);
@@ -72,7 +72,7 @@ export default function HistoryTab({ user }) {
     loadTeamData();
 
     const interval = setInterval(async () => {
-      const teamData = await getTeamHistory();
+      const teamData = await getTeamHistory(salesMode);
       if (mounted) setTeamSessions(teamData);
     }, 30000);
 
@@ -80,7 +80,7 @@ export default function HistoryTab({ user }) {
       mounted = false;
       clearInterval(interval);
     };
-  }, [subTab]);
+  }, [subTab, salesMode]);
 
   // Bulk Export all visible team knocks to CSV
   function handleBulkExport() {
@@ -201,7 +201,7 @@ export default function HistoryTab({ user }) {
               <div className="session-stats-row">
                 <div className="s-stat">
                   <span className="s-val">{s.total_doors}</span>
-                  <span className="s-lbl">Doors</span>
+                  <span className="s-lbl">{salesMode === 'commercial' ? 'Targets' : 'Doors'}</span>
                 </div>
                 <div className="s-stat">
                   <span className="s-val" style={{ color: '#3b82f6' }}>{s.total_convos}</span>
@@ -271,8 +271,8 @@ export default function HistoryTab({ user }) {
       ) : activeSessionsList.length === 0 ? (
         <p style={{ color: '#9ca3af', marginTop: 32, textAlign: 'center' }}>
           {subTab === 'my' 
-            ? 'No session history found on this device. Syncing...' 
-            : 'No team history found in the last 30 days.'}
+            ? (salesMode === 'commercial' ? 'No commercial sessions logged yet.' : 'No session history found on this device. Syncing...') 
+            : (salesMode === 'commercial' ? 'No commercial team history found.' : 'No team history found in the last 30 days.')}
         </p>
       ) : (
         <>

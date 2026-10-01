@@ -126,7 +126,13 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
 
         for (const row of events) {
           const p = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
-          const addr = `${p.house_number || ''} ${p.street_name || ''}`.trim().toLowerCase();
+          const isComm = p.mode === 'commercial' || p.service_type === 'commercial_b2b';
+          if (salesMode === 'commercial' && !isComm) continue;
+          if (salesMode !== 'commercial' && isComm) continue;
+
+          const addr = (p.mode === 'commercial'
+            ? `${p.street_name || ''} ${p.company_name || ''}`
+            : `${p.house_number || ''} ${p.street_name || ''}`).trim().toLowerCase();
           if (!addr) continue;
           const isYest = row.created_at >= yestStart && row.created_at < yestEnd;
 
@@ -179,7 +185,8 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
           const payload = JSON.parse(row.payload);
           if (row.type === 'DAY_START') {
             const today = new Date().toISOString().split('T')[0];
-            if (payload.session_date === today) {
+            const isComm = payload.sales_mode === 'commercial' || payload.mode === 'commercial';
+            if (payload.session_date === today && ((salesMode === 'commercial' && isComm) || (salesMode !== 'commercial' && !isComm))) {
               sess = payload;
               dState = 'ACTIVE';
               evts = [];
@@ -244,7 +251,7 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
         watchIdRef.current = null;
       }
     };
-  }, [user.id]);
+  }, [user.id, salesMode]);
 
   // ── GPS lifecycle: only track location when tab is active & session is running ──
   useEffect(() => {
@@ -278,7 +285,9 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
     const payload = {
       session_id: sessionId,
       session_date: today,
-      start_time: new Date().toISOString()
+      start_time: new Date().toISOString(),
+      sales_mode: salesMode,
+      mode: salesMode
     };
     
     await insertLocalEvent(crypto.randomUUID(), 'DAY_START', payload);
@@ -749,7 +758,9 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
           {/* Rep greeting */}
           <div className="pre-session-greeting">
             <span className="pre-session-name">{repName}</span>
-            <span className="pre-session-ready">Ready to knock?</span>
+            <span className="pre-session-ready">
+              {salesMode === 'commercial' ? 'Ready to scout commercial targets?' : 'Ready to knock?'}
+            </span>
           </div>
 
           {/* Yesterday card — mirrors closed session stat-card style */}
@@ -763,14 +774,14 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
               <>
                 <div className="stats-grid">
                   <div className="stat-card pre-card-delay-1">
-                    <span className="stat-card-label">Doors</span>
-                    <span className="stat-card-value">{repStats?.yestDoors ?? '—'}</span>
-                    <span className="stat-card-sub">{repStats?.yestSales ?? 0} sales</span>
+                    <span className="stat-card-label">{salesMode === 'commercial' ? 'Targets' : 'Doors'}</span>
+                    <span className="stat-card-value">{repStats?.yestDoors ?? 0}</span>
+                    <span className="stat-card-sub">{repStats?.yestSales ?? 0} {salesMode === 'commercial' ? 'deals' : 'sales'}</span>
                   </div>
                   <div className="stat-card pre-card-delay-2">
                     <span className="stat-card-label">Close Rate</span>
-                    <span className="stat-card-value" style={{ color: 'var(--success)' }}>{repStats?.yestCloseRate ?? '—'}%</span>
-                    <span className="stat-card-sub">{repStats?.yestSales ?? 0} of {repStats?.yestDoors ?? 0} doors</span>
+                    <span className="stat-card-value" style={{ color: 'var(--success)' }}>{repStats?.yestCloseRate ?? '0.0'}%</span>
+                    <span className="stat-card-sub">{repStats?.yestSales ?? 0} of {repStats?.yestDoors ?? 0} {salesMode === 'commercial' ? 'targets' : 'doors'}</span>
                   </div>
                 </div>
               </>
@@ -781,23 +792,23 @@ export default function Logger({ user, repName, onLogout, isActive, initialSales
               <h3 className="efficiency-title">All-Time</h3>
               <div className="efficiency-row">
                 <div className="efficiency-metric">
-                  <span className="efficiency-val">{statsLoading ? '—' : (repStats?.allDoors ?? '—')}</span>
-                  <span className="efficiency-lab">Total Doors</span>
+                  <span className="efficiency-val">{statsLoading ? '—' : (repStats?.allDoors ?? 0)}</span>
+                  <span className="efficiency-lab">{salesMode === 'commercial' ? 'Total Targets' : 'Total Doors'}</span>
                 </div>
                 <div className="efficiency-metric" style={{ textAlign: 'right' }}>
-                  <span className="efficiency-val" style={{ color: 'var(--success)' }}>{statsLoading ? '—' : (repStats?.allSales ?? '—')}</span>
-                  <span className="efficiency-lab">Total Sales</span>
+                  <span className="efficiency-val" style={{ color: 'var(--success)' }}>{statsLoading ? '—' : (repStats?.allSales ?? 0)}</span>
+                  <span className="efficiency-lab">{salesMode === 'commercial' ? 'Total Deals' : 'Total Sales'}</span>
                 </div>
               </div>
               <div style={{ height: '1px', background: 'rgba(255,255,255,0.04)' }} />
               <div className="efficiency-row">
                 <div className="efficiency-metric">
-                  <span className="efficiency-val" style={{ color: '#f59e0b' }}>{statsLoading ? '—' : `${repStats?.allCloseRate ?? '—'}%`}</span>
-                  <span className="efficiency-lab">All-Time Close %</span>
+                  <span className="efficiency-val" style={{ color: '#f59e0b' }}>{statsLoading ? '—' : `${repStats?.allCloseRate ?? '0.0'}%`}</span>
+                  <span className="efficiency-lab">{salesMode === 'commercial' ? 'Close Rate' : 'All-Time Close %'}</span>
                 </div>
                 <div className="efficiency-metric" style={{ textAlign: 'right' }}>
-                  <span className="efficiency-val" style={{ color: '#a78bfa' }}>{statsLoading ? '—' : `$${repStats?.allCommission ? repStats.allCommission.toFixed(0) : '—'}`}</span>
-                  <span className="efficiency-lab">Total Commission</span>
+                  <span className="efficiency-val" style={{ color: '#a78bfa' }}>{statsLoading ? '—' : `$${repStats?.allCommission ? repStats.allCommission.toFixed(0) : '0'}`}</span>
+                  <span className="efficiency-lab">{salesMode === 'commercial' ? 'Est. Commission' : 'Total Commission'}</span>
                 </div>
               </div>
             </div>

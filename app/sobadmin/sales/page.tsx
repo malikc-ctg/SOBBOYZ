@@ -137,13 +137,13 @@ export default function AdminSalesOSPage() {
               />
             </div>
             <div style={{ display: fieldTab === 'MAP' ? 'block' : 'none', height: '520px', width: '100%' }}>
-              <MapTab user={user} repName={repName} isActive={fieldTab === 'MAP'} />
+              <MapTab user={user} repName={repName} isActive={fieldTab === 'MAP'} salesMode={activeApp} />
             </div>
             <div style={{ display: fieldTab === 'TEAM' ? 'block' : 'none', minHeight: '520px', width: '100%' }}>
-              <TeamTab user={user} repName={repName} isActive={fieldTab === 'TEAM'} />
+              <TeamTab user={user} repName={repName} isActive={fieldTab === 'TEAM'} salesMode={activeApp} />
             </div>
             <div style={{ display: fieldTab === 'HISTORY' ? 'block' : 'none', minHeight: '520px' }}>
-              <HistoryTab user={user} repName={repName} isActive={fieldTab === 'HISTORY'} />
+              <HistoryTab user={user} repName={repName} isActive={fieldTab === 'HISTORY'} salesMode={activeApp} />
             </div>
           </div>
         </div>
