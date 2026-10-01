@@ -3,6 +3,7 @@ import mapboxgl from 'mapbox-gl';
 import { getActiveSessionGeoJSON } from '@/lib/sales/propertyService';
 import { getTeamGeoJSON, getTeamCoverageGeoJSON } from '@/lib/sales/teamService';
 import { sqlocal } from '@/lib/sales/db';
+import { syncEngine } from '@/lib/sales/syncEngine';
 import { MODES, COMMERCIAL_STATUS_COLORS, COMMERCIAL_STATUS_LABELS, LEAD_STAGE_COLORS } from '@/lib/sales/modes';
 import '@/components/sales/mapStyles.css';
 
@@ -458,6 +459,12 @@ export default function MapTab({
 
       // Fetch team ghost data
       if (navigator.onLine && user?.id) {
+        try {
+          if (syncEngine && typeof syncEngine.runSync === 'function') {
+            await syncEngine.runSync();
+          }
+        } catch (e) {}
+
         const teamGeo = await getTeamGeoJSON(user.id, mode);
         const teamSource = mapRef.current.getSource('team-properties');
         if (teamSource) {

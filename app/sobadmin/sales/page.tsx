@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   LayoutGrid, ArrowLeft, Home, Building2, 
-  PhoneCall, Map, Trophy, Compass, Clock, Users
+  PhoneCall, Map, Trophy, Compass, Clock, Users, RefreshCw
 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@/components/sales/styles/knocklog.css';
@@ -25,6 +25,7 @@ import '@/components/sales/launchpadStyles.css';
 
 import { createClient } from '@/lib/supabase/client';
 import { syncEngine } from '@/lib/sales/syncEngine';
+import { getPendingEvents } from '@/lib/sales/db';
 
 export default function AdminSalesOSPage() {
   const searchParams = useSearchParams();
@@ -63,6 +64,9 @@ export default function AdminSalesOSPage() {
     loadAuth();
   }, []);
 
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+
   useEffect(() => {
     if (user?.id) {
       syncEngine.setUserId(user.id);
@@ -71,6 +75,35 @@ export default function AdminSalesOSPage() {
       syncEngine.stop();
     }
   }, [user?.id]);
+
+  useEffect(() => {
+    async function checkPending() {
+      try {
+        const items = await getPendingEvents();
+        setPendingSyncCount(items.length);
+      } catch (e) {}
+    }
+    checkPending();
+    const unsub = syncEngine.subscribe(async () => {
+      try {
+        const items = await getPendingEvents();
+        setPendingSyncCount(items.length);
+      } catch (e) {}
+    });
+    return unsub;
+  }, []);
+
+  const handleForceSync = async () => {
+    setIsSyncing(true);
+    try {
+      const res = await syncEngine.forceSync();
+      setPendingSyncCount(res.pendingCount || 0);
+    } catch (e) {
+      console.warn('Force sync error:', e);
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const APP_METAS: Record<string, { title: string; badge: string; icon: any; iconColor: string }> = {
     residential: { title: 'KnockLog Residential', badge: 'Field Canvassing', icon: Home, iconColor: 'text-blue-500' },
@@ -145,18 +178,36 @@ export default function AdminSalesOSPage() {
 
         {/* Right: Sub-tabs for Field KnockLog or Rep Badge */}
         {(activeApp === 'residential' || activeApp === 'commercial') ? (
-          <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/40 p-0.5 rounded-lg border border-border/50 shrink-0">
-            {(['KNOCK', 'MAP', 'TEAM', 'HISTORY'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setFieldTab(tab)}
-                className={`px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition-all ${
-                  fieldTab === tab ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {tab === 'KNOCK' ? 'Knock' : tab === 'MAP' ? 'Map' : tab === 'TEAM' ? 'Team' : 'Hist'}
-              </button>
-            ))}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <button
+              onClick={handleForceSync}
+              disabled={isSyncing}
+              title={pendingSyncCount > 0 ? `${pendingSyncCount} offline knocks waiting to sync. Click to sync now.` : "All knocks synced to cloud"}
+              className={`h-7 px-2 flex items-center gap-1 rounded-md text-[11px] font-medium border transition-colors ${
+                pendingSyncCount > 0
+                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 animate-pulse'
+                  : 'bg-card text-muted-foreground border-border/60 hover:text-foreground'
+              }`}
+            >
+              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-primary' : pendingSyncCount > 0 ? 'text-amber-400' : 'text-emerald-500'}`} />
+              <span className="hidden sm:inline">
+                {isSyncing ? 'Syncing...' : pendingSyncCount > 0 ? `${pendingSyncCount} unsynced` : 'Synced'}
+              </span>
+            </button>
+
+            <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/40 p-0.5 rounded-lg border border-border/50 shrink-0">
+              {(['KNOCK', 'MAP', 'TEAM', 'HISTORY'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setFieldTab(tab)}
+                  className={`px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition-all ${
+                    fieldTab === tab ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {tab === 'KNOCK' ? 'Knock' : tab === 'MAP' ? 'Map' : tab === 'TEAM' ? 'Team' : 'Hist'}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-2 shrink-0">

@@ -11,6 +11,7 @@ import {
   updateLeadDetails,
 } from '@/lib/sales/teamService';
 import { sqlocal } from '@/lib/sales/db';
+import { syncEngine } from '@/lib/sales/syncEngine';
 import { MODES, LEAD_STAGES, LEAD_STAGE_LABELS, LEAD_STAGE_COLORS } from '@/lib/sales/modes';
 import '@/components/sales/team/teamStyles.css';
 import '@/components/sales/mapStyles.css';
@@ -289,6 +290,12 @@ export default function TeamTab({
     if (!navigator.onLine) return;
     const dateToUse = dateOverride !== undefined ? dateOverride : boardDate;
     try {
+      try {
+        if (syncEngine && typeof syncEngine.runSync === 'function') {
+          await syncEngine.runSync();
+        }
+      } catch (e) {}
+
       const promises = [
         getTeamStats(dateToUse, mode),
         getTeamActivity(mode),
