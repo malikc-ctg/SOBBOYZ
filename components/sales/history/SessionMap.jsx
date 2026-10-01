@@ -1,17 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { resolveStatus, statusColor, MODES } from '@/lib/sales/modes';
 
-const MAPBOX_TOKEN = (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)) || '';
-const MAPBOX_STYLE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_MAPBOX_STYLE) || 'mapbox://styles/xmalikjc/cmnwoppdm00ck01s76r6ccva7';
-
-const STATUS_COLORS = {
-  'NO_ANSWER':      '#6b7280',
-  'CONVO':          '#3b82f6',
-  'SALE':           '#10b981',
-  'NOT_INTERESTED': '#ef4444',
-  'CALLBACK':       '#f59e0b',
-  'THINKING':       '#60a5fa',
-};
+const MAPBOX_TOKEN = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_MAPBOX_TOKEN) || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN) || '';
+const MAPBOX_STYLE = 'mapbox://styles/xmalikjc/cmnwoppdm00ck01s76r6ccva7';
 
 export default function SessionMap({ events }) {
   const mapContainer = useRef(null);
@@ -20,13 +12,11 @@ export default function SessionMap({ events }) {
   useEffect(() => {
     // Filter knocks that have coordinates
     const knobs = events.filter(e => e.type === 'KNOCK' && e.lat && e.lng);
-    if (!knobs.length || !MAPBOX_TOKEN || !mapContainer.current) return;
+    if (!knobs.length) return;
 
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    let map;
-    try {
-      map = new mapboxgl.Map({
+    const map = new mapboxgl.Map({
       container: mapContainer.current,
       style: MAPBOX_STYLE,
       center: [-79.38, 43.65],
@@ -40,20 +30,25 @@ export default function SessionMap({ events }) {
     const geojsonData = {
       type: 'FeatureCollection',
       features: knobs.map(k => {
-        let resolvedStatus = k.outcome || 'NO_ANSWER';
-        if (k.outcome === 'CONVO') {
-          if (k.objection === 'CALLBACK') resolvedStatus = 'CALLBACK';
-          else if (k.objection === 'NOT INTERESTED') resolvedStatus = 'NOT_INTERESTED';
-          else if (k.objection === 'NEED TO THINK' || k.objection === 'NOT DECISION MAKER') resolvedStatus = 'THINKING';
-          else resolvedStatus = 'CONVO';
-        }
+        const payloadMock = {
+          mode: k.mode,
+          outcome_type: k.outcome,
+          convo_status: k.objection === 'CALLBACK' ? 'CALLBACK' : null,
+          objection_type: k.objection
+        };
+        const resolvedStatus = resolveStatus(payloadMock);
+        const pinColor = statusColor(resolvedStatus, k.mode || MODES.RESIDENTIAL);
 
         return {
           type: 'Feature',
           geometry: { type: 'Point', coordinates: [k.lng, k.lat] },
           properties: {
             address: k.address,
+            business_name: k.business_name || null,
+            suite: k.suite || null,
+            mode: k.mode || MODES.RESIDENTIAL,
             last_status: resolvedStatus,
+            color: pinColor,
             timeLabel: new Date(k.time).toLocaleString([], { hour: '2-digit', minute: '2-digit' })
           }
         };
@@ -78,16 +73,7 @@ export default function SessionMap({ events }) {
         type: 'circle',
         source: 'session-pins',
         paint: {
-          'circle-color': [
-            'match', ['get', 'last_status'],
-            'SALE', STATUS_COLORS.SALE,
-            'CONVO', STATUS_COLORS.CONVO,
-            'NOT_INTERESTED', STATUS_COLORS.NOT_INTERESTED,
-            'CALLBACK', STATUS_COLORS.CALLBACK,
-            'THINKING', STATUS_COLORS.THINKING,
-            'NO_ANSWER', STATUS_COLORS.NO_ANSWER,
-            STATUS_COLORS.NO_ANSWER
-          ],
+          'circle-color': ['get', 'color'],
           'circle-radius': 7,
           'circle-stroke-width': 1,
           'circle-stroke-color': 'rgba(255,255,255,0.2)',
@@ -97,12 +83,13 @@ export default function SessionMap({ events }) {
       map.on('click', 'session-points', (e) => {
         const props = e.features[0].properties;
         const coords = e.features[0].geometry.coordinates.slice();
-        const statusLabel = (props.last_status || 'UNKNOWN').replace('_', ' ');
+        const statusLabel = (props.last_status || 'UNKNOWN').replace(/_/g, ' ');
+        const displayAddr = `${props.business_name ? `${props.business_name} · ` : ''}${props.suite ? `Unit ${props.suite}, ` : ''}${props.address}`;
 
         new mapboxgl.Popup({ offset: 10, closeButton: true })
           .setLngLat(coords)
           .setHTML(`
-            <div class="popup-address">${props.address}</div>
+            <div class="popup-address">${displayAddr}</div>
             <div class="popup-status ${props.last_status}">${statusLabel}</div>
             <div class="popup-time">${props.timeLabel}</div>
           `)
@@ -115,14 +102,7 @@ export default function SessionMap({ events }) {
       mapRef.current = map;
     });
 
-    return () => {
-      try {
-        if (map) map.remove();
-      } catch (e) {}
-    };
-    } catch (err) {
-      console.warn('[SessionMap] Mapbox init error:', err);
-    }
+    return () => map.remove();
   }, [events]);
 
   const hasPins = events.some(e => e.type === 'KNOCK' && e.lat && e.lng);

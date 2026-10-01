@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
 import SalesLaunchpad from '@/components/sales/SalesLaunchpad';
 import Logger from '@/components/sales/Logger';
 import PhoneTab from '@/components/sales/phone/PhoneTab';
@@ -23,8 +24,15 @@ import '@/components/sales/phone/phoneStyles.css';
 import '@/components/sales/launchpadStyles.css';
 
 export default function AdminSalesOSPage() {
-  const [activeApp, setActiveApp] = useState<string | null>(null);
+  const searchParams = useSearchParams();
+  const initialApp = searchParams.get('app') || searchParams.get('mode') || null;
+  const [activeApp, setActiveApp] = useState<string | null>(initialApp);
   const [fieldTab, setFieldTab] = useState<'KNOCK' | 'MAP' | 'TEAM' | 'HISTORY'>('KNOCK');
+
+  useEffect(() => {
+    const appParam = searchParams.get('app') || searchParams.get('mode');
+    if (appParam) setActiveApp(appParam);
+  }, [searchParams]);
 
   const user = {
     id: '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
@@ -67,28 +75,28 @@ export default function AdminSalesOSPage() {
   const MetaIcon = currentMeta.icon;
 
   return (
-    <div className="space-y-3 font-sans min-w-0">
+    <div className="space-y-2 sm:space-y-3 font-sans min-w-0">
       {/* Unified Compact Navigation Bar */}
-      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-border">
+      <div className="flex items-center justify-between gap-1.5 px-2 pt-1 pb-2 sm:px-0 sm:pt-0 sm:pb-2.5 border-b border-border">
         {/* Left: Back to Suite + App Title */}
-        <div className="flex items-center gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0">
           <Button
             variant="outline"
             size="sm"
             onClick={() => handleSelectApp(null)}
-            className="h-8 px-2.5 text-xs font-semibold gap-1.5 shadow-xs bg-card hover:bg-muted shrink-0"
+            className="h-8 px-2 text-xs font-semibold gap-1 shadow-xs bg-card hover:bg-muted shrink-0"
             title="Return to Sales OS Suite"
           >
             <ArrowLeft className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">Suite</span>
           </Button>
 
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-1.5 min-w-0">
             <div className={`w-7 h-7 rounded-lg flex items-center justify-center bg-card border border-border shrink-0 ${currentMeta.iconColor}`}>
               <MetaIcon className="w-3.5 h-3.5" />
             </div>
             <div className="min-w-0 truncate">
-              <span className="text-sm font-bold text-foreground truncate block leading-tight">
+              <span className="text-xs sm:text-sm font-bold text-foreground truncate block leading-tight">
                 {currentMeta.title}
               </span>
             </div>
@@ -97,16 +105,16 @@ export default function AdminSalesOSPage() {
 
         {/* Right: Sub-tabs for Field KnockLog or Rep Badge */}
         {(activeApp === 'residential' || activeApp === 'commercial') ? (
-          <div className="flex items-center gap-1 bg-muted/40 p-0.5 rounded-lg border border-border/50 shrink-0">
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/40 p-0.5 rounded-lg border border-border/50 shrink-0">
             {(['KNOCK', 'MAP', 'TEAM', 'HISTORY'] as const).map(tab => (
               <button
                 key={tab}
                 onClick={() => setFieldTab(tab)}
-                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${
+                className={`px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition-all ${
                   fieldTab === tab ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                {tab === 'KNOCK' ? 'Knock' : tab === 'MAP' ? 'Map' : tab === 'TEAM' ? 'Team' : 'History'}
+                {tab === 'KNOCK' ? 'Knock' : tab === 'MAP' ? 'Map' : tab === 'TEAM' ? 'Team' : 'Hist'}
               </button>
             ))}
           </div>
@@ -114,7 +122,7 @@ export default function AdminSalesOSPage() {
           <div className="flex items-center gap-2 shrink-0">
             <Badge variant="outline" className="h-7 px-2 text-[11px] gap-1.5 border-border bg-card font-sans">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-              <span className="text-muted-foreground">Rep:</span>
+              <span className="text-muted-foreground hidden sm:inline">Rep:</span>
               <span className="font-bold text-foreground">{repName}</span>
             </Badge>
           </div>
@@ -125,13 +133,15 @@ export default function AdminSalesOSPage() {
       {(activeApp === 'residential' || activeApp === 'commercial') && (
         <div className="w-full">
           {/* Centered Card Canvas without Redundant Headers */}
-          <div className={`max-w-xl mx-auto bg-card sm:border sm:border-border sm:rounded-2xl sm:shadow-xs overflow-hidden ${fieldTab === 'MAP' ? 'p-0' : 'p-1 sm:p-3'}`}>
+          <div className={`max-w-xl mx-auto bg-card sm:border sm:border-border sm:rounded-2xl sm:shadow-xs overflow-hidden ${fieldTab === 'MAP' ? 'p-0' : 'p-0 sm:p-3'}`}>
             <div style={{ display: fieldTab === 'KNOCK' ? 'block' : 'none', minHeight: '520px' }}>
               <Logger
                 user={user}
                 repName={repName}
                 onLogout={() => {}}
                 isActive={fieldTab === 'KNOCK'}
+                mode={activeApp === 'commercial' ? 'COMMERCIAL' : 'RESIDENTIAL'}
+                onModeChange={(newMode) => setActiveApp(newMode === 'COMMERCIAL' ? 'commercial' : 'residential')}
                 initialSalesMode={activeApp === 'commercial' ? 'commercial' : 'residential'}
                 hideHeader={true}
               />

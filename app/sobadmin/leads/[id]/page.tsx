@@ -13,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { ArrowLeft, ArrowRight, Trash2, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { SERVICE_TYPE_LABELS, TIME_WINDOW_LABELS } from '@/types';
+import { SERVICE_TYPE_LABELS, TIME_WINDOW_LABELS, LEAD_SOURCE_LABELS } from '@/types';
 import type { Lead } from '@/types';
 import Link from 'next/link';
 
@@ -171,7 +171,7 @@ export default function LeadDetailPage() {
             <div className="flex justify-between"><span className="text-muted-foreground">Phone</span><span>{lead.customer_phone}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Email</span><span>{lead.customer_email}</span></div>
             <div className="flex justify-between"><span className="text-muted-foreground">Address / City</span><span>{lead.city}</span></div>
-            <div className="flex justify-between"><span className="text-muted-foreground">Source</span><span className="capitalize">{lead.source}</span></div>
+            <div className="flex justify-between"><span className="text-muted-foreground">Source</span><span>{LEAD_SOURCE_LABELS[lead.source as keyof typeof LEAD_SOURCE_LABELS] || lead.source}</span></div>
           </CardContent>
         </Card>
 

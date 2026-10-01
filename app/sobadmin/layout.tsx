@@ -177,7 +177,7 @@ export default function AdminLayout({
 
       {/* Main content — add top padding on mobile for the top bar */}
       <main className="flex-1 overflow-auto min-w-0 pt-14 lg:pt-0">
-        <div className={pathname === '/sobadmin' ? '' : 'p-4 md:p-6 lg:p-8 min-w-0'}>
+        <div className={pathname === '/sobadmin' || pathname === '/sobadmin/sales' ? 'p-0 md:p-6 lg:p-8 min-w-0' : 'p-4 md:p-6 lg:p-8 min-w-0'}>
           {children}
         </div>
       </main>

@@ -62,7 +62,7 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto min-w-0 font-sans">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl mx-auto min-w-0 font-sans px-3 py-2 sm:px-0 sm:py-0">
       {/* Header Matching SOB Admin Style */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>

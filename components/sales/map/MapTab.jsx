@@ -1,25 +1,48 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { getActiveSessionGeoJSON, getPropertiesAsGeoJSON } from '@/lib/sales/propertyService';
+import { getActiveSessionGeoJSON } from '@/lib/sales/propertyService';
 import { getTeamGeoJSON, getTeamCoverageGeoJSON } from '@/lib/sales/teamService';
 import { sqlocal } from '@/lib/sales/db';
-import '../mapStyles.css';
+import { MODES, COMMERCIAL_STATUS_COLORS, COMMERCIAL_STATUS_LABELS, LEAD_STAGE_COLORS } from '@/lib/sales/modes';
+import '@/components/sales/mapStyles.css';
 
-const MAPBOX_TOKEN = (typeof process !== 'undefined' && (process.env.NEXT_PUBLIC_MAPBOX_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN)) || '';
-const MAPBOX_STYLE = (typeof process !== 'undefined' && process.env.NEXT_PUBLIC_MAPBOX_STYLE) || 'mapbox://styles/xmalikjc/cmnwoppdm00ck01s76r6ccva7';
+const MAPBOX_TOKEN = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_MAPBOX_TOKEN) || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN) || '';
+const MAPBOX_STYLE = 'mapbox://styles/xmalikjc/cmnwoppdm00ck01s76r6ccva7';
 
 const STATUS_COLORS = {
-  'NO_ANSWER':      '#6b7280',
-  'CONVO':          '#3b82f6',
-  'SALE':           '#10b981',
-  'NOT_INTERESTED': '#ef4444',
-  'CALLBACK':       '#a855f7',
-  'THINKING':       '#60a5fa',
-  'NO_SOLICITING':  '#dc2626',
-  'CONSTRUCTION':   '#f59e0b',
+  'NO_ANSWER':          '#6b7280',
+  'CONVO':              '#3b82f6',
+  'SALE':               '#10b981',
+  'NOT_INTERESTED':     '#ef4444',
+  'CALLBACK':           '#a855f7',
+  'THINKING':           '#60a5fa',
+  'NO_SOLICITING':      '#dc2626',
+  'CONSTRUCTION':       '#f59e0b',
+  // Commercial mappings
+  'GATEKEEPER':         COMMERCIAL_STATUS_COLORS.GATEKEEPER,
+  'DECISION_MAKER':     COMMERCIAL_STATUS_COLORS.DECISION_MAKER,
+  'DM_INTERESTED':      COMMERCIAL_STATUS_COLORS.DM_INTERESTED,
+  'HAS_VENDOR':         COMMERCIAL_STATUS_COLORS.HAS_VENDOR,
+  'LANDLORD':           COMMERCIAL_STATUS_COLORS.LANDLORD,
+  'NOT_NOW':            COMMERCIAL_STATUS_COLORS.NOT_NOW,
+  'WALKTHROUGH_BOOKED': COMMERCIAL_STATUS_COLORS.WALKTHROUGH_BOOKED,
+  // Lead pipeline stage colors
+  'COLD':               LEAD_STAGE_COLORS.COLD,
+  'CONTACTED':          LEAD_STAGE_COLORS.CONTACTED,
+  'DM_IDENTIFIED':      LEAD_STAGE_COLORS.DM_IDENTIFIED,
+  'QUOTED':             LEAD_STAGE_COLORS.QUOTED,
+  'WON':                LEAD_STAGE_COLORS.WON,
+  'LOST':               LEAD_STAGE_COLORS.LOST,
 };
 
-export default function MapTab({ user, repName, isActive, salesMode = 'residential' }) {
+export default function MapTab({
+  user,
+  repName = '',
+  isActive = false,
+  mode: controlledMode = '',
+  salesMode = '',
+}) {
+  const mode = controlledMode || (salesMode === 'commercial' ? MODES.COMMERCIAL : MODES.RESIDENTIAL);
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
   const [pinCount, setPinCount] = useState(0);
@@ -30,59 +53,37 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
   const [selectedPin, setSelectedPin] = useState(null);
   const [mapView, setMapView] = useState('MY'); // 'MY' | 'TEAM' | 'COVERAGE'
   const coverageLoaded = useRef(false);
-  const hasFittedInitialBounds = useRef(false);
-  const currentGeoJSONRef = useRef(null);
-
-  const fitToGeoJSON = useCallback((geojson, maxZoom = 15) => {
-    if (!mapRef.current || !geojson?.features || geojson.features.length === 0) return;
-    const coords = geojson.features
-      .map(f => f.geometry?.coordinates)
-      .filter(c => c && c.length === 2 && c[0] != null && c[1] != null && !isNaN(c[0]) && !isNaN(c[1]) && (Number(c[0]) !== 0 || Number(c[1]) !== 0));
-    
-    if (coords.length === 0) return;
-    if (coords.length === 1) {
-      mapRef.current.flyTo({ center: coords[0], zoom: 16 });
-      return;
-    }
-
-    const lngs = coords.map(c => c[0]);
-    const lats = coords.map(c => c[1]);
-    mapRef.current.fitBounds(
-      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
-      { padding: { top: 70, bottom: 50, left: 50, right: 50 }, maxZoom: maxZoom, duration: 800 }
-    );
-  }, []);
 
   // Ensure map canvas resizes when tab becomes visible
   useEffect(() => {
     if (isActive && mapRef.current) {
-      setTimeout(() => mapRef.current?.resize(), 50);
-      setTimeout(() => mapRef.current?.resize(), 200);
-      setTimeout(() => mapRef.current?.resize(), 500);
-      if (currentGeoJSONRef.current?.features?.length > 0 && !hasFittedInitialBounds.current) {
-        hasFittedInitialBounds.current = true;
-        setTimeout(() => fitToGeoJSON(currentGeoJSONRef.current), 300);
-      }
+      setTimeout(() => mapRef.current.resize(), 100);
     }
-  }, [isActive, fitToGeoJSON]);
+  }, [isActive]);
 
   // Initialize Mapbox
   useEffect(() => {
-    if (!mapContainer.current || !MAPBOX_TOKEN) return;
-
     mapboxgl.accessToken = MAPBOX_TOKEN;
 
-    let map;
-    try {
-      map = new mapboxgl.Map({
+    const map = new mapboxgl.Map({
       container: mapContainer.current,
       style: MAPBOX_STYLE,
-      center: [-79.45, 43.62],
-      zoom: 11,
+      center: [-79.38, 43.65],
+      zoom: 13,
       attributionControl: false,
     });
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
+
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 15 });
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 5000 }
+      );
+    }
 
     map.on('load', () => {
       // ── MY PINS SOURCE ──
@@ -99,6 +100,13 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
           'circle-color': [
             'match', ['get', 'last_status'],
             'SALE', STATUS_COLORS.SALE,
+            'WALKTHROUGH_BOOKED', STATUS_COLORS.WALKTHROUGH_BOOKED,
+            'GATEKEEPER', STATUS_COLORS.GATEKEEPER,
+            'DECISION_MAKER', STATUS_COLORS.DECISION_MAKER,
+            'DM_INTERESTED', STATUS_COLORS.DM_INTERESTED,
+            'HAS_VENDOR', STATUS_COLORS.HAS_VENDOR,
+            'LANDLORD', STATUS_COLORS.LANDLORD,
+            'NOT_NOW', STATUS_COLORS.NOT_NOW,
             'CONVO', STATUS_COLORS.CONVO,
             'NOT_INTERESTED', STATUS_COLORS.NOT_INTERESTED,
             'CALLBACK', STATUS_COLORS.CALLBACK,
@@ -137,6 +145,13 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
           'circle-stroke-color': [
             'match', ['get', 'last_status'],
             'SALE', STATUS_COLORS.SALE,
+            'WALKTHROUGH_BOOKED', STATUS_COLORS.WALKTHROUGH_BOOKED,
+            'GATEKEEPER', STATUS_COLORS.GATEKEEPER,
+            'DECISION_MAKER', STATUS_COLORS.DECISION_MAKER,
+            'DM_INTERESTED', STATUS_COLORS.DM_INTERESTED,
+            'HAS_VENDOR', STATUS_COLORS.HAS_VENDOR,
+            'LANDLORD', STATUS_COLORS.LANDLORD,
+            'NOT_NOW', STATUS_COLORS.NOT_NOW,
             'CONVO', STATUS_COLORS.CONVO,
             'NOT_INTERESTED', STATUS_COLORS.NOT_INTERESTED,
             'CALLBACK', STATUS_COLORS.CALLBACK,
@@ -164,6 +179,13 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
           'circle-color': [
             'match', ['get', 'last_status'],
             'SALE', STATUS_COLORS.SALE,
+            'WALKTHROUGH_BOOKED', STATUS_COLORS.WALKTHROUGH_BOOKED,
+            'GATEKEEPER', STATUS_COLORS.GATEKEEPER,
+            'DECISION_MAKER', STATUS_COLORS.DECISION_MAKER,
+            'DM_INTERESTED', STATUS_COLORS.DM_INTERESTED,
+            'HAS_VENDOR', STATUS_COLORS.HAS_VENDOR,
+            'LANDLORD', STATUS_COLORS.LANDLORD,
+            'NOT_NOW', STATUS_COLORS.NOT_NOW,
             'CONVO', STATUS_COLORS.CONVO,
             'NOT_INTERESTED', STATUS_COLORS.NOT_INTERESTED,
             'CALLBACK', STATUS_COLORS.CALLBACK,
@@ -212,6 +234,19 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
           'circle-stroke-color': [
             'match', ['get', 'last_status'],
             'SALE', STATUS_COLORS.SALE,
+            'WALKTHROUGH_BOOKED', STATUS_COLORS.WALKTHROUGH_BOOKED,
+            'GATEKEEPER', STATUS_COLORS.GATEKEEPER,
+            'DECISION_MAKER', STATUS_COLORS.DECISION_MAKER,
+            'DM_INTERESTED', STATUS_COLORS.DM_INTERESTED,
+            'HAS_VENDOR', STATUS_COLORS.HAS_VENDOR,
+            'LANDLORD', STATUS_COLORS.LANDLORD,
+            'NOT_NOW', STATUS_COLORS.NOT_NOW,
+            'COLD', STATUS_COLORS.COLD,
+            'CONTACTED', STATUS_COLORS.CONTACTED,
+            'DM_IDENTIFIED', STATUS_COLORS.DM_IDENTIFIED,
+            'QUOTED', STATUS_COLORS.QUOTED,
+            'WON', STATUS_COLORS.WON,
+            'LOST', STATUS_COLORS.LOST,
             'CONVO', STATUS_COLORS.CONVO,
             'NOT_INTERESTED', STATUS_COLORS.NOT_INTERESTED,
             'CALLBACK', STATUS_COLORS.CALLBACK,
@@ -231,6 +266,19 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
           'circle-color': [
             'match', ['get', 'last_status'],
             'SALE', STATUS_COLORS.SALE,
+            'WALKTHROUGH_BOOKED', STATUS_COLORS.WALKTHROUGH_BOOKED,
+            'GATEKEEPER', STATUS_COLORS.GATEKEEPER,
+            'DECISION_MAKER', STATUS_COLORS.DECISION_MAKER,
+            'DM_INTERESTED', STATUS_COLORS.DM_INTERESTED,
+            'HAS_VENDOR', STATUS_COLORS.HAS_VENDOR,
+            'LANDLORD', STATUS_COLORS.LANDLORD,
+            'NOT_NOW', STATUS_COLORS.NOT_NOW,
+            'COLD', STATUS_COLORS.COLD,
+            'CONTACTED', STATUS_COLORS.CONTACTED,
+            'DM_IDENTIFIED', STATUS_COLORS.DM_IDENTIFIED,
+            'QUOTED', STATUS_COLORS.QUOTED,
+            'WON', STATUS_COLORS.WON,
+            'LOST', STATUS_COLORS.LOST,
             'CONVO', STATUS_COLORS.CONVO,
             'NOT_INTERESTED', STATUS_COLORS.NOT_INTERESTED,
             'CALLBACK', STATUS_COLORS.CALLBACK,
@@ -318,14 +366,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
       setMapReady(true);
     });
 
-    return () => {
-      try {
-        if (map) map.remove();
-      } catch (e) {}
-    };
-    } catch (err) {
-      console.warn('[KnockLog Map] Mapbox initialization error:', err);
-    }
+    return () => map.remove();
   }, []);
 
   // ── Toggle layer visibility based on mapView ──
@@ -346,7 +387,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
   const loadCoverage = useCallback(async (shouldFit = false) => {
     if (!mapRef.current || !mapReady) return;
     try {
-      const geo = await getTeamCoverageGeoJSON(salesMode);
+      const geo = await getTeamCoverageGeoJSON(mode);
       const source = mapRef.current.getSource('team-coverage');
       if (source) {
         source.setData(geo);
@@ -364,7 +405,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
     } catch (err) {
       console.error('[MapTab] loadCoverage error:', err);
     }
-  }, [mapReady, salesMode]);
+  }, [mapReady, mode]);
 
   // ── Load coverage once when switching to COVERAGE view ──
   useEffect(() => {
@@ -386,52 +427,38 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
   const refreshPins = useCallback(async () => {
     if (!mapRef.current || !mapReady) return;
     try {
-      let geojson = await getActiveSessionGeoJSON(salesMode);
-      if (!geojson?.features || geojson.features.length === 0) {
-        geojson = await getPropertiesAsGeoJSON(salesMode);
-      }
-
-      currentGeoJSONRef.current = geojson;
+      const geojson = await getActiveSessionGeoJSON(mode);
 
       const source = mapRef.current.getSource('properties');
       if (source) {
         source.setData(geojson);
         setPinCount(geojson.features.length);
-
-        if (!hasFittedInitialBounds.current && geojson.features.length > 0) {
-          hasFittedInitialBounds.current = true;
-          fitToGeoJSON(geojson);
-        }
       }
 
       // Update total knocks for the active session warning logic
       const rsStart = await sqlocal.sql`SELECT payload FROM events WHERE type = 'DAY_START' ORDER BY created_at DESC LIMIT 1`;
       if (rsStart.length > 0) {
         const sessData = JSON.parse(rsStart[0].payload);
-        const isCommSession = sessData.sales_mode === 'commercial' || sessData.mode === 'commercial';
-        if ((salesMode === 'commercial' && isCommSession) || (salesMode !== 'commercial' && !isCommSession)) {
-          const knocksRs = await sqlocal.sql`SELECT payload FROM events WHERE type = 'KNOCK'`;
-          const knocks = knocksRs.filter(r => JSON.parse(r.payload).session_id === sessData.session_id);
+        const knocksRs = await sqlocal.sql`SELECT payload FROM events WHERE type = 'KNOCK'`;
+        const knocks = knocksRs.filter(r => {
+          const p = JSON.parse(r.payload);
+          return p.session_id === sessData.session_id && (p.mode === mode || (!p.mode && mode === MODES.RESIDENTIAL));
+        });
 
-          const uniqueKeys = new Set();
-          knocks.forEach(r => {
-            const p = JSON.parse(r.payload);
-            const key = salesMode === 'commercial'
-              ? `${p.street_name || ''} ${p.company_name || ''}`.trim().toLowerCase()
-              : `${p.house_number || ''} ${p.street_name || ''}`.trim().toLowerCase();
-            if (key) uniqueKeys.add(key);
-          });
-          setTotalKnocks(uniqueKeys.size);
-        } else {
-          setTotalKnocks(0);
-        }
+        const uniqueKeys = new Set();
+        knocks.forEach(r => {
+          const p = JSON.parse(r.payload);
+          const key = p.target_key || `${p.house_number || ''} ${p.street_name || ''}`.trim().toLowerCase();
+          if (key) uniqueKeys.add(key);
+        });
+        setTotalKnocks(uniqueKeys.size);
       } else {
         setTotalKnocks(0);
       }
 
       // Fetch team ghost data
       if (navigator.onLine && user?.id) {
-        const teamGeo = await getTeamGeoJSON(user.id, salesMode);
+        const teamGeo = await getTeamGeoJSON(user.id, mode);
         const teamSource = mapRef.current.getSource('team-properties');
         if (teamSource) {
           teamSource.setData(teamGeo);
@@ -442,7 +469,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
     } catch (err) {
       console.error('[MapTab] Pin refresh error:', err);
     }
-  }, [mapReady, user?.id, salesMode, fitToGeoJSON]);
+  }, [mapReady, user?.id]);
 
   // ── Refresh pins only when tab is active ──
   useEffect(() => {
@@ -451,16 +478,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
 
     refreshPins();
     const id = setInterval(refreshPins, 15000);
-
-    const handleSync = () => {
-      refreshPins();
-    };
-    window.addEventListener('sync-local-events', handleSync);
-
-    return () => {
-      clearInterval(id);
-      window.removeEventListener('sync-local-events', handleSync);
-    };
+    return () => clearInterval(id);
   }, [mapReady, refreshPins, isActive]);
 
   function handleRecenter() {
@@ -469,21 +487,13 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
       loadCoverage(true);
       return;
     }
-
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           mapRef.current.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 });
         },
-        () => {
-          if (currentGeoJSONRef.current?.features?.length > 0) {
-            fitToGeoJSON(currentGeoJSONRef.current);
-          }
-        },
-        { enableHighAccuracy: true, timeout: 3000 }
+        () => {}
       );
-    } else if (currentGeoJSONRef.current?.features?.length > 0) {
-      fitToGeoJSON(currentGeoJSONRef.current);
     }
   }
 
@@ -497,12 +507,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
       <div className="map-view-toggle">
         <button
           className={`map-toggle-btn ${mapView === 'MY' ? 'active' : ''}`}
-          onClick={() => {
-            setMapView('MY');
-            if (currentGeoJSONRef.current?.features?.length > 0) {
-              fitToGeoJSON(currentGeoJSONRef.current);
-            }
-          }}
+          onClick={() => setMapView('MY')}
         >
           My Pins
         </button>
@@ -525,7 +530,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
       {/* ── Pin Count ── */}
       {mapView !== 'COVERAGE' && (
         <div className="map-pin-count" style={{ left: 16, top: 76 }}>
-          <span>{pinCount}</span> {salesMode === 'commercial' ? 'commercial targets' : 'my properties'}
+          <span>{pinCount}</span> my properties
           {mapView === 'TEAM' && teamPinCount > 0 && (
             <span style={{ marginLeft: 8, color: '#a78bfa', fontSize: 10 }}>
               + {teamPinCount} team
@@ -576,9 +581,14 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
             <div className="pin-sheet-header">
               <div>
                 <div className="pin-sheet-address">
+                  {selectedPin.business_name ? `${selectedPin.business_name} · ` : ''}
+                  {selectedPin.suite ? `Unit ${selectedPin.suite}, ` : ''}
                   {selectedPin.address}
                   {selectedPin.isGhost && (
                     <span className="ghost-badge">TEAM</span>
+                  )}
+                  {selectedPin.mode === 'COMMERCIAL' && (
+                    <span className="mode-badge-commercial" style={{ marginLeft: 6 }}>COMMERCIAL</span>
                   )}
                 </div>
                 {selectedPin.isGhost && selectedPin.rep_name && (
