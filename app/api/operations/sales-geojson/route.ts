@@ -41,7 +41,37 @@ export async function GET(request: NextRequest) {
       .not('lat', 'is', null)
       .not('lng', 'is', null);
 
-    // 3. Fetch all team property coverage rows in parallel 1000-item chunks
+    // 3. Fetch all sale_details from events table for residential sales
+    const salesEventsRes = await supabase
+      .from('events')
+      .select('rep_id, payload, created_at')
+      .eq('type', 'KNOCK')
+      .eq('payload->>outcome_type', 'SALE');
+
+    const salesDetailMap = new Map<string, any>();
+    (salesEventsRes.data || []).forEach((e: any) => {
+      const p = e.payload || {};
+      const house = (p.house_number || '').trim();
+      const street = (p.street_name || '').trim();
+      const key = `${house} ${street}`.toLowerCase();
+      const sd = p.sale_details || {};
+      const jobTotal = sd.job_total ? parseFloat(sd.job_total) : null;
+      if (key) {
+        salesDetailMap.set(key, {
+          price: jobTotal,
+          deal_value: jobTotal,
+          homeowner_name: sd.homeowner_name || null,
+          phone: sd.phone || null,
+          email: sd.email || null,
+          service_date: sd.service_date || null,
+          job_status: sd.job_status || 'COMPLETED',
+          payment_method: sd.payment_method || null,
+          rep_override: sd.rep_override || null,
+        });
+      }
+    });
+
+    // 4. Fetch all team property coverage rows in parallel 1000-item chunks
     const CHUNK_SIZE = 1000;
     const ranges = [
       { from: 0, to: 999 },
@@ -73,6 +103,9 @@ export async function GET(request: NextRequest) {
       const color = STATUS_COLORS[outcome] || STATUS_COLORS.NO_ANSWER;
       const repName = repNameMap[row.rep_id] || 'Teammate';
 
+      const addressKey = `${row.house_number || ''} ${row.street_name || ''}`.trim().toLowerCase();
+      const saleDetail = salesDetailMap.get(addressKey);
+
       features.push({
         type: 'Feature',
         geometry: {
@@ -84,14 +117,22 @@ export async function GET(request: NextRequest) {
           kind: 'KNOCK',
           address,
           status: outcome,
-          status_label: outcome.replace(/_/g, ' '),
+          status_label: outcome === 'SALE' ? 'Won Sale' : outcome.replace(/_/g, ' '),
           convo_status: row.convo_status,
           objection_type: row.objection_type,
           mode: row.mode || 'residential',
-          rep_name: repName,
+          rep_name: saleDetail?.rep_override || repName,
           timestamp: row.last_knocked_at,
           color,
           weight: outcome === 'SALE' ? 1.0 : outcome === 'CONVO' ? 0.7 : 0.3,
+          price: saleDetail?.price ?? null,
+          deal_value: saleDetail?.deal_value ?? null,
+          homeowner_name: saleDetail?.homeowner_name ?? null,
+          phone: saleDetail?.phone ?? null,
+          email: saleDetail?.email ?? null,
+          service_date: saleDetail?.service_date ?? null,
+          job_status: saleDetail?.job_status ?? (outcome === 'SALE' ? 'COMPLETED' : null),
+          payment_method: saleDetail?.payment_method ?? null,
         },
       });
     }
@@ -111,9 +152,13 @@ export async function GET(request: NextRequest) {
           kind: 'COMMERCIAL_OPP',
           company_name: opp.company_name || 'Commercial Account',
           address,
+          status: 'COMMERCIAL',
+          status_label: 'Commercial B2B',
           stage: opp.stage || 'walkthrough_scheduled',
           dm_name: opp.dm_name || 'Decision Maker',
           dm_phone: opp.dm_phone || '',
+          price: opp.expected_mrr ? Number(opp.expected_mrr) : null,
+          deal_value: opp.expected_mrr ? Number(opp.expected_mrr) : null,
           expected_mrr: opp.expected_mrr ? Number(opp.expected_mrr) : null,
           walkthrough_date: opp.walkthrough_date,
           color: '#c084fc',

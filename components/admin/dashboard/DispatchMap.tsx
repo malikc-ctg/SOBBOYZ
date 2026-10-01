@@ -436,6 +436,173 @@ function QuickAssignDrawer({
   );
 }
 
+// ─── Quick Sale / Canvass Intelligence Slide-Over Drawer ───────────────────────
+function QuickSaleDrawer({
+  sale,
+  onClose,
+}: {
+  sale: any | null;
+  onClose: () => void;
+}) {
+  if (!sale) return null;
+  const isSale = sale.status === 'SALE';
+  const isCommercial = sale.kind === 'COMMERCIAL_OPP' || sale.mode === 'commercial';
+  const price = sale.price || sale.deal_value || sale.expected_mrr;
+
+  return (
+    <div className="absolute top-14 left-3 z-30 w-84 max-h-[calc(100vh-140px)] flex flex-col bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-200">
+      {/* Drawer Header */}
+      <div className="p-3.5 border-b border-white/10 flex items-start justify-between bg-white/[0.03]">
+        <div>
+          <div className="flex items-center gap-2">
+            <span
+              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                isSale
+                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                  : isCommercial
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
+                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+              }`}
+            >
+              {sale.status_label || (isSale ? 'Won Sale' : isCommercial ? 'Commercial Opp' : 'Canvass Knock')}
+            </span>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-semibold">
+              Rep: {sale.rep_name || 'Teammate'}
+            </span>
+          </div>
+          <h3 className="text-white font-black text-sm mt-1 truncate max-w-[220px]">
+            {sale.homeowner_name || sale.company_name || sale.dm_name || sale.address || 'Field Property'}
+          </h3>
+          <p className="text-white/40 text-[11px] truncate">{sale.address}</p>
+        </div>
+        <button
+          onClick={onClose}
+          className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Value & Status Strip */}
+      <div className="grid grid-cols-2 gap-2 p-3 bg-white/[0.02] border-b border-white/5 text-center">
+        <div className="bg-white/5 rounded-lg p-2">
+          <span className="text-white/40 text-[9px] uppercase font-bold block">
+            {isCommercial ? 'Expected MRR' : isSale ? 'Sale Value' : 'Outcome'}
+          </span>
+          <span className={`font-black text-sm ${price ? 'text-emerald-400' : 'text-white/60'}`}>
+            {price ? `$${Number(price).toFixed(2)} CAD` : sale.status_label || 'Logged'}
+          </span>
+        </div>
+        <div className="bg-white/5 rounded-lg p-2">
+          <span className="text-white/40 text-[9px] uppercase font-bold block">Status</span>
+          <span
+            className={`font-black text-xs uppercase px-2 py-0.5 rounded-md inline-block mt-0.5 ${
+              sale.job_status === 'COMPLETED'
+                ? 'bg-emerald-500/20 text-emerald-400'
+                : sale.job_status === 'CANCELLED'
+                ? 'bg-red-500/20 text-red-400'
+                : 'bg-blue-500/20 text-blue-300'
+            }`}
+          >
+            {sale.job_status || (isSale ? 'Completed' : 'Recorded')}
+          </span>
+        </div>
+      </div>
+
+      {/* Details list */}
+      <div className="p-3 space-y-2.5 overflow-y-auto text-xs text-white/80">
+        {sale.homeowner_name && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Homeowner</span>
+            <span className="text-white font-bold">{sale.homeowner_name}</span>
+          </div>
+        )}
+        {sale.company_name && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Company</span>
+            <span className="text-white font-bold">{sale.company_name}</span>
+          </div>
+        )}
+        {sale.dm_name && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Decision Maker</span>
+            <span className="text-white font-bold">{sale.dm_name}</span>
+          </div>
+        )}
+        {(sale.phone || sale.dm_phone) && (sale.phone !== '0' || sale.dm_phone) && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Phone</span>
+            <a href={`tel:${sale.phone || sale.dm_phone}`} className="text-blue-400 font-bold hover:underline">
+              {sale.phone || sale.dm_phone}
+            </a>
+          </div>
+        )}
+        {sale.service_date && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Service Date</span>
+            <span className="text-emerald-300 font-bold">{sale.service_date}</span>
+          </div>
+        )}
+        {sale.walkthrough_date && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Walkthrough Date</span>
+            <span className="text-purple-300 font-bold">{sale.walkthrough_date}</span>
+          </div>
+        )}
+        {sale.payment_method && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Payment Method</span>
+            <span className="text-white/70">{sale.payment_method}</span>
+          </div>
+        )}
+        {sale.timestamp && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Logged At</span>
+            <span className="text-white/50 text-[11px]">
+              {new Date(sale.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+            </span>
+          </div>
+        )}
+        {sale.mode && (
+          <div className="flex items-center justify-between py-1 border-b border-white/5">
+            <span className="text-white/40 font-medium">Mode</span>
+            <span className="text-white/70 uppercase text-[10px] font-bold">{sale.mode}</span>
+          </div>
+        )}
+        {(sale.convo_status || sale.objection_type) && (
+          <div className="p-2 rounded-lg bg-white/5 border border-white/5 text-[11px]">
+            <span className="text-white/40 font-semibold block mb-0.5">Conversation Intel</span>
+            <span className="text-blue-300 font-medium">
+              {sale.convo_status} {sale.objection_type ? `· ${sale.objection_type}` : ''}
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="p-3 border-t border-white/10 bg-white/[0.02] flex items-center gap-2">
+        {(sale.phone || sale.dm_phone) && (sale.phone !== '0' || sale.dm_phone) && (
+          <a
+            href={`tel:${sale.phone || sale.dm_phone}`}
+            className="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs text-center transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Phone className="h-3.5 w-3.5" />
+            <span>Call Contact</span>
+          </a>
+        )}
+        <button
+          onClick={() => {
+            navigator.clipboard.writeText(sale.address || '');
+          }}
+          className="flex-1 py-1.5 px-3 bg-white/10 hover:bg-white/15 text-white/80 font-bold rounded-lg text-xs text-center transition-colors"
+        >
+          Copy Address
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ─── Zone Sidebar ──────────────────────────────────────────────────────────────
 function ZoneSidebar({
   zones,
@@ -775,6 +942,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   const [selectedZoneName, setSelectedZoneName] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
+  const [selectedSale, setSelectedSale] = useState<any | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Preset State: 'operations' | 'sales' | 'hybrid'
@@ -959,7 +1127,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
       });
       // Clicking empty canvas outside zones clears zone focus
       map.on('click', (e) => {
-        const features = map.queryRenderedFeatures(e.point, { layers: ['zones-fill', 'jobs-circle'] });
+        const features = map.queryRenderedFeatures(e.point, { layers: ['zones-fill', 'jobs-circle', 'sales-knocks-circle', 'commercial-opps-circle'] });
         if (!features.length) {
           window.dispatchEvent(new CustomEvent('zone-map-clear'));
         }
@@ -1212,15 +1380,25 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         const coordinates = (feat.geometry as any).coordinates.slice();
 
         const popupHtml = `
-          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:210px;background:#090d16;color:#fff;border-radius:8px;">
+          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:220px;background:#090d16;color:#fff;border-radius:8px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:${p.color}25;border:1px solid ${p.color}60;color:${p.color};text-transform:uppercase;">${p.status_label || p.status}</span>
               <span style="font-size:10px;color:#94a3b8;font-weight:600;">Rep: ${p.rep_name || 'Teammate'}</span>
             </div>
-            <p style="font-weight:700;font-size:13px;margin:2px 0 2px;color:#f8fafc;line-height:1.2;">${p.address || 'Knocked Property'}</p>
-            ${p.convo_status ? `<p style="font-size:10px;color:#38bdf8;margin:2px 0 0;">${p.convo_status} ${p.objection_type ? '· ' + p.objection_type : ''}</p>` : ''}
-            <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:4px;margin-top:4px;font-size:9px;color:#64748b;">
-              ${p.timestamp ? new Date(p.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''} · Mode: ${p.mode || 'Residential'}
+            <p style="font-weight:800;font-size:13px;margin:2px 0 2px;color:#f8fafc;line-height:1.2;">${p.address || 'Knocked Property'}</p>
+            ${p.homeowner_name ? `<p style="font-size:11px;color:#cbd5e1;margin:1px 0 4px;font-weight:600;">👤 ${p.homeowner_name}</p>` : ''}
+            
+            ${p.price ? `
+              <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;margin-top:4px;">
+                <span style="font-size:13px;font-weight:900;color:#22c55e;">$${Number(p.price).toFixed(2)} CAD</span>
+                <span style="font-size:9px;font-weight:800;padding:1px 5px;border-radius:3px;background:${p.job_status === 'COMPLETED' ? '#22c55e20' : '#ef444420'};color:${p.job_status === 'COMPLETED' ? '#4ade80' : '#f87171'};text-transform:uppercase;">${p.job_status || 'WON'}</span>
+              </div>
+            ` : ''}
+
+            ${p.convo_status ? `<p style="font-size:10px;color:#38bdf8;margin:4px 0 0;">${p.convo_status} ${p.objection_type ? '· ' + p.objection_type : ''}</p>` : ''}
+            <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:4px;margin-top:6px;font-size:9px;color:#64748b;display:flex;justify-content:space-between;align-items:center;">
+              <span>${p.service_date ? 'Service: ' + p.service_date : (p.timestamp ? new Date(p.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '')}</span>
+              <span style="color:#38bdf8;font-weight:700;">Inspect ↗</span>
             </div>
           </div>
         `;
@@ -1234,6 +1412,13 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
       map.on('mouseleave', 'sales-knocks-circle', () => {
         map.getCanvas().style.cursor = '';
         if (hoverPopupRef.current) hoverPopupRef.current.remove();
+      });
+
+      map.on('click', 'sales-knocks-circle', (e) => {
+        const feat = e.features?.[0];
+        if (!feat) return;
+        const p = feat.properties as any;
+        window.dispatchEvent(new CustomEvent('sale-map-select', { detail: { data: p } }));
       });
 
       map.on('mouseenter', 'commercial-opps-circle', (e) => {
@@ -1253,6 +1438,10 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
             <p style="font-size:10px;color:#94a3b8;margin:0 0 4px;">${p.address || ''}</p>
             ${p.dm_name ? `<p style="font-size:10px;color:#cbd5e1;margin:2px 0 0;">👤 Contact: <strong style="color:#fff;">${p.dm_name}</strong> ${p.dm_phone ? '(' + p.dm_phone + ')' : ''}</p>` : ''}
             ${p.walkthrough_date ? `<p style="font-size:10px;color:#38bdf8;margin:2px 0 0;">📅 Walkthrough: ${p.walkthrough_date}</p>` : ''}
+            <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:4px;margin-top:6px;font-size:9px;color:#64748b;display:flex;justify-content:space-between;align-items:center;">
+              <span>B2B Pipeline</span>
+              <span style="color:#a855f7;font-weight:700;">Inspect ↗</span>
+            </div>
           </div>
         `;
 
@@ -1265,6 +1454,13 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
       map.on('mouseleave', 'commercial-opps-circle', () => {
         map.getCanvas().style.cursor = '';
         if (hoverPopupRef.current) hoverPopupRef.current.remove();
+      });
+
+      map.on('click', 'commercial-opps-circle', (e) => {
+        const feat = e.features?.[0];
+        if (!feat) return;
+        const p = feat.properties as any;
+        window.dispatchEvent(new CustomEvent('sale-map-select', { detail: { data: p } }));
       });
     }
   }, []);
@@ -1351,6 +1547,8 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
     };
     const handleClear = () => {
       setSelectedZoneName(null);
+      setSelectedJob(null);
+      setSelectedSale(null);
     };
     window.addEventListener('zone-map-dblclick', handleDblClick);
     window.addEventListener('zone-map-clear', handleClear);
@@ -1360,10 +1558,14 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
     };
   }, [handleSelectZone]);
 
-  // Escape key deselects zone focus
+  // Escape key deselects zone focus and closes slide-over drawers
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setSelectedZoneName(null);
+      if (e.key === 'Escape') {
+        setSelectedZoneName(null);
+        setSelectedJob(null);
+        setSelectedSale(null);
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
@@ -1519,15 +1721,29 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
     src.setData({ type: 'FeatureCollection', features });
   }, [mapLoaded, activeZoneJobs, filters.showJobs, selectedZoneName]);
 
-  // ── Listen for Job Click from Mapbox WebGL Layer ─────────────────────────────
+  // ── Listen for Job & Sale Click from Mapbox WebGL Layer ───────────────────
   useEffect(() => {
     const handleJobSelect = (e: Event) => {
       const id = (e as CustomEvent).detail?.id;
       const job = mapData.jobs.find(j => j.id === id);
-      if (job) setSelectedJob(job);
+      if (job) {
+        setSelectedSale(null);
+        setSelectedJob(job);
+      }
+    };
+    const handleSaleSelect = (e: Event) => {
+      const data = (e as CustomEvent).detail?.data;
+      if (data) {
+        setSelectedJob(null);
+        setSelectedSale(data);
+      }
     };
     window.addEventListener('job-map-select', handleJobSelect);
-    return () => window.removeEventListener('job-map-select', handleJobSelect);
+    window.addEventListener('sale-map-select', handleSaleSelect);
+    return () => {
+      window.removeEventListener('job-map-select', handleJobSelect);
+      window.removeEventListener('sale-map-select', handleSaleSelect);
+    };
   }, [mapData.jobs]);
 
   // ── Sync Sales Layers Visibility & Filters ─────────────────────────────────
@@ -2104,6 +2320,12 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         onAssigned={() => {
           fetchData();
         }}
+      />
+
+      {/* ── Quick Sale / Canvass Intelligence Slide-Over Drawer ──────────────── */}
+      <QuickSaleDrawer
+        sale={selectedSale}
+        onClose={() => setSelectedSale(null)}
       />
 
       {/* ── Bottom Metrics Strip & Telemetry Ticker ──────────────────────────── */}
