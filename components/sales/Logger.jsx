@@ -356,6 +356,7 @@ export default function Logger({
     const today = new Date().toISOString().split('T')[0];
     const payload = {
       session_id: sessionId,
+      rep_id: user?.id,
       session_date: today,
       start_time: new Date().toISOString(),
       mode,  // include mode in DAY_START payload
@@ -383,6 +384,7 @@ export default function Logger({
     const today = new Date().toISOString().split('T')[0];
     const payload = {
       session_id: sessionId,
+      rep_id: user?.id,
       session_date: today,
       start_time: new Date().toISOString(),
       mode: MODES.COMMERCIAL,
@@ -563,16 +565,19 @@ export default function Logger({
   };
 
   const selectStreetSuggestion = async (feature) => {
+    let finalStreet = '';
     if (mode === MODES.COMMERCIAL && (feature.is_poi || feature.place_type?.includes('poi') || feature._isGpsFallback)) {
       const poiName = feature.name || feature.text || '';
       setBusinessName(poiName);
       if (feature._isGpsFallback) {
+        finalStreet = poiName;
         setStreetInput(poiName);
         if (geoRef.current.lat) {
           setStreetCoords({ lng: geoRef.current.lng, lat: geoRef.current.lat });
         }
       } else {
         const fullAddr = feature.address || feature.place_name || poiName;
+        finalStreet = fullAddr;
         setStreetInput(fullAddr);
 
         if (feature.lat && feature.lng) {
@@ -593,9 +598,20 @@ export default function Logger({
       }
     } else {
       const name = feature.name || feature.text || feature.place_name?.split(',')[0] || ''; 
+      finalStreet = name;
       setStreetInput(name);
       if (feature.center) {
         setStreetCoords({ lng: feature.center[0], lat: feature.center[1] });
+      }
+    }
+
+    if (finalStreet) {
+      setStreet(finalStreet);
+      if (typeof window !== 'undefined') {
+        try {
+          if (user?.id) localStorage.setItem(`knocklog_active_street_${user.id}`, finalStreet);
+          localStorage.setItem('knocklog_active_street', finalStreet);
+        } catch (e) {}
       }
     }
     setStreetSuggestions([]);
@@ -606,7 +622,10 @@ export default function Logger({
     if (!s) return;
     setStreet(s);
     if (typeof window !== 'undefined') {
-      try { localStorage.setItem('knocklog_active_street', s); } catch (e) {}
+      try {
+        if (user?.id) localStorage.setItem(`knocklog_active_street_${user.id}`, s);
+        localStorage.setItem('knocklog_active_street', s);
+      } catch (e) {}
     }
     setStreetSuggestions([]);
   }
@@ -1475,7 +1494,10 @@ export default function Logger({
                   setBusinessName('');
                   setSuiteNum('');
                   if (typeof window !== 'undefined') {
-                    try { localStorage.removeItem('knocklog_active_street'); } catch (e) {}
+                    try {
+                      if (user?.id) localStorage.removeItem(`knocklog_active_street_${user.id}`);
+                      localStorage.removeItem('knocklog_active_street');
+                    } catch (e) {}
                   }
                 }}
               >
