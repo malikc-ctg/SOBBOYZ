@@ -55,7 +55,7 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   referral: 'Referral',
   realtor: 'Realtor / GC',
   cold_call: 'Cold Call / Outreach',
-  d2d: 'D2D',
+  d2d: 'D2D Commercial',
   lsa: 'Local Service Ads (LSA)',
   google_search: 'Google Search',
 };

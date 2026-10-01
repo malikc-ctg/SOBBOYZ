@@ -3,6 +3,7 @@ import { supabase } from '@/lib/sales/supabase';
 import { sqlocal, insertLocalEvent, updateLocalEvent, softDeleteLocalEvent } from '@/lib/sales/db';
 import { syncEngine } from '@/lib/sales/syncEngine';
 import { calculateCommission, getCommercialFollowUps } from '@/lib/sales/teamService';
+import { toast } from 'sonner';
 import {
   MODES,
   RESIDENTIAL_OUTCOMES,
@@ -636,7 +637,8 @@ export default function Logger({
     if (dayState !== 'ACTIVE') return;
     const isCommercial = mode === MODES.COMMERCIAL;
 
-    if (!street) {
+    const effectiveStreet = street || businessName?.trim() || (extraDetails?.lead_details?.contact_name ? `${extraDetails.lead_details.contact_name} Account` : null);
+    if (!effectiveStreet) {
       setError(isCommercial ? 'Set plaza / building address first' : 'Set street & house number first');
       return;
     }
@@ -669,7 +671,7 @@ export default function Logger({
 
     let payload;
     if (isCommercial) {
-      const targetKey = buildCommercialTargetKey(businessName, houseNum, street, suiteNum);
+      const targetKey = buildCommercialTargetKey(businessName, houseNum, effectiveStreet, suiteNum);
       payload = {
         event_id: eventId,
         session_id: session.session_id,
@@ -680,7 +682,7 @@ export default function Logger({
         business_name: businessName.trim() || null,
         suite: suiteNum.trim() || null,
         // street_name and house_number are required by the DB trigger (NOT NULL)
-        street_name: street,
+        street_name: effectiveStreet,
         house_number: houseNum || null,
         timestamp: new Date().toISOString(),
         outcome_type: outcomeType,
@@ -814,60 +816,93 @@ export default function Logger({
   }
 
   async function submitWalkthroughForm() {
-    if (!walkthroughContactName.trim() || !walkthroughPhone.trim()) return;
-    const targetCompanyName = businessName.trim() || street || 'Commercial Account';
+    if (!walkthroughContactName.trim()) {
+      toast.error('Please enter the contact person or manager name');
+      return;
+    }
+    if (!walkthroughPhone.trim()) {
+      toast.error('Please enter a contact phone number');
+      return;
+    }
+
+    const contactName = walkthroughContactName.trim();
+    const contactPhone = walkthroughPhone.trim();
+    const targetCompanyName = businessName.trim() || street || `${contactName} Commercial`;
     const currentSuite = suiteNum.trim();
     const currentStreet = street;
+    const walkDate = walkthroughDate || null;
+    const rawNotes = walkthroughNotes.trim();
+    const services = walkthroughServices.length > 0 ? walkthroughServices : null;
+    const freq = walkthroughFrequency || null;
+    const estVal = walkthroughEstValue ? parseFloat(walkthroughEstValue) : null;
+    const vendor = walkthroughVendor.trim() || null;
+    const contractEnd = walkthroughContractEnd.trim() || null;
 
     const leadDetails = {
-      contact_name: walkthroughContactName.trim(),
-      phone: walkthroughPhone.trim(),
-      walkthrough_at: walkthroughDate || null,
-      notes: walkthroughNotes.trim() || null,
-      services: walkthroughServices.length > 0 ? walkthroughServices : null,
-      frequency: walkthroughFrequency || null,
-      est_monthly_value: walkthroughEstValue ? parseFloat(walkthroughEstValue) : null,
-      current_vendor: walkthroughVendor.trim() || null,
-      contract_end: walkthroughContractEnd.trim() || null,
+      contact_name: contactName,
+      phone: contactPhone,
+      walkthrough_at: walkDate,
+      notes: rawNotes || null,
+      services: services,
+      frequency: freq,
+      est_monthly_value: estVal,
+      current_vendor: vendor,
+      contract_end: contractEnd,
     };
-    logKnock('WALKTHROUGH_BOOKED', null, null, { lead_details: leadDetails });
+
+    // Log the knock event (which also updates local stats and queues sync)
+    await logKnock('WALKTHROUGH_BOOKED', null, null, { lead_details: leadDetails });
 
     // ── Auto-create D2D lead in SOB Admin leads table ──────────────────────
     try {
       const noteParts = [
         currentStreet ? `Plaza/Address: ${currentStreet}` : null,
         currentSuite ? `Suite: ${currentSuite}` : null,
-        walkthroughServices.length > 0 ? `Services: ${walkthroughServices.join(', ')}` : null,
-        walkthroughFrequency ? `Frequency: ${walkthroughFrequency}` : null,
-        walkthroughVendor.trim() ? `Current Vendor: ${walkthroughVendor.trim()}` : null,
-        walkthroughContractEnd.trim() ? `Contract End: ${walkthroughContractEnd.trim()}` : null,
+        services ? `Services: ${services.join(', ')}` : null,
+        freq ? `Frequency: ${freq}` : null,
+        vendor ? `Current Vendor: ${vendor}` : null,
+        contractEnd ? `Contract End: ${contractEnd}` : null,
         repName ? `Rep: ${repName}` : null,
-        walkthroughNotes.trim() ? `Notes: ${walkthroughNotes.trim()}` : null,
+        rawNotes ? `Notes: ${rawNotes}` : null,
       ].filter(Boolean).join(' | ');
 
       const leadPayload = {
         source: 'd2d',
         company_name: targetCompanyName,
-        customer_name: walkthroughContactName.trim(),
-        customer_phone: walkthroughPhone.trim(),
+        customer_name: contactName,
+        customer_phone: contactPhone,
+        street_name: currentStreet || null,
+        city: currentStreet || 'GTA',
         service_type: 'commercial_cleaning',
-        preferred_date: walkthroughDate || null,
-        quoted_price: walkthroughEstValue ? parseFloat(walkthroughEstValue) : null,
+        preferred_date: walkDate,
+        quoted_price: estVal,
         notes: noteParts || null,
         status: 'new',
       };
 
       // 1. Post to server-side endpoint (runs service client, guaranteed to insert into leads table)
       try {
-        await fetch('/api/sales/leads', {
+        const resp = await fetch('/api/sales/leads', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(leadPayload),
         });
-      } catch (err) {}
+        if (resp.ok) {
+          toast.success('Walkthrough booked! Lead added to CRM.');
+        } else {
+          toast.success('Walkthrough booked! Logged successfully.');
+        }
+      } catch (err) {
+        toast.success('Walkthrough booked! Logged successfully.');
+      }
 
-      // 2. Direct Supabase insert
-      await supabase.from('leads').insert(leadPayload);
+      // 2. Direct Supabase insert attempt as backup
+      try {
+        await supabase.from('leads').insert(leadPayload);
+      } catch (e) {}
+
+      // Trigger sync
+      syncEngine.forceSync().catch(() => {});
     } catch (e) {
       console.warn('[Lead creation] Failed to auto-create D2D lead:', e);
     }
@@ -1797,7 +1832,7 @@ export default function Logger({
 
           <button
             className="sale-form-submit"
-            disabled={logging || !walkthroughContactName.trim() || !walkthroughPhone.trim()}
+            disabled={logging}
             onClick={submitWalkthroughForm}
           >
             {logging ? 'LOGGING...' : 'LOG WALKTHROUGH'}

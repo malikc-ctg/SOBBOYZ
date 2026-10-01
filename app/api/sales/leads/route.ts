@@ -103,11 +103,12 @@ export async function POST(request: NextRequest) {
         company_name: body.company_name || 'Commercial Account',
         customer_phone: body.customer_phone || '',
         customer_email: body.customer_email || null,
-        city: body.city || 'GTA',
+        city: body.city || body.street_name || 'GTA',
         service_type: body.service_type || 'commercial_cleaning',
-        preferred_date: body.preferred_date || null,
+        preferred_date: body.preferred_date ? body.preferred_date.split('T')[0] : null,
+        preferred_start_time: body.preferred_date && body.preferred_date.includes('T') ? body.preferred_date.split('T')[1].slice(0, 5) : (body.preferred_start_time || '09:00'),
         quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : null,
-        notes: body.notes || 'Created via KnockLog',
+        notes: body.notes || 'Created via KnockLog Commercial',
         status: body.status || 'new',
       })
       .select()

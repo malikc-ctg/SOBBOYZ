@@ -90,7 +90,9 @@ export default function AdminSalesOSPage() {
         setPendingSyncCount(items.length);
       } catch (e) {}
     });
-    return unsub;
+    return () => {
+      unsub();
+    };
   }, []);
 
   const handleForceSync = async () => {
