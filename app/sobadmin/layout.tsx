@@ -40,11 +40,29 @@ export default function AdminLayout({
   const [authChecked, setAuthChecked] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // Client-side auth check (secondary guard — middleware handles primary redirect)
+  // Client-side auth check
   useEffect(() => {
-    // Bypass auth check
-    setUserEmail('admin@seaofblue.app');
-    setAuthChecked(true);
+    const supabase = createClient();
+
+    async function checkUser() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        setUserEmail(user?.email ?? null);
+      } catch {
+        setUserEmail(null);
+      } finally {
+        setAuthChecked(true);
+      }
+    }
+    checkUser();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserEmail(session?.user?.email ?? null);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [pathname, router]);
 
   // Close sidebar on route change (mobile)
