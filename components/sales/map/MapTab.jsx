@@ -30,13 +30,41 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
   const [selectedPin, setSelectedPin] = useState(null);
   const [mapView, setMapView] = useState('MY'); // 'MY' | 'TEAM' | 'COVERAGE'
   const coverageLoaded = useRef(false);
+  const hasFittedInitialBounds = useRef(false);
+  const currentGeoJSONRef = useRef(null);
+
+  const fitToGeoJSON = useCallback((geojson, maxZoom = 15) => {
+    if (!mapRef.current || !geojson?.features || geojson.features.length === 0) return;
+    const coords = geojson.features
+      .map(f => f.geometry?.coordinates)
+      .filter(c => c && c.length === 2 && c[0] != null && c[1] != null && !isNaN(c[0]) && !isNaN(c[1]) && (Number(c[0]) !== 0 || Number(c[1]) !== 0));
+    
+    if (coords.length === 0) return;
+    if (coords.length === 1) {
+      mapRef.current.flyTo({ center: coords[0], zoom: 16 });
+      return;
+    }
+
+    const lngs = coords.map(c => c[0]);
+    const lats = coords.map(c => c[1]);
+    mapRef.current.fitBounds(
+      [[Math.min(...lngs), Math.min(...lats)], [Math.max(...lngs), Math.max(...lats)]],
+      { padding: { top: 70, bottom: 50, left: 50, right: 50 }, maxZoom: maxZoom, duration: 800 }
+    );
+  }, []);
 
   // Ensure map canvas resizes when tab becomes visible
   useEffect(() => {
     if (isActive && mapRef.current) {
-      setTimeout(() => mapRef.current.resize(), 100);
+      setTimeout(() => mapRef.current?.resize(), 50);
+      setTimeout(() => mapRef.current?.resize(), 200);
+      setTimeout(() => mapRef.current?.resize(), 500);
+      if (currentGeoJSONRef.current?.features?.length > 0 && !hasFittedInitialBounds.current) {
+        hasFittedInitialBounds.current = true;
+        setTimeout(() => fitToGeoJSON(currentGeoJSONRef.current), 300);
+      }
     }
-  }, [isActive]);
+  }, [isActive, fitToGeoJSON]);
 
   // Initialize Mapbox
   useEffect(() => {
@@ -49,22 +77,12 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
       map = new mapboxgl.Map({
       container: mapContainer.current,
       style: MAPBOX_STYLE,
-      center: [-79.38, 43.65],
-      zoom: 13,
+      center: [-79.45, 43.62],
+      zoom: 11,
       attributionControl: false,
     });
 
     map.addControl(new mapboxgl.NavigationControl({ showCompass: false }), 'top-right');
-
-    if ('geolocation' in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          map.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 15 });
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 5000 }
-      );
-    }
 
     map.on('load', () => {
       // ── MY PINS SOURCE ──
@@ -373,10 +391,17 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
         geojson = await getPropertiesAsGeoJSON(salesMode);
       }
 
+      currentGeoJSONRef.current = geojson;
+
       const source = mapRef.current.getSource('properties');
       if (source) {
         source.setData(geojson);
         setPinCount(geojson.features.length);
+
+        if (!hasFittedInitialBounds.current && geojson.features.length > 0) {
+          hasFittedInitialBounds.current = true;
+          fitToGeoJSON(geojson);
+        }
       }
 
       // Update total knocks for the active session warning logic
@@ -417,7 +442,7 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
     } catch (err) {
       console.error('[MapTab] Pin refresh error:', err);
     }
-  }, [mapReady, user?.id, salesMode]);
+  }, [mapReady, user?.id, salesMode, fitToGeoJSON]);
 
   // ── Refresh pins only when tab is active ──
   useEffect(() => {
@@ -426,7 +451,16 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
 
     refreshPins();
     const id = setInterval(refreshPins, 15000);
-    return () => clearInterval(id);
+
+    const handleSync = () => {
+      refreshPins();
+    };
+    window.addEventListener('sync-local-events', handleSync);
+
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('sync-local-events', handleSync);
+    };
   }, [mapReady, refreshPins, isActive]);
 
   function handleRecenter() {
@@ -435,13 +469,21 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
       loadCoverage(true);
       return;
     }
+
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           mapRef.current.flyTo({ center: [pos.coords.longitude, pos.coords.latitude], zoom: 16 });
         },
-        () => {}
+        () => {
+          if (currentGeoJSONRef.current?.features?.length > 0) {
+            fitToGeoJSON(currentGeoJSONRef.current);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 3000 }
       );
+    } else if (currentGeoJSONRef.current?.features?.length > 0) {
+      fitToGeoJSON(currentGeoJSONRef.current);
     }
   }
 
@@ -455,7 +497,12 @@ export default function MapTab({ user, repName, isActive, salesMode = 'residenti
       <div className="map-view-toggle">
         <button
           className={`map-toggle-btn ${mapView === 'MY' ? 'active' : ''}`}
-          onClick={() => setMapView('MY')}
+          onClick={() => {
+            setMapView('MY');
+            if (currentGeoJSONRef.current?.features?.length > 0) {
+              fitToGeoJSON(currentGeoJSONRef.current);
+            }
+          }}
         >
           My Pins
         </button>

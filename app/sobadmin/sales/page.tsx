@@ -125,7 +125,7 @@ export default function AdminSalesOSPage() {
       {(activeApp === 'residential' || activeApp === 'commercial') && (
         <div className="w-full">
           {/* Centered Card Canvas without Redundant Headers */}
-          <div className="max-w-xl mx-auto bg-card sm:border sm:border-border sm:rounded-2xl sm:shadow-xs overflow-hidden p-1 sm:p-3">
+          <div className={`max-w-xl mx-auto bg-card sm:border sm:border-border sm:rounded-2xl sm:shadow-xs overflow-hidden ${fieldTab === 'MAP' ? 'p-0' : 'p-1 sm:p-3'}`}>
             <div style={{ display: fieldTab === 'KNOCK' ? 'block' : 'none', minHeight: '520px' }}>
               <Logger
                 user={user}
@@ -136,7 +136,7 @@ export default function AdminSalesOSPage() {
                 hideHeader={true}
               />
             </div>
-            <div style={{ display: fieldTab === 'MAP' ? 'block' : 'none', height: '520px', width: '100%' }}>
+            <div style={{ display: fieldTab === 'MAP' ? 'block' : 'none', height: '560px', width: '100%', position: 'relative' }} className="overflow-hidden sm:rounded-xl">
               <MapTab user={user} repName={repName} isActive={fieldTab === 'MAP'} salesMode={activeApp} />
             </div>
             <div style={{ display: fieldTab === 'TEAM' ? 'block' : 'none', minHeight: '520px', width: '100%' }}>
