@@ -1,8 +1,18 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import SalesLaunchpad from '@/components/sales/SalesLaunchpad';
+
+const DispatchMap = dynamic(() => import('@/components/admin/dashboard/DispatchMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="flex h-96 items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+    </div>
+  ),
+});
 import Logger from '@/components/sales/Logger';
 import PhoneTab from '@/components/sales/phone/PhoneTab';
 import HistoryTab from '@/components/sales/history/HistoryTab';
@@ -146,6 +156,15 @@ export default function AdminSalesOSPage() {
     );
   }
 
+  // If active app is Territory Map Hub, render unified DispatchMap with sales preset
+  if (activeApp === 'map') {
+    return (
+      <div className="relative w-full h-[calc(100vh-56px)] lg:h-screen -m-0 md:-m-6 lg:-m-8 overflow-hidden bg-black">
+        <DispatchMap initialPreset="sales" onBack={() => handleSelectApp(null)} />
+      </div>
+    );
+  }
+
   const currentMeta = APP_METAS[activeApp] || { title: 'Sales OS', badge: 'App', icon: LayoutGrid, iconColor: 'text-blue-500' };
   const MetaIcon = currentMeta.icon;
 
@@ -255,12 +274,6 @@ export default function AdminSalesOSPage() {
       {activeApp === 'phone' && (
         <div className="w-full">
           <PhoneTab user={user} repName={repName} isActive={activeApp === 'phone'} />
-        </div>
-      )}
-
-      {activeApp === 'map' && (
-        <div className="w-full h-[calc(100vh-140px)] rounded-2xl overflow-hidden border border-border shadow-xs">
-          <MapTab user={user} repName={repName} isActive={activeApp === 'map'} />
         </div>
       )}
     </div>

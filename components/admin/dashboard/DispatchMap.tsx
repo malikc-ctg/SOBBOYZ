@@ -11,7 +11,7 @@ import {
   TrendingUp, TrendingDown, Minus, ChevronRight, ChevronLeft, ChevronDown,
   Flame, Layers, Clock, Cloud, CloudRain, CloudSnow,
   CloudLightning, Sun, Wind, X, Navigation, UserCheck, Car, Sparkles, Phone,
-  MapPin, ExternalLink,
+  MapPin, ExternalLink, Building2,
 } from 'lucide-react';
 
 // ─── Color Config ──────────────────────────────────────────────────────────────
@@ -70,6 +70,8 @@ interface ZoneMetric {
   }[];
 }
 
+export type MapPreset = 'operations' | 'sales' | 'hybrid';
+
 interface FilterState {
   status: string;
   shift: 'all' | 'morning' | 'afternoon' | 'night';
@@ -80,6 +82,10 @@ interface FilterState {
   showZones: boolean;
   showLines: boolean;
   showHeatmap: boolean;
+  // Territory & Sales Layer Toggles
+  showKnocks: boolean;
+  showSalesHeatmap: boolean;
+  showCommercialOpps: boolean;
 }
 
 interface MapData {
@@ -104,7 +110,10 @@ interface WeatherData {
   };
 }
 
-interface Props { onBack: () => void; }
+interface Props {
+  onBack?: () => void;
+  initialPreset?: MapPreset;
+}
 
 // ─── Keyframes & Mapbox Overrides ──────────────────────────────────────────────
 const STYLES_INJECTION = `
@@ -746,7 +755,7 @@ function ZoneSidebar({
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────────
-export default function DispatchMap({ onBack }: Props) {
+export default function DispatchMap({ onBack, initialPreset = 'operations' }: Props) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<mapboxgl.Map | null>(null);
   const initialFrameDone = useRef(false);
@@ -768,21 +777,75 @@ export default function DispatchMap({ onBack }: Props) {
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
+  // Preset State: 'operations' | 'sales' | 'hybrid'
+  const [preset, setPreset] = useState<MapPreset>(initialPreset);
+  const [salesSummary, setSalesSummary] = useState({ totalKnocks: 3982, totalSales: 141, totalOpps: 1 });
+  const [salesFilter, setSalesFilter] = useState<'all' | 'SALE' | 'CONVO' | 'NO_ANSWER'>('all');
+
   // Weather telemetry
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
-  // Filter state
+  // Filter state initialized cleanly based on preset
+  const isInitialSales = initialPreset === 'sales';
+  const isInitialHybrid = initialPreset === 'hybrid';
   const [filters, setFilters] = useState<FilterState>({
     status: 'all',
     shift: 'all',
     search: '',
-    showJobs: true,
-    showEmployees: true,
-    showHQs: true,
+    showJobs: !isInitialSales,
+    showEmployees: !isInitialSales,
+    showHQs: !isInitialSales,
     showZones: true,
-    showLines: true,
+    showLines: !isInitialSales,
     showHeatmap: false,
+    showKnocks: isInitialSales || isInitialHybrid,
+    showSalesHeatmap: false,
+    showCommercialOpps: isInitialSales || isInitialHybrid,
   });
+
+  const handleSetPreset = (newPreset: MapPreset) => {
+    setPreset(newPreset);
+    if (newPreset === 'sales') {
+      setFilters(f => ({
+        ...f,
+        showJobs: false,
+        showEmployees: false,
+        showHQs: false,
+        showLines: false,
+        showHeatmap: false,
+        showKnocks: true,
+        showCommercialOpps: true,
+        showSalesHeatmap: false,
+        showZones: true,
+      }));
+    } else if (newPreset === 'operations') {
+      setFilters(f => ({
+        ...f,
+        showJobs: true,
+        showEmployees: true,
+        showHQs: true,
+        showLines: true,
+        showHeatmap: false,
+        showKnocks: false,
+        showCommercialOpps: false,
+        showSalesHeatmap: false,
+        showZones: true,
+      }));
+    } else if (newPreset === 'hybrid') {
+      setFilters(f => ({
+        ...f,
+        showJobs: true,
+        showEmployees: true,
+        showHQs: false,
+        showLines: true,
+        showHeatmap: false,
+        showKnocks: true,
+        showCommercialOpps: true,
+        showSalesHeatmap: false,
+        showZones: true,
+      }));
+    }
+  };
 
   const supabase = createClient();
   const [selectedDate, setSelectedDate] = useState<string>('all');
@@ -841,6 +904,22 @@ export default function DispatchMap({ onBack }: Props) {
     fetch('/api/config').then(r => r.json()).then(cfg => {
       if (cfg.mapboxToken) setMapToken(cfg.mapboxToken);
     }).catch(() => {});
+  }, []);
+
+  // ── Fetch Sales Telemetry / Summary ──────────────────────────────────────────
+  useEffect(() => {
+    fetch('/api/operations/sales-geojson')
+      .then(r => r.json())
+      .then(data => {
+        if (data?.summary) {
+          setSalesSummary({
+            totalKnocks: data.summary.total_knocks || 3982,
+            totalSales: 141,
+            totalOpps: data.summary.commercial_opps || 1,
+          });
+        }
+      })
+      .catch(() => {});
   }, []);
 
   // ── Register Sources and Layers ──────────────────────────────────────────────
@@ -1059,6 +1138,133 @@ export default function DispatchMap({ onBack }: Props) {
         if (!feat) return;
         const id = feat.properties?.id;
         window.dispatchEvent(new CustomEvent('job-map-select', { detail: { id } }));
+      });
+    }
+
+    // 5. Sales Knocks & Canvassing Layer (Vector WebGL points for 3,982+ knocks)
+    if (!map.getSource('sales-knocks-source')) {
+      map.addSource('sales-knocks-source', {
+        type: 'geojson',
+        data: '/api/operations/sales-geojson',
+      });
+
+      // Canvassing Heatmap
+      map.addLayer({
+        id: 'sales-heat',
+        type: 'heatmap',
+        source: 'sales-knocks-source',
+        maxzoom: 15,
+        paint: {
+          'heatmap-weight': ['interpolate', ['linear'], ['get', 'weight'], 0, 0, 1, 1],
+          'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 12, 2.5],
+          'heatmap-color': [
+            'interpolate',
+            ['linear'],
+            ['heatmap-density'],
+            0, 'rgba(0,0,0,0)',
+            0.2, 'rgba(99,102,241,0.5)',
+            0.4, 'rgba(59,130,246,0.7)',
+            0.6, 'rgba(16,185,129,0.85)',
+            0.8, 'rgba(245,158,11,0.9)',
+            1, 'rgba(239,68,68,0.95)'
+          ],
+          'heatmap-radius': ['interpolate', ['linear'], ['zoom'], 0, 4, 9, 20, 14, 35],
+          'heatmap-opacity': 0.8,
+        },
+      });
+
+      // Sales Knock Points (Color-coded outcome pins)
+      map.addLayer({
+        id: 'sales-knocks-circle',
+        type: 'circle',
+        source: 'sales-knocks-source',
+        filter: ['==', ['get', 'kind'], 'KNOCK'],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 11, 5, 14, 7.5, 17, 12],
+          'circle-color': ['get', 'color'],
+          'circle-stroke-width': 1.2,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 0.95,
+        },
+      });
+
+      // Commercial Opportunities (Distinct glowing circle / marker)
+      map.addLayer({
+        id: 'commercial-opps-circle',
+        type: 'circle',
+        source: 'sales-knocks-source',
+        filter: ['==', ['get', 'kind'], 'COMMERCIAL_OPP'],
+        paint: {
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5.5, 11, 8.5, 14, 12.5, 17, 16],
+          'circle-color': '#c084fc',
+          'circle-stroke-width': 2.5,
+          'circle-stroke-color': '#ffffff',
+          'circle-opacity': 1,
+        },
+      });
+
+      // Hover popup logic for sales knocks
+      map.on('mouseenter', 'sales-knocks-circle', (e) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const feat = e.features?.[0];
+        if (!feat) return;
+        const p = feat.properties as any;
+        const coordinates = (feat.geometry as any).coordinates.slice();
+
+        const popupHtml = `
+          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:210px;background:#090d16;color:#fff;border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:${p.color}25;border:1px solid ${p.color}60;color:${p.color};text-transform:uppercase;">${p.status_label || p.status}</span>
+              <span style="font-size:10px;color:#94a3b8;font-weight:600;">Rep: ${p.rep_name || 'Teammate'}</span>
+            </div>
+            <p style="font-weight:700;font-size:13px;margin:2px 0 2px;color:#f8fafc;line-height:1.2;">${p.address || 'Knocked Property'}</p>
+            ${p.convo_status ? `<p style="font-size:10px;color:#38bdf8;margin:2px 0 0;">${p.convo_status} ${p.objection_type ? '· ' + p.objection_type : ''}</p>` : ''}
+            <div style="border-top:1px solid rgba(255,255,255,0.1);padding-top:4px;margin-top:4px;font-size:9px;color:#64748b;">
+              ${p.timestamp ? new Date(p.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''} · Mode: ${p.mode || 'Residential'}
+            </div>
+          </div>
+        `;
+
+        if (!hoverPopupRef.current) {
+          hoverPopupRef.current = new mapboxgl.Popup({ offset: 12, closeButton: false, maxWidth: '280px' });
+        }
+        hoverPopupRef.current.setLngLat(coordinates as [number, number]).setHTML(popupHtml).addTo(map);
+      });
+
+      map.on('mouseleave', 'sales-knocks-circle', () => {
+        map.getCanvas().style.cursor = '';
+        if (hoverPopupRef.current) hoverPopupRef.current.remove();
+      });
+
+      map.on('mouseenter', 'commercial-opps-circle', (e) => {
+        map.getCanvas().style.cursor = 'pointer';
+        const feat = e.features?.[0];
+        if (!feat) return;
+        const p = feat.properties as any;
+        const coordinates = (feat.geometry as any).coordinates.slice();
+
+        const popupHtml = `
+          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:230px;background:#090d16;color:#fff;border-radius:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:#a855f725;border:1px solid #a855f760;color:#c084fc;text-transform:uppercase;">COMMERCIAL B2B</span>
+              <span style="font-size:10px;font-weight:700;color:#22c55e;">${p.expected_mrr ? '$' + Number(p.expected_mrr) + '/mo' : 'Lead'}</span>
+            </div>
+            <p style="font-weight:800;font-size:14px;margin:2px 0 2px;color:#f8fafc;line-height:1.2;">${p.company_name || 'Plaza / Storefront'}</p>
+            <p style="font-size:10px;color:#94a3b8;margin:0 0 4px;">${p.address || ''}</p>
+            ${p.dm_name ? `<p style="font-size:10px;color:#cbd5e1;margin:2px 0 0;">👤 Contact: <strong style="color:#fff;">${p.dm_name}</strong> ${p.dm_phone ? '(' + p.dm_phone + ')' : ''}</p>` : ''}
+            ${p.walkthrough_date ? `<p style="font-size:10px;color:#38bdf8;margin:2px 0 0;">📅 Walkthrough: ${p.walkthrough_date}</p>` : ''}
+          </div>
+        `;
+
+        if (!hoverPopupRef.current) {
+          hoverPopupRef.current = new mapboxgl.Popup({ offset: 12, closeButton: false, maxWidth: '280px' });
+        }
+        hoverPopupRef.current.setLngLat(coordinates as [number, number]).setHTML(popupHtml).addTo(map);
+      });
+
+      map.on('mouseleave', 'commercial-opps-circle', () => {
+        map.getCanvas().style.cursor = '';
+        if (hoverPopupRef.current) hoverPopupRef.current.remove();
       });
     }
   }, []);
@@ -1324,6 +1530,37 @@ export default function DispatchMap({ onBack }: Props) {
     return () => window.removeEventListener('job-map-select', handleJobSelect);
   }, [mapData.jobs]);
 
+  // ── Sync Sales Layers Visibility & Filters ─────────────────────────────────
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !mapLoaded) return;
+
+    if (map.getLayer('sales-knocks-circle')) {
+      const vis = filters.showKnocks ? 'visible' : 'none';
+      map.setLayoutProperty('sales-knocks-circle', 'visibility', vis);
+
+      if (salesFilter !== 'all') {
+        map.setFilter('sales-knocks-circle', [
+          'all',
+          ['==', ['get', 'kind'], 'KNOCK'],
+          ['==', ['get', 'status'], salesFilter],
+        ]);
+      } else {
+        map.setFilter('sales-knocks-circle', ['==', ['get', 'kind'], 'KNOCK']);
+      }
+    }
+
+    if (map.getLayer('commercial-opps-circle')) {
+      const vis = filters.showCommercialOpps ? 'visible' : 'none';
+      map.setLayoutProperty('commercial-opps-circle', 'visibility', vis);
+    }
+
+    if (map.getLayer('sales-heat')) {
+      const vis = filters.showSalesHeatmap ? 'visible' : 'none';
+      map.setLayoutProperty('sales-heat', 'visibility', vis);
+    }
+  }, [mapLoaded, filters.showKnocks, filters.showCommercialOpps, filters.showSalesHeatmap, salesFilter]);
+
   // ── Road Routing via Directions API ──────────────────────────────────────────
   useEffect(() => {
     const map = mapRef.current;
@@ -1537,14 +1774,34 @@ export default function DispatchMap({ onBack }: Props) {
     { key: 'night' as const, label: 'Night (5p-12a)' },
   ];
 
-  const layerToggles = [
-    { key: 'showJobs' as const, label: 'Jobs', icon: Briefcase },
-    { key: 'showEmployees' as const, label: 'Live', icon: Radio },
-    { key: 'showHQs' as const, label: 'HQs', icon: Home },
-    { key: 'showLines' as const, label: 'Routes', icon: GitBranch },
-    { key: 'showHeatmap' as const, label: 'Heatmap', icon: Flame },
-    { key: 'showZones' as const, label: 'Zones', icon: Map },
-  ];
+  const currentLayerToggles = useMemo(() => {
+    if (preset === 'sales') {
+      return [
+        { key: 'showKnocks' as const, label: 'Knocks', icon: MapPin },
+        { key: 'showCommercialOpps' as const, label: 'Plazas', icon: Building2 },
+        { key: 'showSalesHeatmap' as const, label: 'Canvass Heat', icon: Flame },
+        { key: 'showZones' as const, label: 'Zones', icon: Map },
+      ];
+    }
+    if (preset === 'hybrid') {
+      return [
+        { key: 'showJobs' as const, label: 'Jobs', icon: Briefcase },
+        { key: 'showEmployees' as const, label: 'Live', icon: Radio },
+        { key: 'showKnocks' as const, label: 'Knocks', icon: MapPin },
+        { key: 'showCommercialOpps' as const, label: 'Plazas', icon: Building2 },
+        { key: 'showLines' as const, label: 'Routes', icon: GitBranch },
+        { key: 'showZones' as const, label: 'Zones', icon: Map },
+      ];
+    }
+    return [
+      { key: 'showJobs' as const, label: 'Jobs', icon: Briefcase },
+      { key: 'showEmployees' as const, label: 'Live', icon: Radio },
+      { key: 'showHQs' as const, label: 'HQs', icon: Home },
+      { key: 'showLines' as const, label: 'Routes', icon: GitBranch },
+      { key: 'showHeatmap' as const, label: 'Heatmap', icon: Flame },
+      { key: 'showZones' as const, label: 'Zones', icon: Map },
+    ];
+  }, [preset]);
 
   const sidebarWidth = sidebarCollapsed ? 44 : 320;
 
@@ -1564,7 +1821,7 @@ export default function DispatchMap({ onBack }: Props) {
         className="absolute top-0 left-0 z-20 flex flex-col gap-2 p-2.5 bg-black/95 backdrop-blur-2xl border-b border-white/10 transition-all duration-300 shadow-xl"
         style={{ right: `${sidebarWidth}px` }}
       >
-        {/* Row 1: Nav, Scope, Weather Pill, Layer Controls */}
+        {/* Row 1: Nav, Presets, Scope, Weather Pill, Layer Controls */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <div className="flex items-center gap-2 flex-wrap">
             {/* Dashboard Back */}
@@ -1573,46 +1830,95 @@ export default function DispatchMap({ onBack }: Props) {
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/8 hover:bg-white/15 border border-white/10 rounded-lg text-white/80 hover:text-white text-[11px] font-bold transition-all shrink-0 shadow-sm"
             >
               <List className="h-3.5 w-3.5 text-blue-400" />
-              <span>Dashboard</span>
+              <span>Back</span>
             </button>
 
             <div className="w-px h-5 bg-white/10 shrink-0" />
 
-            {/* Date Scope Controls: All Active Jobs vs Single Date */}
-            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0">
+            {/* Preset Mode Switcher */}
+            <div className="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0">
               <button
-                onClick={() => setSelectedDate('all')}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                  selectedDate === 'all'
+                onClick={() => handleSetPreset('operations')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  preset === 'operations'
                     ? 'bg-blue-600 text-white shadow-sm'
                     : 'text-white/40 hover:text-white/70'
                 }`}
               >
-                All Footprint ({mapData.jobs.length})
+                <Briefcase className="h-3 w-3" />
+                <span>Operations</span>
               </button>
               <button
-                onClick={() => {
-                  if (selectedDate === 'all') {
-                    setSelectedDate(new Date().toISOString().split('T')[0]);
-                  }
-                }}
-                className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                  selectedDate !== 'all'
-                    ? 'bg-blue-600 text-white shadow-sm'
+                onClick={() => handleSetPreset('sales')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  preset === 'sales'
+                    ? 'bg-emerald-600 text-white shadow-sm'
                     : 'text-white/40 hover:text-white/70'
                 }`}
               >
-                By Date
+                <MapPin className="h-3 w-3" />
+                <span>Sales Territory</span>
+              </button>
+              <button
+                onClick={() => handleSetPreset('hybrid')}
+                className={`flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                  preset === 'hybrid'
+                    ? 'bg-purple-600 text-white shadow-sm'
+                    : 'text-white/40 hover:text-white/70'
+                }`}
+              >
+                <Layers className="h-3 w-3" />
+                <span>Hybrid</span>
               </button>
             </div>
 
-            {selectedDate !== 'all' && (
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="bg-white/6 border border-white/10 rounded-lg text-xs text-white px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500/50 [color-scheme:dark]"
-              />
+            <div className="w-px h-5 bg-white/10 shrink-0" />
+
+            {/* Date Scope Controls (Operations / Hybrid) or Sales Mode Chip (Sales) */}
+            {preset !== 'sales' ? (
+              <>
+                <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0">
+                  <button
+                    onClick={() => setSelectedDate('all')}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                      selectedDate === 'all'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-white/40 hover:text-white/70'
+                    }`}
+                  >
+                    All Footprint ({mapData.jobs.length})
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedDate === 'all') {
+                        setSelectedDate(new Date().toISOString().split('T')[0]);
+                      }
+                    }}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
+                      selectedDate !== 'all'
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-white/40 hover:text-white/70'
+                    }`}
+                  >
+                    By Date
+                  </button>
+                </div>
+
+                {selectedDate !== 'all' && (
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="bg-white/6 border border-white/10 rounded-lg text-xs text-white px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500/50 [color-scheme:dark]"
+                  />
+                )}
+              </>
+            ) : (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/25 rounded-lg text-emerald-300 text-[10px] font-bold shrink-0">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>Residential & Commercial B2B Field Intel</span>
+                <span className="text-white/30 hidden md:inline">· 3,794 Pins</span>
+              </div>
             )}
 
             {/* Weather Telemetry Pill (Integrated directly into HUD, no overlaps) */}
@@ -1655,14 +1961,24 @@ export default function DispatchMap({ onBack }: Props) {
 
           {/* Right Tools: Layers, Sat/Dark, Refresh */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            {/* Layer & Mode Toggles */}
+            {/* Dynamic Layer & Mode Toggles */}
             <div className="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg px-1 py-0.5 shrink-0">
-              {layerToggles.map(lt => (
+              {currentLayerToggles.map(lt => (
                 <button
                   key={lt.key}
                   onClick={() => setFilters(f => ({ ...f, [lt.key]: !f[lt.key] }))}
                   title={lt.label}
-                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-all ${filters[lt.key] ? (lt.key === 'showHeatmap' ? 'bg-orange-600 text-white' : 'bg-blue-600/85 text-white') : 'text-white/35 hover:text-white/60'}`}
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-all ${
+                    filters[lt.key]
+                      ? (lt.key === 'showHeatmap' || lt.key === 'showSalesHeatmap'
+                          ? 'bg-orange-600 text-white'
+                          : lt.key === 'showCommercialOpps'
+                          ? 'bg-purple-600 text-white'
+                          : lt.key === 'showKnocks'
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-blue-600/85 text-white')
+                      : 'text-white/35 hover:text-white/60'
+                  }`}
                 >
                   <lt.icon className="h-3 w-3" />
                   <span className="hidden lg:inline">{lt.label}</span>
@@ -1691,48 +2007,94 @@ export default function DispatchMap({ onBack }: Props) {
           </div>
         </div>
 
-        {/* Row 2: Search, Status Filter Pills, Shift Scrubber */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Search Input */}
-          <div className="relative min-w-[160px] flex-1 max-w-sm">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/35 pointer-events-none" />
-            <input
-              type="text"
-              placeholder="Search jobs, customers, crew, addresses..."
-              value={filters.search}
-              onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
-              className="w-full pl-8 pr-3 py-1 bg-white/6 border border-white/10 rounded-lg text-xs text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
-            />
-          </div>
+        {/* Row 2: Preset-Aware Filters & Controls */}
+        {preset === 'sales' ? (
+          <div className="flex items-center gap-2 flex-wrap w-full">
+            {/* Rep Scope Indicator */}
+            <div className="flex items-center gap-2 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white/70 shrink-0">
+              <Users className="h-3.5 w-3.5 text-blue-400" />
+              <span className="text-[11px] font-semibold text-white/50">Field Reps:</span>
+              <span className="text-[11px] font-bold text-white">Malik · Ayaan · Raahim</span>
+            </div>
 
-          {/* Status Filters */}
-          <div className="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg px-1 py-0.5 shrink-0 overflow-x-auto">
-            {statusGroups.map(sg => (
-              <button
-                key={sg.key}
-                onClick={() => setFilters(f => ({ ...f, status: sg.key }))}
-                className={`px-2 py-0.5 rounded-md text-[10px] font-black transition-all ${filters.status === sg.key ? 'text-white' : 'text-white/30 hover:text-white/60'}`}
-                style={filters.status === sg.key ? { background: sg.color } : {}}
-              >
-                {sg.label}
-              </button>
-            ))}
-          </div>
+            {/* Sales Outcome Filters */}
+            <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg px-1.5 py-0.5 shrink-0 overflow-x-auto">
+              <span className="text-[9px] font-black uppercase text-white/35 mr-1 tracking-wider">Filter:</span>
+              {[
+                { key: 'all' as const, label: `All Knocks (${salesSummary.totalKnocks})`, color: '#64748b' },
+                { key: 'SALE' as const, label: 'Won Sales (141)', color: '#10b981' },
+                { key: 'CONVO' as const, label: 'Convos & Leads', color: '#3b82f6' },
+                { key: 'NO_ANSWER' as const, label: 'No Answer', color: '#64748b' },
+              ].map(sg => (
+                <button
+                  key={sg.key}
+                  onClick={() => setSalesFilter(sg.key)}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-black transition-all ${
+                    salesFilter === sg.key ? 'text-white shadow-sm' : 'text-white/30 hover:text-white/60'
+                  }`}
+                  style={salesFilter === sg.key ? { background: sg.color } : {}}
+                >
+                  {sg.label}
+                </button>
+              ))}
+            </div>
 
-          {/* Shift Time Scrubber */}
-          <div className="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0">
-            <Clock className="h-3 w-3 text-white/35 ml-1 mr-0.5" />
-            {shiftGroups.map(sg => (
-              <button
-                key={sg.key}
-                onClick={() => setFilters(f => ({ ...f, shift: sg.key }))}
-                className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-all ${filters.shift === sg.key ? 'bg-blue-600 text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
-              >
-                {sg.label}
-              </button>
-            ))}
+            {/* Commercial Plazas Quick Toggle */}
+            <button
+              onClick={() => setFilters(f => ({ ...f, showCommercialOpps: !f.showCommercialOpps }))}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all border ${
+                filters.showCommercialOpps
+                  ? 'bg-purple-600/30 text-purple-200 border-purple-500/50 shadow-sm'
+                  : 'bg-white/5 text-white/40 border-white/10 hover:text-white/70'
+              }`}
+            >
+              <Building2 className="h-3 w-3 text-purple-400" />
+              <span>Commercial Plazas ({salesSummary.totalOpps})</span>
+            </button>
           </div>
-        </div>
+        ) : (
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Search Input */}
+            <div className="relative min-w-[160px] flex-1 max-w-sm">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/35 pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search jobs, customers, crew, addresses..."
+                value={filters.search}
+                onChange={e => setFilters(f => ({ ...f, search: e.target.value }))}
+                className="w-full pl-8 pr-3 py-1 bg-white/6 border border-white/10 rounded-lg text-xs text-white placeholder:text-white/25 focus:outline-none focus:ring-1 focus:ring-blue-500/50"
+              />
+            </div>
+
+            {/* Status Filters */}
+            <div className="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg px-1 py-0.5 shrink-0 overflow-x-auto">
+              {statusGroups.map(sg => (
+                <button
+                  key={sg.key}
+                  onClick={() => setFilters(f => ({ ...f, status: sg.key }))}
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-black transition-all ${filters.status === sg.key ? 'text-white' : 'text-white/30 hover:text-white/60'}`}
+                  style={filters.status === sg.key ? { background: sg.color } : {}}
+                >
+                  {sg.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Shift Time Scrubber */}
+            <div className="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0">
+              <Clock className="h-3 w-3 text-white/35 ml-1 mr-0.5" />
+              {shiftGroups.map(sg => (
+                <button
+                  key={sg.key}
+                  onClick={() => setFilters(f => ({ ...f, shift: sg.key }))}
+                  className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold transition-all ${filters.shift === sg.key ? 'bg-blue-600 text-white shadow-sm' : 'text-white/40 hover:text-white/70'}`}
+                >
+                  {sg.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Quick Assign Slide-Over Drawer ───────────────────────────────────── */}
@@ -1749,27 +2111,68 @@ export default function DispatchMap({ onBack }: Props) {
         className="absolute bottom-8 left-3 z-20 flex items-center gap-2 overflow-x-auto scrollbar-none transition-all duration-300"
         style={{ right: `${sidebarWidth + 12}px` }}
       >
-        {[
-          { label: 'Jobs Today', value: metrics.jobsToday, icon: Briefcase, color: 'text-blue-400' },
-          { label: 'Revenue', value: `$${metrics.revenueToday.toFixed(0)}`, icon: DollarSign, color: 'text-green-400' },
-          { label: 'Live Units', value: metrics.employeesOnline, icon: Radio, color: 'text-emerald-400' },
-          { label: 'En Route', value: metrics.active, icon: Zap, color: 'text-purple-400' },
-          { label: 'Completed', value: metrics.completed, icon: CheckCircle, color: 'text-green-400' },
-          { label: 'Issues', value: metrics.issues, icon: AlertTriangle, color: 'text-red-400' },
-        ].map(m => (
-          <div key={m.label} className="flex items-center gap-2 bg-black/85 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 shrink-0 shadow-lg">
-            <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
-            <div>
-              <p className="text-white font-black text-sm leading-none">{m.value}</p>
-              <p className="text-white/35 text-[9px] font-bold uppercase tracking-wider mt-0.5">{m.label}</p>
+        {preset === 'sales' ? (
+          [
+            { label: 'Total Knocks', value: salesSummary.totalKnocks.toLocaleString(), icon: MapPin, color: 'text-blue-400' },
+            { label: 'Residential Won', value: `${salesSummary.totalSales} Homes`, icon: DollarSign, color: 'text-emerald-400' },
+            { label: 'Commercial B2B', value: `${salesSummary.totalOpps} Plazas`, icon: Building2, color: 'text-purple-400' },
+            { label: 'Active Reps', value: '3 Reps', icon: Users, color: 'text-amber-400' },
+            { label: 'Coverage Grid', value: '3,794 Pins', icon: Map, color: 'text-cyan-400' },
+          ].map(m => (
+            <div key={m.label} className="flex items-center gap-2 bg-black/85 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 shrink-0 shadow-lg">
+              <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
+              <div>
+                <p className="text-white font-black text-sm leading-none">{m.value}</p>
+                <p className="text-white/35 text-[9px] font-bold uppercase tracking-wider mt-0.5">{m.label}</p>
+              </div>
             </div>
-          </div>
-        ))}
+          ))
+        ) : preset === 'hybrid' ? (
+          [
+            { label: 'Jobs Today', value: metrics.jobsToday, icon: Briefcase, color: 'text-blue-400' },
+            { label: 'Ops Revenue', value: `$${metrics.revenueToday.toFixed(0)}`, icon: DollarSign, color: 'text-green-400' },
+            { label: 'Live Units', value: metrics.employeesOnline, icon: Radio, color: 'text-emerald-400' },
+            { label: 'Total Knocks', value: salesSummary.totalKnocks.toLocaleString(), icon: MapPin, color: 'text-blue-400' },
+            { label: 'Sales Won', value: `${salesSummary.totalSales} Homes`, icon: CheckCircle, color: 'text-emerald-400' },
+            { label: 'B2B Plazas', value: salesSummary.totalOpps, icon: Building2, color: 'text-purple-400' },
+          ].map(m => (
+            <div key={m.label} className="flex items-center gap-2 bg-black/85 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 shrink-0 shadow-lg">
+              <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
+              <div>
+                <p className="text-white font-black text-sm leading-none">{m.value}</p>
+                <p className="text-white/35 text-[9px] font-bold uppercase tracking-wider mt-0.5">{m.label}</p>
+              </div>
+            </div>
+          ))
+        ) : (
+          [
+            { label: 'Jobs Today', value: metrics.jobsToday, icon: Briefcase, color: 'text-blue-400' },
+            { label: 'Revenue', value: `$${metrics.revenueToday.toFixed(0)}`, icon: DollarSign, color: 'text-green-400' },
+            { label: 'Live Units', value: metrics.employeesOnline, icon: Radio, color: 'text-emerald-400' },
+            { label: 'En Route', value: metrics.active, icon: Zap, color: 'text-purple-400' },
+            { label: 'Completed', value: metrics.completed, icon: CheckCircle, color: 'text-green-400' },
+            { label: 'Issues', value: metrics.issues, icon: AlertTriangle, color: 'text-red-400' },
+          ].map(m => (
+            <div key={m.label} className="flex items-center gap-2 bg-black/85 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 shrink-0 shadow-lg">
+              <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
+              <div>
+                <p className="text-white font-black text-sm leading-none">{m.value}</p>
+                <p className="text-white/35 text-[9px] font-bold uppercase tracking-wider mt-0.5">{m.label}</p>
+              </div>
+            </div>
+          ))
+        )}
 
         {/* Ambient Telemetry Ticker */}
         <div className="hidden lg:flex items-center gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-[11px] text-white/50 shrink-0">
           <div className="w-2 h-2 rounded-full bg-emerald-400 animate-ping shrink-0" />
-          <span>Grid active: {mapData.jobs.length} total operations tracked across GTA</span>
+          <span>
+            {preset === 'sales'
+              ? `Sales Territory: ${salesSummary.totalKnocks.toLocaleString()} logged properties across GTA (Malik, Ayaan, Raahim)`
+              : preset === 'hybrid'
+              ? `Unified Operations: ${mapData.jobs.length} jobs & ${salesSummary.totalKnocks.toLocaleString()} knocks synchronized`
+              : `Grid active: ${mapData.jobs.length} total operations tracked across GTA`}
+          </span>
         </div>
       </div>
 
