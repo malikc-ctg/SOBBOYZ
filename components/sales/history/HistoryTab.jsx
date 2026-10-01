@@ -37,16 +37,16 @@ export default function HistoryTab({
     let mounted = true;
 
     async function loadData() {
-      const localData = await getLocalHistory(mode);
+      const localData = await getLocalHistory(mode, user?.id);
       if (mounted) {
         setSessions(localData);
         setLoading(false);
       }
 
-      const hasNewData = await forceSyncHistoryDeltas(user.id);
+      const hasNewData = await forceSyncHistoryDeltas(user?.id);
       
       if (hasNewData && mounted) {
-        const mergedData = await getLocalHistory(mode);
+        const mergedData = await getLocalHistory(mode, user?.id);
         setSessions(mergedData);
       }
     }
@@ -54,7 +54,7 @@ export default function HistoryTab({
     loadData();
 
     const interval = setInterval(async () => {
-      const liveData = await getLocalHistory(mode);
+      const liveData = await getLocalHistory(mode, user?.id);
       if (mounted) setSessions(liveData);
     }, 5000);
 

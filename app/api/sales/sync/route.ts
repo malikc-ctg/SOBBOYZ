@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
 
     const payload = events.map((e: any) => ({
       event_id: e.event_id,
-      rep_id: e.rep_id || 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
+      rep_id: e.rep_id || null,
       type: e.type,
       payload: typeof e.payload === 'string' ? JSON.parse(e.payload) : e.payload,
       created_at: e.created_at || new Date().toISOString(),

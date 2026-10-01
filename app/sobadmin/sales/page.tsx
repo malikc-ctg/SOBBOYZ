@@ -30,11 +30,9 @@ export default function AdminSalesOSPage() {
   const initialApp = searchParams.get('app') || searchParams.get('mode') || null;
   const [activeApp, setActiveApp] = useState<string | null>(initialApp);
   const [fieldTab, setFieldTab] = useState<'KNOCK' | 'MAP' | 'TEAM' | 'HISTORY'>('KNOCK');
-  const [user, setUser] = useState({
-    id: 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
-    email: 'admin@seaofblue.app'
-  });
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [repName, setRepName] = useState('Admin');
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const appParam = searchParams.get('app') || searchParams.get('mode');
@@ -47,7 +45,7 @@ export default function AdminSalesOSPage() {
         const supabase = createClient();
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          setUser({ id: authUser.id, email: authUser.email || 'admin@seaofblue.app' });
+          setUser({ id: authUser.id, email: authUser.email || '' });
           const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', authUser.id).single();
           if (profile?.full_name) {
             setRepName(profile.full_name);
@@ -57,6 +55,8 @@ export default function AdminSalesOSPage() {
         }
       } catch (err) {
         console.error('Failed to load user in Sales OS:', err);
+      } finally {
+        setAuthLoading(false);
       }
     }
     loadAuth();
@@ -79,6 +79,14 @@ export default function AdminSalesOSPage() {
       if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'instant' });
     }
   };
+
+  if (authLoading || !user) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="animate-pulse text-sm text-muted-foreground font-semibold">Loading Sales OS...</div>
+      </div>
+    );
+  }
 
   // If on launcher home screen, render SalesLaunchpad
   if (!activeApp) {

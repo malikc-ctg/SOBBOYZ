@@ -228,9 +228,21 @@ export default function Logger({
         let aBreak = null;
         let evts = [];
 
+        if (typeof window !== 'undefined' && user?.id) {
+          const lastUser = localStorage.getItem('knocklog_last_user_id');
+          if (lastUser && lastUser !== user.id) {
+            localStorage.removeItem('knocklog_active_street');
+          }
+          localStorage.setItem('knocklog_last_user_id', user.id);
+        }
+
         // Rebuild state entirely from local append-only event log
         for (let row of rs) {
-          const payload = JSON.parse(row.payload);
+          const payload = typeof row.payload === 'string' ? JSON.parse(row.payload) : row.payload;
+          const rowRepId = row.rep_id || payload?.rep_id || payload?.repId;
+          if (rowRepId && user?.id && rowRepId !== user.id) {
+            continue;
+          }
           if (row.type === 'DAY_START') {
             const today = new Date().toISOString().split('T')[0];
             if (payload.session_date === today) {
