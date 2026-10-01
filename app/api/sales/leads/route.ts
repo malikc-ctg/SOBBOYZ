@@ -98,15 +98,16 @@ export async function POST(request: NextRequest) {
     const { data, error } = await supabase
       .from('leads')
       .insert({
-        source: 'phone_sales_os',
+        source: body.source || 'd2d',
         customer_name: body.customer_name || 'Decision Maker',
         company_name: body.company_name || 'Commercial Account',
         customer_phone: body.customer_phone || '',
         customer_email: body.customer_email || null,
         city: body.city || 'GTA',
-        service_type: body.service_type || 'Commercial Exterior / Dumpster Sanitization',
-        quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : 500,
-        notes: body.notes || 'Created via B2B Phone Sales OS',
+        service_type: body.service_type || 'commercial_cleaning',
+        preferred_date: body.preferred_date || null,
+        quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : null,
+        notes: body.notes || 'Created via KnockLog',
         status: body.status || 'new',
       })
       .select()

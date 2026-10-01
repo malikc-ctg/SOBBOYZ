@@ -262,7 +262,20 @@ export default function Logger({
         setSession(sess);
         setDayState(dState);
         setActiveBreak(aBreak);
-        setEvents(evts.reverse());
+        const reversedEvts = evts.reverse();
+        setEvents(reversedEvts);
+
+        // Restore active street / plaza so reps don't lose their target on refresh
+        if (dState === 'ACTIVE' && typeof window !== 'undefined') {
+          const saved = localStorage.getItem('knocklog_active_street');
+          if (saved) {
+            setStreet(saved);
+            setStreetInput(saved);
+          } else if (reversedEvts.length > 0 && reversedEvts[0].street_name) {
+            setStreet(reversedEvts[0].street_name);
+            setStreetInput(reversedEvts[0].street_name);
+          }
+        }
       } catch (e) {
         console.error("Local bootstrap failed:", e);
       } finally {
@@ -444,6 +457,13 @@ export default function Logger({
 
     await insertLocalEvent(crypto.randomUUID(), 'DAY_END', payload);
 
+    if (typeof window !== 'undefined') {
+      try { localStorage.removeItem('knocklog_active_street'); } catch (e) {}
+    }
+    setStreet('');
+    setStreetInput('');
+    setBusinessName('');
+    setSuiteNum('');
     setSession({ ...session, status: 'CLOSED', export_status: exportStatus, export_url: exportUrl });
     setDayState('CLOSED');
     setLogging(false);
@@ -573,6 +593,9 @@ export default function Logger({
     const s = streetInput.trim();
     if (!s) return;
     setStreet(s);
+    if (typeof window !== 'undefined') {
+      try { localStorage.setItem('knocklog_active_street', s); } catch (e) {}
+    }
     setStreetSuggestions([]);
   }
 
@@ -720,6 +743,9 @@ export default function Logger({
     setWalkthroughEstValue('');
     setWalkthroughVendor('');
     setWalkthroughContractEnd('');
+    // Clear business name and suite so rep is immediately ready for next target
+    setBusinessName('');
+    setSuiteNum('');
   }
 
   function handleOutcome(outcomeType) {
@@ -755,6 +781,10 @@ export default function Logger({
 
   async function submitWalkthroughForm() {
     if (!walkthroughContactName.trim() || !walkthroughPhone.trim()) return;
+    const targetCompanyName = businessName.trim() || street || 'Commercial Account';
+    const currentSuite = suiteNum.trim();
+    const currentStreet = street;
+
     const leadDetails = {
       contact_name: walkthroughContactName.trim(),
       phone: walkthroughPhone.trim(),
@@ -771,8 +801,8 @@ export default function Logger({
     // ── Auto-create D2D lead in SOB Admin leads table ──────────────────────
     try {
       const noteParts = [
-        street ? `Plaza/Address: ${street}` : null,
-        suiteNum ? `Suite: ${suiteNum}` : null,
+        currentStreet ? `Plaza/Address: ${currentStreet}` : null,
+        currentSuite ? `Suite: ${currentSuite}` : null,
         walkthroughServices.length > 0 ? `Services: ${walkthroughServices.join(', ')}` : null,
         walkthroughFrequency ? `Frequency: ${walkthroughFrequency}` : null,
         walkthroughVendor.trim() ? `Current Vendor: ${walkthroughVendor.trim()}` : null,
@@ -781,9 +811,9 @@ export default function Logger({
         walkthroughNotes.trim() ? `Notes: ${walkthroughNotes.trim()}` : null,
       ].filter(Boolean).join(' | ');
 
-      await supabase.from('leads').insert({
+      const leadPayload = {
         source: 'd2d',
-        company_name: businessName.trim() || street || null,
+        company_name: targetCompanyName,
         customer_name: walkthroughContactName.trim(),
         customer_phone: walkthroughPhone.trim(),
         service_type: 'commercial_cleaning',
@@ -791,9 +821,20 @@ export default function Logger({
         quoted_price: walkthroughEstValue ? parseFloat(walkthroughEstValue) : null,
         notes: noteParts || null,
         status: 'new',
-      });
+      };
+
+      // 1. Post to server-side endpoint (runs service client, guaranteed to insert into leads table)
+      try {
+        await fetch('/api/sales/leads', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(leadPayload),
+        });
+      } catch (err) {}
+
+      // 2. Direct Supabase insert
+      await supabase.from('leads').insert(leadPayload);
     } catch (e) {
-      // Fire-and-forget — don't block the knock log flow
       console.warn('[Lead creation] Failed to auto-create D2D lead:', e);
     }
   }
@@ -902,11 +943,17 @@ export default function Logger({
   const propertyOutcomes = {};
   [...events].reverse().forEach(e => {
     if (e.type === 'KNOCK') {
-      const address = `${e.house_number || ''} ${e.street_name || ''}`.trim();
-      if (address) {
-        propertyOutcomes[address] = {
+      const isComm = e.mode === MODES.COMMERCIAL;
+      const key = isComm
+        ? (e.target_key || `${e.business_name || ''}_${e.suite || ''}_${e.street_name || ''}`.trim().toLowerCase() || `${e.house_number || ''} ${e.street_name || ''}`.trim())
+        : `${e.house_number || ''} ${e.street_name || ''}`.trim();
+      if (key) {
+        propertyOutcomes[key] = {
           outcome: e.outcome_type,
-          objection: e.objection_type
+          objection: e.objection_type,
+          business_name: e.business_name,
+          suite: e.suite,
+          mode: e.mode,
         };
       }
     }
@@ -914,18 +961,30 @@ export default function Logger({
 
   const doorList = Object.values(propertyOutcomes);
   const totalDoors = doorList.length;
-  const totalSales = doorList.filter(o => o.outcome === 'SALE').length;
-  // Qualfied = Talked to decision maker. Filter out NO_ANSWER and NOT DECISION MAKER.
-  const totalConvos = doorList.filter(o => o.outcome === 'CONVO' && o.objection !== 'NOT DECISION MAKER').length;
+  // In commercial mode: WALKTHROUGH_BOOKED is the primary win metric; in residential: SALE
+  const totalSales = doorList.filter(o => o.outcome === 'SALE' || o.outcome === 'WALKTHROUGH_BOOKED').length;
+  // Qualified = Talked to decision maker
+  const totalConvos = doorList.filter(o => 
+    (o.outcome === 'CONVO' && o.objection !== 'NOT DECISION MAKER') ||
+    o.outcome === 'DECISION_MAKER' ||
+    o.outcome === 'WALKTHROUGH_BOOKED'
+  ).length;
   
   const qualifiedDoors = totalSales + totalConvos;
   const conversionRate = qualifiedDoors > 0 ? ((totalSales / qualifiedDoors) * 100).toFixed(1) : '0.0';
 
-  const isReknock = street && houseNum && events.some(e => 
-    e.type === 'KNOCK' && 
-    e.street_name === street && 
-    e.house_number === houseNum
-  );
+  const isReknock = mode === MODES.COMMERCIAL
+    ? (street && businessName.trim() && events.some(e => 
+        e.type === 'KNOCK' && 
+        e.street_name === street && 
+        e.business_name && 
+        e.business_name.toLowerCase() === businessName.trim().toLowerCase()
+      ))
+    : (street && houseNum && events.some(e => 
+        e.type === 'KNOCK' && 
+        e.street_name === street && 
+        e.house_number === houseNum
+      ));
 
   const feedItems = [];
   const feedAddressMap = new Map();
@@ -933,7 +992,10 @@ export default function Logger({
     if (e.type === 'BREAK') {
       feedItems.push(e);
     } else if (e.type === 'KNOCK') {
-      const addr = `${e.house_number || ''} ${e.street_name || ''}`.trim();
+      const isComm = e.mode === MODES.COMMERCIAL;
+      const addr = isComm
+        ? (e.target_key || `${e.business_name || ''}_${e.suite || ''}_${e.street_name || ''}`.trim().toLowerCase() || `${e.house_number || ''} ${e.street_name || ''}`.trim())
+        : `${e.house_number || ''} ${e.street_name || ''}`.trim();
       if (feedAddressMap.has(addr)) {
         const existingIdx = feedAddressMap.get(addr);
         if (!feedItems[existingIdx].previousKnocks) feedItems[existingIdx].previousKnocks = [];
@@ -1390,9 +1452,21 @@ export default function Logger({
             <div className="active-street-container">
               <div className="active-street">
                 {street}
-                {isReknock && !mode === MODES.COMMERCIAL && <span style={{ marginLeft: 8, fontSize: '0.65em', background: '#f59e0b', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>REKNOCK</span>}
+                {isReknock && <span style={{ marginLeft: 8, fontSize: '0.65em', background: '#f59e0b', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>REKNOCK</span>}
               </div>
-              <button className="end-street-btn" onClick={() => { setStreet(''); setStreetInput(''); setStreetCoords(null); }}>
+              <button
+                className="end-street-btn"
+                onClick={() => {
+                  setStreet('');
+                  setStreetInput('');
+                  setStreetCoords(null);
+                  setBusinessName('');
+                  setSuiteNum('');
+                  if (typeof window !== 'undefined') {
+                    try { localStorage.removeItem('knocklog_active_street'); } catch (e) {}
+                  }
+                }}
+              >
                 {mode === MODES.COMMERCIAL ? 'END BLOCK' : 'END STREET'}
               </button>
             </div>

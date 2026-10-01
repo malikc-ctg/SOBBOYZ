@@ -23,22 +23,44 @@ import '@/components/sales/salesLayout.css';
 import '@/components/sales/phone/phoneStyles.css';
 import '@/components/sales/launchpadStyles.css';
 
+import { createClient } from '@/lib/supabase/client';
+
 export default function AdminSalesOSPage() {
   const searchParams = useSearchParams();
   const initialApp = searchParams.get('app') || searchParams.get('mode') || null;
   const [activeApp, setActiveApp] = useState<string | null>(initialApp);
   const [fieldTab, setFieldTab] = useState<'KNOCK' | 'MAP' | 'TEAM' | 'HISTORY'>('KNOCK');
+  const [user, setUser] = useState({
+    id: 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
+    email: 'admin@seaofblue.app'
+  });
+  const [repName, setRepName] = useState('Admin');
 
   useEffect(() => {
     const appParam = searchParams.get('app') || searchParams.get('mode');
     if (appParam) setActiveApp(appParam);
   }, [searchParams]);
 
-  const user = {
-    id: '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-    email: 'malik@seaofblue.ca'
-  };
-  const repName = 'Malik';
+  useEffect(() => {
+    async function loadAuth() {
+      try {
+        const supabase = createClient();
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (authUser) {
+          setUser({ id: authUser.id, email: authUser.email || 'admin@seaofblue.app' });
+          const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', authUser.id).single();
+          if (profile?.full_name) {
+            setRepName(profile.full_name);
+          } else if (authUser.user_metadata?.full_name) {
+            setRepName(authUser.user_metadata.full_name);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load user in Sales OS:', err);
+      }
+    }
+    loadAuth();
+  }, []);
 
   const APP_METAS: Record<string, { title: string; badge: string; icon: any; iconColor: string }> = {
     residential: { title: 'KnockLog Residential', badge: 'Field Canvassing', icon: Home, iconColor: 'text-blue-500' },
