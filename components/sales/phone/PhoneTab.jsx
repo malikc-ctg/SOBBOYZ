@@ -510,7 +510,7 @@ export default function PhoneTab({ user, repName, isActive }) {
               <Building2 className="w-4 h-4 text-blue-400" />
               <span>Commercial Calling Queue</span>
               <span className="phone-badge">
-                {loading ? 'Syncing...' : `${contacts.length} Accounts`}
+                {loading ? 'Syncing...' : `${contacts.length} Leads`}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -551,7 +551,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                 className={`phone-filter-pill ${filter === 'all' ? 'active' : ''}`}
                 onClick={() => setFilter('all')}
               >
-                All Accounts ({contacts.length})
+                All Leads ({contacts.length})
               </button>
               <button
                 className={`phone-filter-pill ${filter === 'hot' ? 'active' : ''}`}
@@ -647,7 +647,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             type="text"
                             className="phone-search-input"
                             style={{ padding: '5px 8px', fontSize: '12px' }}
-                            placeholder="Full Name"
+                            placeholder="Full Name (e.g. Kash Malik)"
                             value={inlineFormData.name}
                             onChange={e => setInlineFormData({ ...inlineFormData, name: e.target.value })}
                           />
@@ -655,19 +655,19 @@ export default function PhoneTab({ user, repName, isActive }) {
                             type="text"
                             className="phone-search-input"
                             style={{ padding: '5px 8px', fontSize: '12px' }}
-                            placeholder="Company Name"
+                            placeholder="Job Title / Position (e.g. Senior PM)"
+                            value={inlineFormData.position}
+                            onChange={e => setInlineFormData({ ...inlineFormData, position: e.target.value })}
+                          />
+                          <input
+                            type="text"
+                            className="phone-search-input"
+                            style={{ padding: '5px 8px', fontSize: '12px' }}
+                            placeholder="Company Name (e.g. Harbridge & Cross)"
                             value={inlineFormData.company}
                             onChange={e => setInlineFormData({ ...inlineFormData, company: e.target.value })}
                           />
                           <div className="grid grid-cols-2 gap-1.5">
-                            <input
-                              type="text"
-                              className="phone-search-input"
-                              style={{ padding: '5px 8px', fontSize: '11px' }}
-                              placeholder="Job Title"
-                              value={inlineFormData.position}
-                              onChange={e => setInlineFormData({ ...inlineFormData, position: e.target.value })}
-                            />
                             <input
                               type="tel"
                               className="phone-search-input"
@@ -676,16 +676,6 @@ export default function PhoneTab({ user, repName, isActive }) {
                               value={inlineFormData.phone}
                               onChange={e => setInlineFormData({ ...inlineFormData, phone: e.target.value })}
                             />
-                          </div>
-                          <div className="grid grid-cols-2 gap-1.5">
-                            <input
-                              type="email"
-                              className="phone-search-input"
-                              style={{ padding: '5px 8px', fontSize: '11px' }}
-                              placeholder="Email"
-                              value={inlineFormData.email}
-                              onChange={e => setInlineFormData({ ...inlineFormData, email: e.target.value })}
-                            />
                             <input
                               type="text"
                               className="phone-search-input"
@@ -693,6 +683,16 @@ export default function PhoneTab({ user, repName, isActive }) {
                               placeholder="City"
                               value={inlineFormData.city}
                               onChange={e => setInlineFormData({ ...inlineFormData, city: e.target.value })}
+                            />
+                          </div>
+                          <div>
+                            <input
+                              type="email"
+                              className="phone-search-input"
+                              style={{ padding: '5px 8px', fontSize: '11px' }}
+                              placeholder="Direct Email"
+                              value={inlineFormData.email}
+                              onChange={e => setInlineFormData({ ...inlineFormData, email: e.target.value })}
                             />
                           </div>
                         </div>
@@ -725,9 +725,10 @@ export default function PhoneTab({ user, repName, isActive }) {
                       onClick={() => setSelectedContact(c)}
                       onDoubleClick={(e) => handleQueueCardDoubleClick(c, e)}
                     >
+                      {/* Top Header: Contact Name Prominent */}
                       <div className="phone-lead-top">
                         <div className="phone-lead-name">
-                          <span className="truncate max-w-[210px]">{c.company || c.name}</span>
+                          <span className="truncate max-w-[210px]">{c.name || 'Decision Maker'}</span>
                           {isLiveCalling && (
                             <span style={{ color: '#10b981', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               <span className="phone-timer-dot" /> LIVE
@@ -739,15 +740,15 @@ export default function PhoneTab({ user, repName, isActive }) {
                         </span>
                       </div>
 
-                      {/* Contact Person & Position */}
-                      <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold my-1">
-                        <User size={12} className="text-slate-400 shrink-0" />
-                        <span className="truncate">{c.name || 'Decision Maker'}</span>
-                        {c.position && (
-                          <span className="text-[10px] text-blue-300 bg-blue-900/40 px-1.5 py-0.5 rounded border border-blue-800/40 truncate max-w-[130px]">
-                            {c.position}
-                          </span>
-                        )}
+                      {/* Prominent Position */}
+                      <div className="phone-lead-position">
+                        <span className="truncate">{c.position || 'Project Lead'}</span>
+                      </div>
+
+                      {/* Secondary Context: Company Name */}
+                      <div className="phone-lead-company">
+                        <Building2 size={11} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{c.company || 'Unknown Company'}</span>
                       </div>
 
                       {/* Company Hierarchy Intelligence Tag */}
@@ -863,16 +864,6 @@ export default function PhoneTab({ user, repName, isActive }) {
                             <div className="space-y-2 mb-2">
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Company / GC</label>
-                                  <input
-                                    type="text"
-                                    className="phone-search-input"
-                                    style={{ padding: '6px 10px', fontSize: '13px' }}
-                                    value={editCompany}
-                                    onChange={e => setEditCompany(e.target.value)}
-                                  />
-                                </div>
-                                <div>
                                   <label className="text-[10px] text-slate-400 uppercase font-bold">Contact Full Name</label>
                                   <input
                                     type="text"
@@ -880,20 +871,31 @@ export default function PhoneTab({ user, repName, isActive }) {
                                     style={{ padding: '6px 10px', fontSize: '13px' }}
                                     value={editName}
                                     onChange={e => setEditName(e.target.value)}
+                                    placeholder="e.g. Saleem / Kash Malik"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Role / Position</label>
+                                  <input
+                                    type="text"
+                                    className="phone-search-input"
+                                    style={{ padding: '6px 10px', fontSize: '13px' }}
+                                    value={editTitle}
+                                    onChange={e => setEditTitle(e.target.value)}
+                                    placeholder="Project Manager / Owner"
                                   />
                                 </div>
                               </div>
 
                               <div className="grid grid-cols-3 gap-2">
                                 <div>
-                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Role / Position</label>
+                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Company / GC</label>
                                   <input
                                     type="text"
                                     className="phone-search-input"
                                     style={{ padding: '6px 10px', fontSize: '12px' }}
-                                    value={editTitle}
-                                    onChange={e => setEditTitle(e.target.value)}
-                                    placeholder="Project Manager"
+                                    value={editCompany}
+                                    onChange={e => setEditCompany(e.target.value)}
                                   />
                                 </div>
                                 <div>
@@ -939,15 +941,16 @@ export default function PhoneTab({ user, repName, isActive }) {
                             </div>
                           ) : (
                             <div>
-                              <div className="flex items-center gap-2">
-                                <span className="phone-dossier-name truncate">{selectedContact.company}</span>
+                              {/* Hero Header: Contact Name Prominent */}
+                              <div className="flex items-center gap-2.5">
+                                <span className="phone-dossier-name truncate">{selectedContact.name || 'Decision Maker'}</span>
                                 <button
                                   type="button"
                                   onClick={() => setIsEditingDossier(true)}
-                                  className="text-slate-400 hover:text-blue-400 p-1 rounded"
+                                  className="text-slate-400 hover:text-blue-400 p-1 rounded transition"
                                   title="Edit Contact Info"
                                 >
-                                  <Edit3 size={13} />
+                                  <Edit3 size={14} />
                                 </button>
                                 {saveSuccessMsg && (
                                   <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
@@ -956,19 +959,31 @@ export default function PhoneTab({ user, repName, isActive }) {
                                 )}
                               </div>
 
+                              {/* Prominent Position Line + Seniority Rank */}
                               <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <span className="text-sm font-bold text-white flex items-center gap-1.5">
-                                  <User size={13} className="text-slate-400" />
-                                  {selectedContact.name}
+                                <span className="text-sm font-bold text-blue-400">
+                                  {selectedContact.position || 'Project Lead'}
                                 </span>
-                                {selectedContact.position && (
-                                  <span className="text-xs font-semibold text-blue-300 bg-blue-950/70 border border-blue-800/50 px-2 py-0.5 rounded-full">
-                                    {selectedContact.position}
-                                  </span>
-                                )}
-                                <span className="text-[11px] text-slate-400 font-medium border border-slate-700/50 px-2 py-0.5 rounded-full">
+                                <span className="text-[11px] font-semibold text-blue-300 bg-blue-950/80 border border-blue-800/60 px-2.5 py-0.5 rounded-full">
                                   {getSeniorityLabel(currentRank, selectedContact.position)}
                                 </span>
+                              </div>
+
+                              {/* Secondary Context: Company Name, City, Firm Size */}
+                              <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400 flex-wrap">
+                                <span className="flex items-center gap-1 text-slate-300 font-semibold">
+                                  <Building2 size={13} className="text-slate-400 shrink-0" />
+                                  {selectedContact.company}
+                                </span>
+                                {selectedContact.city && (
+                                  <span className="text-slate-400">• {selectedContact.city}</span>
+                                )}
+                                {selectedContact.employees && (
+                                  <span className="text-slate-400">• {selectedContact.employees} employees</span>
+                                )}
+                                {selectedContact.annual_revenue && (
+                                  <span className="text-slate-400">• {selectedContact.annual_revenue} rev</span>
+                                )}
                               </div>
 
                               {/* Multi-Phone Direct Routing Buttons */}
@@ -1458,28 +1473,14 @@ export default function PhoneTab({ user, repName, isActive }) {
             </p>
 
             <form onSubmit={handleAddNewLead}>
-              <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                  Company Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="phone-search-input"
-                  style={{ padding: '10px 14px' }}
-                  placeholder="e.g. EllisDon Construction"
-                  value={newLeadCompany}
-                  onChange={e => setNewLeadCompany(e.target.value)}
-                />
-              </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
                 <div>
                   <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                    Decision Maker Name
+                    Decision Maker Name *
                   </label>
                   <input
                     type="text"
+                    required
                     className="phone-search-input"
                     style={{ padding: '10px 14px' }}
                     placeholder="e.g. Dan Miller"
@@ -1495,11 +1496,26 @@ export default function PhoneTab({ user, repName, isActive }) {
                     type="text"
                     className="phone-search-input"
                     style={{ padding: '10px 14px' }}
-                    placeholder="Project Manager"
+                    placeholder="Project Manager / Owner"
                     value={newLeadTitle}
                     onChange={e => setNewLeadTitle(e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div style={{ marginBottom: 10 }}>
+                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
+                  Company Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  className="phone-search-input"
+                  style={{ padding: '10px 14px' }}
+                  placeholder="e.g. EllisDon Construction"
+                  value={newLeadCompany}
+                  onChange={e => setNewLeadCompany(e.target.value)}
+                />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
