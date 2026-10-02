@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { ExternalLink, Settings, Maximize2, Minimize2, Map, RefreshCw } from 'lucide-react';
+import { ExternalLink, Settings, Maximize2, Minimize2, Map, RefreshCw, X } from 'lucide-react';
 
 const DEFAULT_MIRO_KEY = 'sob_miro_script_embed_url';
+export const DEFAULT_MIRO_URL = 'https://miro.com/app/live-embed/uXjVH9jf0ok=/?embedMode=view_only_without_ui&moveToViewport=-11440,-15191,23369,12074&embedId=480714567766';
 
 /**
  * Normalizes Miro URLs:
@@ -29,9 +30,9 @@ export function sanitizeMiroUrl(rawInput) {
 }
 
 export default function MiroScriptEmbed({ isCompact = false }) {
-  const [embedUrl, setEmbedUrl] = useState('');
+  const [embedUrl, setEmbedUrl] = useState(DEFAULT_MIRO_URL);
   const [isEditing, setIsEditing] = useState(false);
-  const [inputUrl, setInputUrl] = useState('');
+  const [inputUrl, setInputUrl] = useState(DEFAULT_MIRO_URL);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [keyCounter, setKeyCounter] = useState(0);
 
@@ -41,6 +42,9 @@ export default function MiroScriptEmbed({ isCompact = false }) {
       if (saved) {
         setEmbedUrl(saved);
         setInputUrl(saved);
+      } else {
+        setEmbedUrl(DEFAULT_MIRO_URL);
+        setInputUrl(DEFAULT_MIRO_URL);
       }
     } catch (e) {
       console.warn('[MiroEmbed] Failed to read localStorage', e);
@@ -49,7 +53,7 @@ export default function MiroScriptEmbed({ isCompact = false }) {
 
   const handleSave = (e) => {
     if (e) e.preventDefault();
-    const clean = sanitizeMiroUrl(inputUrl);
+    const clean = sanitizeMiroUrl(inputUrl) || DEFAULT_MIRO_URL;
     setEmbedUrl(clean);
     try {
       localStorage.setItem(DEFAULT_MIRO_KEY, clean);
@@ -60,14 +64,16 @@ export default function MiroScriptEmbed({ isCompact = false }) {
     setKeyCounter(k => k + 1);
   };
 
-  const handleClear = () => {
-    setEmbedUrl('');
-    setInputUrl('');
+  const handleResetToDefault = () => {
+    setEmbedUrl(DEFAULT_MIRO_URL);
+    setInputUrl(DEFAULT_MIRO_URL);
     try {
       localStorage.removeItem(DEFAULT_MIRO_KEY);
     } catch (e) {
-      console.warn('[MiroEmbed] Failed to remove localStorage', e);
+      console.warn('[MiroEmbed] Failed to reset localStorage', e);
     }
+    setIsEditing(false);
+    setKeyCounter(k => k + 1);
   };
 
   return (
@@ -76,12 +82,12 @@ export default function MiroScriptEmbed({ isCompact = false }) {
       <div className="miro-embed-toolbar">
         <div className="miro-embed-title">
           <div className="miro-badge-icon">
-            <Map size={14} className="text-amber-400" />
+            <Map size={14} className="text-blue-400" />
           </div>
           <div>
             <span className="font-bold text-white text-xs tracking-tight">Interactive Miro Mind Map Script</span>
             <span className="text-[10px] text-slate-400 block font-normal">
-              Post-Construction & Commercial Cold Calling Tree
+              Post-Construction and Commercial Calling Flow
             </span>
           </div>
         </div>
@@ -126,7 +132,7 @@ export default function MiroScriptEmbed({ isCompact = false }) {
             onClick={() => setIsEditing(true)}
           >
             <Settings size={12} />
-            <span>{embedUrl ? 'Change Link' : 'Set Link'}</span>
+            <span>Configure</span>
           </button>
         </div>
       </div>
@@ -137,17 +143,17 @@ export default function MiroScriptEmbed({ isCompact = false }) {
           <div className="phone-modal-content" style={{ maxWidth: 520 }}>
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-base font-extrabold text-white flex items-center gap-2">
-                <Map className="w-4 h-4 text-amber-400" /> Connect Miro Mind Map Script
+                <Map className="w-4 h-4 text-blue-400" /> Miro Mind Map Script Link
               </h3>
               <button
                 onClick={() => setIsEditing(false)}
-                className="text-slate-400 hover:text-white text-sm"
+                className="text-slate-400 hover:text-white p-1"
               >
-                ✕
+                <X size={16} />
               </button>
             </div>
             <p className="text-xs text-slate-300 mb-4 leading-relaxed">
-              Paste your Miro board share link, live embed link, or the full <code>&lt;iframe&gt;</code> code from your Miro mind map. We automatically format it for seamless in-call navigation.
+              Paste your Miro board share link, live embed link, or iframe embed code.
             </p>
 
             <form onSubmit={handleSave}>
@@ -158,30 +164,21 @@ export default function MiroScriptEmbed({ isCompact = false }) {
                 <textarea
                   className="phone-search-input"
                   style={{ minHeight: 90, fontFamily: 'monospace', fontSize: '11px', padding: '10px' }}
-                  placeholder="https://miro.com/app/live-embed/uXjVO.../ or https://miro.com/app/board/..."
+                  placeholder="https://miro.com/app/live-embed/..."
                   value={inputUrl}
                   onChange={(e) => setInputUrl(e.target.value)}
                   autoFocus
                 />
               </div>
 
-              <div className="p-2.5 rounded-lg bg-slate-900/60 border border-slate-700/50 mb-4 text-[11px] text-slate-400">
-                <strong className="text-amber-300 block mb-1">💡 How to find your Miro Embed link:</strong>
-                1. In your Miro mind map, click the <strong>Share</strong> button (top right).<br />
-                2. Click <strong>Embed</strong> or <strong>Copy link</strong>.<br />
-                3. Paste it directly in the box above and hit save!
-              </div>
-
               <div className="flex items-center justify-between">
-                {embedUrl && (
-                  <button
-                    type="button"
-                    onClick={handleClear}
-                    className="text-red-400 hover:text-red-300 text-xs font-semibold"
-                  >
-                    Disconnect
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={handleResetToDefault}
+                  className="text-blue-400 hover:text-blue-300 text-xs font-semibold"
+                >
+                  Reset to Default Script
+                </button>
                 <div className="flex gap-2 ml-auto">
                   <button
                     type="button"
@@ -193,7 +190,6 @@ export default function MiroScriptEmbed({ isCompact = false }) {
                   <button
                     type="submit"
                     className="phone-call-btn"
-                    style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
                   >
                     Save & Load Mind Map
                   </button>
@@ -206,34 +202,14 @@ export default function MiroScriptEmbed({ isCompact = false }) {
 
       {/* Frame / Content area */}
       <div className={`miro-frame-wrapper ${isCompact ? 'compact' : ''}`}>
-        {embedUrl ? (
-          <iframe
-            key={keyCounter}
-            src={embedUrl}
-            title="Miro Sales Mind Map Script"
-            className="miro-iframe"
-            allowFullScreen
-            allow="clipboard-read; clipboard-write"
-          />
-        ) : (
-          <div className="miro-empty-state">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-3">
-              <Map size={24} />
-            </div>
-            <h4 className="text-sm font-bold text-white mb-1">Miro Script Mind Map Not Linked Yet</h4>
-            <p className="text-xs text-slate-400 max-w-sm mb-4 leading-relaxed">
-              Embed your curated Miro cold calling flow chart right here. Your phone sales reps can navigate branch-by-branch through openers, objection turnarounds, and walkthrough closes during live calls.
-            </p>
-            <button
-              type="button"
-              className="phone-call-btn"
-              style={{ background: 'linear-gradient(135deg, #f59e0b, #d97706)', padding: '8px 16px', fontSize: '12px' }}
-              onClick={() => setIsEditing(true)}
-            >
-              + Link Miro Mind Map Script
-            </button>
-          </div>
-        )}
+        <iframe
+          key={keyCounter}
+          src={embedUrl}
+          title="Miro Sales Mind Map Script"
+          className="miro-iframe"
+          allowFullScreen
+          allow="clipboard-read; clipboard-write"
+        />
       </div>
     </div>
   );

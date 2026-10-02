@@ -1,108 +1,101 @@
 import React, { useState } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, ArrowRight, X, Building2, User, Phone, Mail } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Building2, User, Phone, Mail, Layers } from 'lucide-react';
 import { batchImportApolloLeads } from '@/lib/sales/phoneService';
 
 /**
- * Parses raw CSV or tab-delimited text into rows of objects
+ * Normalizes keys to lowercase alphanumeric
  */
-function parseDelimitedData(text) {
-  const lines = text.trim().split(/\r?\n/).filter(line => line.trim().length > 0);
-  if (lines.length < 2) return [];
-
-  // Detect delimiter: comma or tab
-  const firstLine = lines[0];
-  const delimiter = firstLine.includes('\t') ? '\t' : ',';
-
-  // Helper to split row handling simple quotes
-  const splitRow = (row) => {
-    if (delimiter === '\t') return row.split('\t').map(s => s.trim().replace(/^["']|["']$/g, ''));
-    
-    // Comma regex taking quotes into account
-    const result = [];
-    let cur = '';
-    let inQuotes = false;
-    for (let i = 0; i < row.length; i++) {
-      const char = row[i];
-      if (char === '"' || char === "'") {
-        inQuotes = !inQuotes;
-      } else if (char === ',' && !inQuotes) {
-        result.push(cur.trim().replace(/^["']|["']$/g, ''));
-        cur = '';
-      } else {
-        cur += char;
-      }
-    }
-    result.push(cur.trim().replace(/^["']|["']$/g, ''));
-    return result;
-  };
-
-  const headers = splitRow(lines[0]).map(h => h.toLowerCase().replace(/[^a-z0-9]/g, ''));
-  const parsedRows = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const values = splitRow(lines[i]);
-    if (values.length === 0 || (values.length === 1 && !values[0])) continue;
-
-    const rowObj = {};
-    headers.forEach((h, idx) => {
-      rowObj[h] = values[idx] || '';
-    });
-    parsedRows.push(rowObj);
-  }
-
-  return parsedRows;
+function cleanKey(k) {
+  return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 }
 
 /**
- * Maps Apollo-like parsed columns to our normalized lead schema
+ * Extracts field value using multiple candidate substrings
  */
-function mapApolloRowToLead(row, defaultVertical = 'post_construction') {
-  // Candidate field matches
-  const getField = (candidates) => {
-    for (const key of Object.keys(row)) {
-      for (const cand of candidates) {
-        if (key.includes(cand)) {
-          return row[key];
-        }
-      }
+function extractField(row, candidates) {
+  const keys = Object.keys(row);
+  for (const cand of candidates) {
+    const matched = keys.find(k => cleanKey(k).includes(cleanKey(cand)));
+    if (matched && row[matched] !== undefined && row[matched] !== null && String(row[matched]).trim() !== '') {
+      return String(row[matched]).trim().replace(/^['"]|['"]$/g, '');
     }
-    return '';
+  }
+  return '';
+}
+
+/**
+ * Maps any spreadsheet or CSV row into our structured B2B lead object
+ */
+function mapRowToLead(row, defaultVertical = 'post_construction') {
+  const firstName = extractField(row, ['firstname', 'first']) || '';
+  const lastName = extractField(row, ['lastname', 'last']) || '';
+  const fullName = extractField(row, ['fullname', 'contactname', 'name']) || `${firstName} ${lastName}`.trim();
+
+  const title = extractField(row, ['title', 'position', 'jobtitle', 'role', 'occupation']) || '';
+  const company = extractField(row, ['companyname', 'company', 'organization', 'accountname', 'account', 'business']) || 'Commercial Prospect';
+  
+  // Phone fields
+  const workDirectPhone = extractField(row, ['workdirectphone', 'directphone', 'directline', 'workphone', 'extension', 'ext']) || '';
+  const mobilePhone = extractField(row, ['mobilephone', 'cellphone', 'mobile', 'cell']) || '';
+  const corporatePhone = extractField(row, ['corporatephone', 'companyphone', 'mainphone', 'hqphone', 'switchboard']) || '';
+  const genericPhone = extractField(row, ['phone', 'phonenumber', 'telephone', 'tel']) || '';
+  const primaryPhone = workDirectPhone || mobilePhone || genericPhone || corporatePhone || '';
+
+  const email = extractField(row, ['workemail', 'email', 'contactemail', 'corporateemail']) || '';
+  const city = extractField(row, ['city', 'companycity', 'location', 'locality', 'metro']) || 'GTA';
+  const address = extractField(row, ['companyaddress', 'address', 'streetaddress', 'fulladdress']) || '';
+  const seniority = extractField(row, ['seniority', 'level', 'senioritylevel']) || 'Manager';
+  const departments = extractField(row, ['departments', 'department', 'dept']) || '';
+  const subDepartments = extractField(row, ['subdepartments', 'subdepartment']) || '';
+  const employees = extractField(row, ['employees', 'numemployees', 'numberofemployees', 'companysize']) || '';
+  const revenue = extractField(row, ['annualrevenue', 'revenue', 'estrevenue']) || '';
+  const industry = extractField(row, ['industry', 'sector']) || 'construction';
+  const linkedin = extractField(row, ['personlinkedinurl', 'linkedinurl', 'linkedin']) || '';
+  const website = extractField(row, ['website', 'companywebsite', 'domain', 'url']) || '';
+  const technologies = extractField(row, ['technologies', 'tech']) || '';
+
+  // Rich metadata package
+  const intel = {
+    seniority: seniority || 'Manager',
+    departments,
+    sub_departments: subDepartments,
+    work_direct_phone: workDirectPhone,
+    mobile_phone: mobilePhone,
+    corporate_phone: corporatePhone,
+    employees,
+    annual_revenue: revenue,
+    industry,
+    address,
+    linkedin,
+    website,
+    technologies: technologies.substring(0, 300)
   };
 
-  const firstName = getField(['firstname', 'first']) || '';
-  const lastName = getField(['lastname', 'last']) || '';
-  const fullName = getField(['fullname', 'contactname', 'name']) || `${firstName} ${lastName}`.trim();
-
-  const title = getField(['title', 'position', 'jobtitle', 'role', 'occupation']) || '';
-  const company = getField(['company', 'organization', 'accountname', 'account', 'business']) || '';
-  const phone = getField(['directphone', 'phone', 'telephonenumber', 'workphone', 'mobilephone', 'cellphone', 'mobile', 'tel']) || '';
-  const email = getField(['workemail', 'email', 'contactemail', 'corporateemail']) || '';
-  const city = getField(['city', 'location', 'locality', 'metro']) || 'GTA';
-  const notes = getField(['industry', 'keywords', 'linkedin', 'notes', 'description']) || '';
-
-  // Calculate default price based on vertical
   const defaultPrice = defaultVertical === 'post_construction' ? 2500 : 650;
   const defaultService = defaultVertical === 'post_construction'
-    ? 'Post-Construction Rough & Final Turnover Clean'
-    : 'Commercial Dumpster Steam Sanitization';
+    ? 'post_construction_clean'
+    : 'commercial_cleaning';
 
   return {
-    customer_name: fullName || 'Decision Maker / PM',
+    customer_name: fullName || 'Decision Maker',
     contact_title: title || '',
-    company_name: company || 'Construction / Commercial Target',
-    customer_phone: phone || '',
-    customer_email: email || '',
-    city: city || 'GTA',
+    company_name: company,
+    customer_phone: primaryPhone,
+    customer_email: email,
+    city: city,
     service_type: defaultService,
     quoted_price: defaultPrice,
-    notes: [notes, title ? `Apollo Role: ${title}` : ''].filter(Boolean).join(' | '),
-    source: 'apollo',
+    notes: JSON.stringify(intel),
+    source: 'contact_import',
+    status: 'new'
   };
 }
 
-export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }) {
-  const [inputMode, setInputMode] = useState('paste'); // 'paste' | 'file'
+export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) {
+  const [inputMode, setInputMode] = useState('file'); // 'file' | 'paste'
   const [rawText, setRawText] = useState('');
+  const [fileName, setFileName] = useState('');
   const [vertical, setVertical] = useState('post_construction');
   const [parsedLeads, setParsedLeads] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,52 +103,61 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
 
   if (!isOpen) return null;
 
-  // Process text or CSV paste
-  const handleParse = (text) => {
+  // Process XLSX / XLS / CSV / TSV file upload
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     setErrorMsg('');
+    setFileName(file.name);
+
     try {
-      const rawRows = parseDelimitedData(text);
-      if (rawRows.length === 0) {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      if (!jsonRows || jsonRows.length === 0) {
+        setErrorMsg('The selected spreadsheet does not contain any data rows.');
         setParsedLeads([]);
         return;
       }
-      const mapped = rawRows.map(r => mapApolloRowToLead(r, vertical));
+
+      const mapped = jsonRows.map(row => mapRowToLead(row, vertical));
       setParsedLeads(mapped);
     } catch (err) {
-      console.error('[ApolloImporter] Parse error:', err);
-      setErrorMsg('Could not parse the provided data. Please ensure it has header columns.');
+      console.error('[LeadImporter] File read error:', err);
+      setErrorMsg('Failed to read file. Please ensure it is a valid .csv, .xlsx, or .xls file.');
     }
   };
 
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result;
-      if (typeof text === 'string') {
-        setRawText(text);
-        handleParse(text);
-      }
-    };
-    reader.readAsText(file);
-  };
-
+  // Process text or pasted tabular data
   const handleTextChange = (e) => {
-    const val = e.target.value;
-    setRawText(val);
-    handleParse(val);
-  };
+    const text = e.target.value;
+    setRawText(text);
+    setErrorMsg('');
 
-  const handleVerticalChange = (v) => {
-    setVertical(v);
-    if (rawText) {
-      try {
-        const rawRows = parseDelimitedData(rawText);
-        setParsedLeads(rawRows.map(r => mapApolloRowToLead(r, v)));
-      } catch (err) {
-        // ignore
+    if (!text.trim()) {
+      setParsedLeads([]);
+      return;
+    }
+
+    try {
+      const workbook = XLSX.read(text, { type: 'string' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      if (jsonRows && jsonRows.length > 0) {
+        const mapped = jsonRows.map(row => mapRowToLead(row, vertical));
+        setParsedLeads(mapped);
+      } else {
+        setParsedLeads([]);
       }
+    } catch (err) {
+      console.error('[LeadImporter] Text parse error:', err);
+      setErrorMsg('Could not parse text. Ensure your first row contains header column titles.');
     }
   };
 
@@ -170,17 +172,16 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
         if (onImportSuccess) onImportSuccess(result);
         onClose();
       } else {
-        setErrorMsg(result?.error || 'Failed to import leads. Please try again.');
+        setErrorMsg(result?.error || 'Failed to import leads. Please verify and try again.');
       }
     } catch (err) {
-      console.error('[ApolloImporter] Import error:', err);
+      console.error('[LeadImporter] Import exception:', err);
       setErrorMsg(err.message || 'Network error importing leads.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Metrics for parsed batch
   const totalParsed = parsedLeads.length;
   const withPhone = parsedLeads.filter(l => Boolean(l.customer_phone)).length;
   const withEmail = parsedLeads.filter(l => Boolean(l.customer_email)).length;
@@ -191,15 +192,15 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
     <div className="phone-modal-overlay" style={{ zIndex: 2500 }}>
       <div className="phone-modal-content" style={{ maxWidth: 680, maxHeight: '90vh', overflowY: 'auto' }}>
         
-        {/* Modal Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-blue-900/40">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-slate-700/40">
           <div>
-            <h3 className="text-lg font-black text-white flex items-center gap-2">
+            <h3 className="text-base font-extrabold text-white flex items-center gap-2">
               <FileSpreadsheet className="w-5 h-5 text-blue-400" />
-              Apollo.io Cold Call Lead Importer
+              Import Calling Leads
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Import General Contractor PMs, Superintendents, or Facility Managers from Apollo CSV exports
+              Supports .csv, .xlsx, .xls, .tsv, and spreadsheet copy-paste with automatic column mapping
             </p>
           </div>
           <button
@@ -210,26 +211,26 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
           </button>
         </div>
 
-        {/* Vertical Selection */}
+        {/* Vertical Selector */}
         <div className="mt-4">
           <label className="text-[11px] font-bold text-slate-300 block mb-1.5 uppercase tracking-wide">
-            Target Vertical & Script Mapping
+            Target Service & Vertical
           </label>
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
               className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
                 vertical === 'post_construction'
-                  ? 'border-amber-500/60 bg-amber-500/10 text-white'
+                  ? 'border-blue-500/60 bg-blue-500/10 text-white'
                   : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
               }`}
-              onClick={() => handleVerticalChange('post_construction')}
+              onClick={() => setVertical('post_construction')}
             >
-              <div className="mt-0.5 text-base">🔨</div>
+              <Building2 className="w-4 h-4 text-blue-400 mt-0.5" />
               <div>
-                <div className="text-xs font-bold text-white">Post-Construction (GCs & Builders)</div>
+                <div className="text-xs font-bold text-white">Post-Construction (General Contractors)</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  PMs, Site Supers, Estimators. Walkthrough goal, $2,500+ avg ticket.
+                  PMs, Site Supers, Estimators ($2,500 target bid).
                 </div>
               </div>
             </button>
@@ -241,35 +242,26 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
                   ? 'border-blue-500/60 bg-blue-500/10 text-white'
                   : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
               }`}
-              onClick={() => handleVerticalChange('commercial')}
+              onClick={() => setVertical('commercial')}
             >
-              <div className="mt-0.5 text-base">🏢</div>
+              <Layers className="w-4 h-4 text-purple-400 mt-0.5" />
               <div>
-                <div className="text-xs font-bold text-white">Commercial Plazas & Facilities</div>
+                <div className="text-xs font-bold text-white">Commercial Facilities & Plazas</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  Property Managers & Facility Ops. Dumpster steam & floor maintenance.
+                  Property Managers & Facilities Directors ($650 target).
                 </div>
               </div>
             </button>
           </div>
         </div>
 
-        {/* Input Toggle: Paste vs File */}
+        {/* Input Toggle: File Upload vs Copy Paste */}
         <div className="mt-4">
           <div className="flex items-center justify-between mb-2">
             <label className="text-[11px] font-bold text-slate-300 uppercase tracking-wide">
-              Lead Data Source
+              File or Paste Input
             </label>
             <div className="flex gap-2">
-              <button
-                type="button"
-                className={`text-xs px-2.5 py-1 rounded-md font-semibold transition ${
-                  inputMode === 'paste' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
-                }`}
-                onClick={() => setInputMode('paste')}
-              >
-                Copy & Paste
-              </button>
               <button
                 type="button"
                 className={`text-xs px-2.5 py-1 rounded-md font-semibold transition ${
@@ -277,12 +269,40 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
                 }`}
                 onClick={() => setInputMode('file')}
               >
-                Upload CSV
+                Upload File (.csv / .xlsx)
+              </button>
+              <button
+                type="button"
+                className={`text-xs px-2.5 py-1 rounded-md font-semibold transition ${
+                  inputMode === 'paste' ? 'bg-blue-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'
+                }`}
+                onClick={() => setInputMode('paste')}
+              >
+                Copy & Paste Text
               </button>
             </div>
           </div>
 
-          {inputMode === 'paste' ? (
+          {inputMode === 'file' ? (
+            <div className="border-2 border-dashed border-slate-700/70 rounded-xl p-6 text-center bg-slate-900/40 hover:border-blue-500/50 transition">
+              <input
+                type="file"
+                accept=".csv,.xlsx,.xls,.tsv,.txt"
+                id="lead-file-input"
+                className="hidden"
+                onChange={handleFileUpload}
+              />
+              <label htmlFor="lead-file-input" className="cursor-pointer block">
+                <Upload className="w-8 h-8 text-blue-400 mx-auto mb-2" />
+                <span className="text-xs font-bold text-white block">
+                  {fileName ? fileName : 'Click to select CSV, Excel (.xlsx, .xls), or TSV file'}
+                </span>
+                <span className="text-[11px] text-slate-400 block mt-1">
+                  Automatic field recognition for First Name, Last Name, Title, Company, Phones, Email, Seniority
+                </span>
+              </label>
+            </div>
+          ) : (
             <div>
               <textarea
                 className="phone-search-input"
@@ -293,25 +313,10 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
                   padding: '10px 12px',
                   lineHeight: '1.4'
                 }}
-                placeholder="Paste CSV rows directly from Apollo export or spreadsheet...&#10;e.g. First Name, Last Name, Title, Company, Phone, Email&#10;Dan, Miller, Project Manager, EllisDon Construction, (416) 555-0199, dmiller@ellisdon.com"
+                placeholder="Paste CSV rows or tab-separated table...&#10;First Name, Last Name, Title, Company Name, Phone, Email, Seniority&#10;Jordan, Oats, Project Manager, Dineen Construction, 416-675-7676, joats@dineen.com, Manager"
                 value={rawText}
                 onChange={handleTextChange}
               />
-            </div>
-          ) : (
-            <div className="border-2 border-dashed border-slate-700/70 rounded-xl p-6 text-center bg-slate-900/40 hover:border-blue-500/50 transition">
-              <input
-                type="file"
-                accept=".csv,.txt,.tsv"
-                id="apollo-csv-input"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <label htmlFor="apollo-csv-input" className="cursor-pointer block">
-                <Upload className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                <span className="text-xs font-bold text-white block">Click to select Apollo CSV export</span>
-                <span className="text-[11px] text-slate-400 block mt-1">Accepts standard .csv or .tsv exports</span>
-              </label>
             </div>
           )}
         </div>
@@ -320,8 +325,8 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
         {totalParsed > 0 && (
           <div className="mt-4 p-3 rounded-xl bg-slate-900/80 border border-slate-800">
             <div className="text-[11px] font-bold text-white mb-2 flex items-center justify-between">
-              <span>Apollo Data Quality Health Check</span>
-              <span className="text-emerald-400 font-extrabold">{totalParsed} Leads Detected</span>
+              <span>Import Summary</span>
+              <span className="text-emerald-400 font-extrabold">{totalParsed} Leads Ready to Import</span>
             </div>
 
             <div className="grid grid-cols-3 gap-2">
@@ -329,7 +334,7 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
                 <Phone size={14} className={withPhone > 0 ? "text-emerald-400" : "text-amber-400"} />
                 <div>
                   <div className="text-xs font-bold text-white">{withPhone} / {totalParsed}</div>
-                  <div className="text-[9px] text-slate-400">Direct Phone Ready</div>
+                  <div className="text-[9px] text-slate-400">Phone Ready</div>
                 </div>
               </div>
 
@@ -352,16 +357,16 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
 
             {missingPhone > 0 && (
               <div className="mt-2.5 flex items-center gap-1.5 text-[11px] text-amber-300/90 bg-amber-500/10 px-2.5 py-1.5 rounded-lg border border-amber-500/20">
-                <AlertTriangle size={13} className="shrink-0" />
+                <AlertCircle size={13} className="shrink-0" />
                 <span>
-                  {missingPhone} lead{missingPhone > 1 ? 's have' : ' has'} no direct phone number. Our system will flag these for HQ receptionist / switchboard lookup.
+                  {missingPhone} lead{missingPhone > 1 ? 's have' : ' has'} no direct phone and will use HQ switchboard.
                 </span>
               </div>
             )}
           </div>
         )}
 
-        {/* Lead Preview Table (First 4 rows) */}
+        {/* Lead Preview Table */}
         {totalParsed > 0 && (
           <div className="mt-4">
             <label className="text-[11px] font-bold text-slate-400 block mb-1">
@@ -382,14 +387,14 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
                     <tr key={i} className="hover:bg-slate-900/40">
                       <td className="p-2">
                         <div className="font-semibold text-white">{l.customer_name}</div>
-                        <div className="text-[10px] text-slate-400">{l.contact_title || 'No position tagged'}</div>
+                        <div className="text-[10px] text-slate-400">{l.contact_title || 'No position'}</div>
                       </td>
                       <td className="p-2 font-medium">{l.company_name}</td>
                       <td className="p-2">
                         {l.customer_phone ? (
                           <span className="text-blue-400 font-medium">{l.customer_phone}</span>
                         ) : (
-                          <span className="text-amber-400/80 text-[10px]">[No Phone]</span>
+                          <span className="text-slate-400 text-[10px]">No Phone</span>
                         )}
                       </td>
                       <td className="p-2 text-slate-400">{l.city}</td>
@@ -426,10 +431,10 @@ export default function ApolloImporterModal({ isOpen, onClose, onImportSuccess }
             onClick={handleExecuteImport}
           >
             {isSubmitting ? (
-              'Importing Leads...'
+              'Importing...'
             ) : (
               <>
-                <CheckCircle2 size={14} /> Import {totalParsed} Apollo Leads
+                <CheckCircle2 size={14} /> Import {totalParsed} Leads
               </>
             )}
           </button>

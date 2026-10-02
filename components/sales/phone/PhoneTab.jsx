@@ -6,19 +6,13 @@ import {
   createNewPhoneLead,
   logCallEvent,
   getTodayCallStats,
-  CALL_OUTCOMES,
-  OBJECTION_REBUTTALS,
-  CALL_SCRIPTS
+  CALL_OUTCOMES
 } from '@/lib/sales/phoneService';
 import {
   Building2,
   Plus,
   Phone,
   MessageSquare,
-  Clock,
-  ArrowRight,
-  Shield,
-  Flame,
   Search,
   CheckCircle2,
   Map,
@@ -27,39 +21,87 @@ import {
   Mail,
   User,
   Briefcase,
-  AlertTriangle,
+  AlertCircle,
   Edit3,
   Save,
   Check,
   Calendar,
-  Sparkles,
   PhoneCall,
-  PhoneForwarded,
-  Filter
+  Users,
+  ExternalLink,
+  ChevronRight,
+  ArrowUpRight,
+  Shield,
+  Layers,
+  Award,
+  Globe,
+  DollarSign
 } from 'lucide-react';
-import MiroScriptEmbed from './MiroScriptEmbed';
-import ApolloImporterModal from './ApolloImporterModal';
+import MiroScriptEmbed, { DEFAULT_MIRO_URL } from './MiroScriptEmbed';
+import LeadImporterModal from './LeadImporterModal';
 import WalkthroughModal from './WalkthroughModal';
 import './phoneStyles.css';
 
-const QUICK_ROLES = [
-  'Project Manager',
-  'Site Superintendent',
-  'Estimator',
-  'Property Manager',
-  'Operations Director',
-  'Owner / General Contractor'
-];
+/**
+ * Normalizes company names to match colleagues across slight variations
+ */
+function normalizeCompanyName(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/^(the|a)\s+/i, '')
+    .replace(/[\s,\.\-]+/g, ' ')
+    .replace(/\b(inc|ltd|corporation|corp|limited|group|llc|design build)\b/gi, '')
+    .trim();
+}
+
+/**
+ * Calculates seniority ranking from 1 (entry) to 5 (executive/owner)
+ */
+function getSeniorityRank(seniority, position = '') {
+  const s = String(seniority || '').toLowerCase();
+  const p = String(position || '').toLowerCase();
+
+  if (s.includes('owner') || p.includes('owner') || p.includes('president') || p.includes('founder') || p.includes('principal')) {
+    return 5;
+  }
+  if (s.includes('director') || p.includes('director') || p.includes('vp') || p.includes('vice president') || p.includes('general manager')) {
+    return 4;
+  }
+  if (s.includes('senior') || p.includes('senior project manager') || p.includes('senior construction')) {
+    return 3.5;
+  }
+  if (s.includes('manager') || p.includes('project manager') || p.includes('superintendent') || p.includes('site supervisor') || p.includes('estimator')) {
+    return 3;
+  }
+  if (p.includes('senior coordinator')) {
+    return 2;
+  }
+  if (s.includes('entry') || p.includes('coordinator') || p.includes('assistant')) {
+    return 1;
+  }
+  return 2.5;
+}
+
+function getSeniorityLabel(rank, title = '') {
+  if (rank >= 5) return 'Executive / Owner';
+  if (rank >= 4) return 'Project Director';
+  if (rank >= 3.5) return 'Senior PM';
+  if (rank >= 3) return 'Project Manager / Super';
+  if (rank >= 2) return 'Senior Coordinator';
+  if (rank <= 1) return 'Project Coordinator';
+  return title || 'Team Member';
+}
 
 export default function PhoneTab({ user, repName, isActive }) {
-  // Navigation & Sub-views
-  // 'queue' (Dialer & Lead Console) | 'miro' (Miro Mind Map) | 'scripts' (Quick Cards) | 'dialpad' | 'logs'
+  // Navigation
+  // 'queue' (Dialer & Lead Console) | 'miro' (Dedicated Mind Map Tab) | 'logs'
   const [subView, setSubView] = useState('queue');
-  const [filter, setFilter] = useState('construction'); // default to post-construction target
+  const [filter, setFilter] = useState('all'); // all, hot, callbacks, walkthroughs, missing_info
   const [searchQuery, setSearchQuery] = useState('');
 
   // Modals
-  const [showApolloModal, setShowApolloModal] = useState(false);
+  const [showImporterModal, setShowImporterModal] = useState(false);
   const [showWalkthroughModal, setShowWalkthroughModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
@@ -84,17 +126,27 @@ export default function PhoneTab({ user, repName, isActive }) {
   const [callDuration, setCallDuration] = useState(0);
   const [isCalling, setIsCalling] = useState(false);
   const [callNotes, setCallNotes] = useState('');
-  const [selectedObjection, setSelectedObjection] = useState('');
-  const [selectedScriptKey, setSelectedScriptKey] = useState('POST_CONSTRUCTION_GC');
   const [callbackDateTime, setCallbackDateTime] = useState('');
   const [inCallMiroOpen, setInCallMiroOpen] = useState(false);
 
   // Sale Modal state
   const [saleAmount, setSaleAmount] = useState('2500');
-  const [saleServiceType, setSaleServiceType] = useState('Post-Construction Rough & Final Turnover Clean');
+  const [saleServiceType, setSaleServiceType] = useState('Post-Construction Turnover Clean');
 
-  // In-Call Quick Enrichment fields (editing state for selected contact)
-  const [isEditingContact, setIsEditingContact] = useState(false);
+  // Double-Click Queue Inline Editing
+  const [inlineEditingLeadId, setInlineEditingLeadId] = useState(null);
+  const [inlineFormData, setInlineFormData] = useState({
+    name: '',
+    company: '',
+    position: '',
+    phone: '',
+    email: '',
+    city: '',
+    status: 'new'
+  });
+
+  // Dossier Quick Edit State
+  const [isEditingDossier, setIsEditingDossier] = useState(false);
   const [editName, setEditName] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [editCompany, setEditCompany] = useState('');
@@ -103,25 +155,20 @@ export default function PhoneTab({ user, repName, isActive }) {
   const [editCity, setEditCity] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
 
-  // New B2B Lead Form State
+  // New Lead Form State
   const [newLeadCompany, setNewLeadCompany] = useState('');
   const [newLeadName, setNewLeadName] = useState('');
   const [newLeadTitle, setNewLeadTitle] = useState('Project Manager');
   const [newLeadPhone, setNewLeadPhone] = useState('');
   const [newLeadEmail, setNewLeadEmail] = useState('');
   const [newLeadCity, setNewLeadCity] = useState('');
-  const [newLeadVertical, setNewLeadVertical] = useState('post_construction');
-  const [newLeadService, setNewLeadService] = useState('Post-Construction Rough & Final Turnover Clean');
   const [newLeadPrice, setNewLeadPrice] = useState('2500');
   const [newLeadNotes, setNewLeadNotes] = useState('');
-
-  // Dialpad state
-  const [dialNumber, setDialNumber] = useState('');
 
   // Call timer interval
   const timerRef = useRef(null);
 
-  // 1. Fetch contacts & stats on mount & tab active
+  // Load contacts & stats on mount & tab active
   useEffect(() => {
     if (!isActive) return;
     loadContacts();
@@ -134,7 +181,7 @@ export default function PhoneTab({ user, repName, isActive }) {
     return () => window.removeEventListener('sync-local-events', handleSync);
   }, [isActive, filter]);
 
-  // Synchronize edit fields when selected contact changes
+  // Synchronize dossier edit fields when selected contact changes
   useEffect(() => {
     if (selectedContact) {
       setEditName(selectedContact.name || '');
@@ -143,15 +190,8 @@ export default function PhoneTab({ user, repName, isActive }) {
       setEditPhone(selectedContact.phone || '');
       setEditEmail(selectedContact.email || '');
       setEditCity(selectedContact.city || '');
-      setIsEditingContact(false);
+      setIsEditingDossier(false);
       setSaveSuccessMsg(false);
-
-      // Select relevant script
-      if (selectedContact.service_type?.toLowerCase().includes('construction')) {
-        setSelectedScriptKey('POST_CONSTRUCTION_GC');
-      } else {
-        setSelectedScriptKey('COMMERCIAL_B2B');
-      }
     }
   }, [selectedContact]);
 
@@ -175,7 +215,6 @@ export default function PhoneTab({ user, repName, isActive }) {
       const data = await fetchSalesContacts(filter);
       setContacts(data);
       if (data.length > 0) {
-        // Keep selected if still in list, else default to first
         if (!selectedContact || !data.some(c => c.id === selectedContact.id)) {
           setSelectedContact(data[0]);
         }
@@ -183,7 +222,7 @@ export default function PhoneTab({ user, repName, isActive }) {
         setSelectedContact(null);
       }
     } catch (e) {
-      console.error('[PhoneTab] Error loading B2B contacts:', e);
+      console.error('[PhoneTab] Error loading contacts:', e);
     } finally {
       setLoading(false);
     }
@@ -200,8 +239,56 @@ export default function PhoneTab({ user, repName, isActive }) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  // Quick In-Call Field Save
-  async function handleSaveContactDetails() {
+  // Double-Click Queue Inline Edit Trigger
+  function handleQueueCardDoubleClick(contact, e) {
+    e.stopPropagation();
+    setInlineEditingLeadId(contact.id);
+    setInlineFormData({
+      name: contact.name || '',
+      company: contact.company || '',
+      position: contact.position || '',
+      phone: contact.phone || '',
+      email: contact.email || '',
+      city: contact.city || '',
+      status: contact.status || 'new'
+    });
+  }
+
+  async function handleSaveQueueInlineEdit(contactId) {
+    try {
+      await updateLeadContact(contactId, {
+        customer_name: inlineFormData.name,
+        company_name: inlineFormData.company,
+        contact_title: inlineFormData.position,
+        customer_phone: inlineFormData.phone,
+        customer_email: inlineFormData.email,
+        city: inlineFormData.city,
+        status: inlineFormData.status
+      });
+
+      const updated = {
+        ...contacts.find(c => c.id === contactId),
+        name: inlineFormData.name,
+        company: inlineFormData.company,
+        position: inlineFormData.position,
+        phone: inlineFormData.phone,
+        email: inlineFormData.email,
+        city: inlineFormData.city,
+        status: inlineFormData.status
+      };
+
+      setContacts(prev => prev.map(c => c.id === contactId ? updated : c));
+      if (selectedContact?.id === contactId) {
+        setSelectedContact(updated);
+      }
+      setInlineEditingLeadId(null);
+    } catch (err) {
+      console.error('[PhoneTab] Inline edit save failed:', err);
+    }
+  }
+
+  // Dossier Quick Edit Save
+  async function handleSaveDossier() {
     if (!selectedContact?.id) return;
     try {
       await updateLeadContact(selectedContact.id, {
@@ -213,7 +300,6 @@ export default function PhoneTab({ user, repName, isActive }) {
         city: editCity
       });
 
-      // Update local state
       const updated = {
         ...selectedContact,
         name: editName,
@@ -225,29 +311,30 @@ export default function PhoneTab({ user, repName, isActive }) {
       };
       setSelectedContact(updated);
       setContacts(prev => prev.map(c => c.id === updated.id ? updated : c));
-      setIsEditingContact(false);
+      setIsEditingDossier(false);
       setSaveSuccessMsg(true);
-      setTimeout(() => setSaveSuccessMsg(false), 2500);
+      setTimeout(() => setSaveSuccessMsg(false), 2000);
     } catch (err) {
-      console.error('[PhoneTab] Failed saving contact enrichment:', err);
+      console.error('[PhoneTab] Dossier save failed:', err);
     }
   }
 
   // Launch a call to contact
-  function startCall(contact) {
-    setSelectedContact(contact);
-    setActiveCallContact(contact);
+  function startCall(contact, targetPhone = null) {
+    const phoneToCall = targetPhone || contact.phone;
+    const callingContact = { ...contact, phone: phoneToCall };
+
+    setSelectedContact(callingContact);
+    setActiveCallContact(callingContact);
     setCallDuration(0);
     setIsCalling(true);
     setCallNotes('');
-    setSelectedObjection('');
     setCallbackDateTime('');
-    setSaleAmount(contact.estimated_value ? String(contact.estimated_value) : '2500');
-    setSaleServiceType(contact.service_type || 'Post-Construction Rough & Final Turnover Clean');
+    setSaleAmount(callingContact.estimated_value ? String(callingContact.estimated_value) : '2500');
+    setSaleServiceType(callingContact.service_type || 'Post-Construction Turnover Clean');
 
-    // Trigger device dialer if on mobile or tel handler
-    if (contact.phone) {
-      const cleanPhone = contact.phone.replace(/[^0-9+]/g, '');
+    if (phoneToCall) {
+      const cleanPhone = phoneToCall.replace(/[^0-9+]/g, '');
       window.location.href = `tel:${cleanPhone}`;
     }
   }
@@ -277,7 +364,6 @@ export default function PhoneTab({ user, repName, isActive }) {
       durationSeconds: callDuration,
       notes: callNotes,
       callbackTime: outcomeType === 'CALLBACK' ? callbackDateTime : null,
-      objectionType: selectedObjection || null,
       repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
       repName: repName || 'Malik',
     });
@@ -327,7 +413,7 @@ export default function PhoneTab({ user, repName, isActive }) {
     loadContacts();
   }
 
-  // Confirm Sale Submission
+  // Confirm Sale
   async function confirmSale() {
     const contactToLog = activeCallContact || selectedContact;
     if (!contactToLog) return;
@@ -344,7 +430,7 @@ export default function PhoneTab({ user, repName, isActive }) {
       saleDetails: {
         job_total: saleAmount,
         service_type: saleServiceType,
-        payment_method: 'Commercial Trade Subcontract Invoice',
+        payment_method: 'Subcontract Invoice',
         homeowner_name: contactToLog.name
       },
       repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
@@ -358,29 +444,6 @@ export default function PhoneTab({ user, repName, isActive }) {
     loadContacts();
   }
 
-  // Dialpad key press
-  function handleDialPress(char) {
-    if (dialNumber.length < 15) {
-      setDialNumber(prev => prev + char);
-    }
-  }
-
-  // Launch call from Dialpad
-  function launchManualDial() {
-    if (!dialNumber) return;
-    const manualContact = {
-      id: `manual_${Date.now()}`,
-      name: 'General Contractor / DM',
-      company: 'Outbound Builder Prospect',
-      position: 'Project Manager',
-      phone: dialNumber,
-      city: 'GTA',
-      service_type: 'Post-Construction Rough & Final Clean',
-      estimated_value: 2500
-    };
-    startCall(manualContact);
-  }
-
   // Add new lead form submission
   async function handleAddNewLead(e) {
     e.preventDefault();
@@ -388,15 +451,15 @@ export default function PhoneTab({ user, repName, isActive }) {
 
     const res = await createNewPhoneLead({
       company_name: newLeadCompany,
-      customer_name: newLeadName || 'Decision Maker / PM',
+      customer_name: newLeadName || 'Decision Maker',
       contact_title: newLeadTitle,
       customer_phone: newLeadPhone,
       customer_email: newLeadEmail,
       city: newLeadCity || 'GTA',
-      service_type: newLeadService,
+      service_type: 'post_construction_clean',
       quoted_price: newLeadPrice,
       notes: newLeadNotes,
-      source: 'cold_call'
+      source: 'phone_sales_os'
     });
 
     if (res?.success) {
@@ -425,29 +488,39 @@ export default function PhoneTab({ user, repName, isActive }) {
     );
   });
 
+  // Organizational Hierarchy Calculation for Selected Contact
+  const currentNormCompany = selectedContact ? normalizeCompanyName(selectedContact.company) : '';
+  const colleagues = selectedContact && currentNormCompany
+    ? contacts.filter(c => c.id !== selectedContact.id && normalizeCompanyName(c.company) === currentNormCompany)
+    : [];
+
+  const currentRank = selectedContact ? getSeniorityRank(selectedContact.seniority, selectedContact.position) : 2.5;
+  const superiors = colleagues.filter(c => getSeniorityRank(c.seniority, c.position) > currentRank);
+  const subordinates = colleagues.filter(c => getSeniorityRank(c.seniority, c.position) < currentRank);
+  const peers = colleagues.filter(c => getSeniorityRank(c.seniority, c.position) === currentRank);
+
   return (
     <div className="phone-workspace-root font-sans">
-      {/* Workstation 2-Column Grid */}
       <div className="phone-grid-layout">
         
-        {/* LEFT COLUMN: Apollo Lead Pipeline & Queue */}
+        {/* LEFT COLUMN: Calling Queue & Leads List */}
         <div className="phone-panel">
           <div className="phone-panel-header">
             <div className="phone-panel-title">
-              <HardHat className="w-4 h-4 text-amber-400" />
-              <span>Commercial & GC Calling Queue</span>
+              <Building2 className="w-4 h-4 text-blue-400" />
+              <span>Commercial Calling Queue</span>
               <span className="phone-badge">
-                {loading ? 'Syncing...' : `${contacts.length} Leads`}
+                {loading ? 'Syncing...' : `${contacts.length} Accounts`}
               </span>
             </div>
             <div className="flex items-center gap-1.5">
               <button
                 className="phone-subtab-btn"
                 style={{ padding: '4px 8px', fontSize: '11px', flex: 'none', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}
-                onClick={() => setShowApolloModal(true)}
-                title="Import Apollo.io Leads CSV"
+                onClick={() => setShowImporterModal(true)}
+                title="Import Leads from CSV, XLSX, or TSV"
               >
-                <Upload size={12} /> Import Apollo
+                <Upload size={12} /> Import Leads
               </button>
               <button
                 className="phone-subtab-btn active"
@@ -475,12 +548,6 @@ export default function PhoneTab({ user, repName, isActive }) {
             {/* Filter Chips Bar */}
             <div className="phone-filter-bar">
               <button
-                className={`phone-filter-pill ${filter === 'construction' ? 'active' : ''}`}
-                onClick={() => setFilter('construction')}
-              >
-                🔨 Construction GCs
-              </button>
-              <button
                 className={`phone-filter-pill ${filter === 'all' ? 'active' : ''}`}
                 onClick={() => setFilter('all')}
               >
@@ -490,59 +557,57 @@ export default function PhoneTab({ user, repName, isActive }) {
                 className={`phone-filter-pill ${filter === 'hot' ? 'active' : ''}`}
                 onClick={() => setFilter('hot')}
               >
-                🔥 Ready to Call
+                Ready to Call
               </button>
               <button
                 className={`phone-filter-pill ${filter === 'missing_info' ? 'active' : ''}`}
                 onClick={() => setFilter('missing_info')}
-                title="Leads missing direct phone or contact title - gatekeeper discovery targets"
+                title="Contacts missing direct line or title"
               >
-                ⚠️ Needs Info
+                Needs Info
               </button>
               <button
                 className={`phone-filter-pill ${filter === 'walkthroughs' ? 'active' : ''}`}
                 onClick={() => setFilter('walkthroughs')}
               >
-                🚶‍♂️ Walkthroughs
+                Walkthroughs
               </button>
               <button
                 className={`phone-filter-pill ${filter === 'callbacks' ? 'active' : ''}`}
                 onClick={() => setFilter('callbacks')}
               >
-                📅 Follow-ups
+                Follow-ups
               </button>
+            </div>
+
+            <div className="text-[10px] text-slate-400 mb-2 font-medium flex items-center justify-between">
+              <span>Double-click any lead card to quick-edit</span>
+              <span>{filteredContacts.length} shown</span>
             </div>
 
             {/* Scrollable Lead List */}
             {loading ? (
               <div style={{ textAlign: 'center', padding: '40px 0', color: '#88a2c0', fontSize: '13px' }}>
-                <p>Loading commercial pipeline...</p>
+                <p>Loading commercial accounts...</p>
               </div>
             ) : filteredContacts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 16px', color: '#88a2c0' }}>
-                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
-                  <HardHat className="w-6 h-6" />
+                <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(59, 130, 246, 0.1)', color: '#60a5fa', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                  <Building2 className="w-6 h-6" />
                 </div>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: '#fff', marginBottom: '4px' }}>
-                  No Leads Found in this Queue
+                  No Leads Found
                 </div>
                 <p style={{ fontSize: '12px', color: '#88a2c0', maxWidth: 300, margin: '0 auto 16px', lineHeight: 1.5 }}>
-                  Import your Apollo.io CSV export or add target General Contractors and commercial accounts to begin cold outreach.
+                  Import contacts from a CSV or Excel file or add a new general contractor to begin outreach.
                 </p>
                 <div className="flex justify-center gap-2">
                   <button
                     className="phone-call-btn"
                     style={{ padding: '8px 14px', fontSize: '12px' }}
-                    onClick={() => setShowApolloModal(true)}
+                    onClick={() => setShowImporterModal(true)}
                   >
-                    <Upload size={13} /> Import Apollo CSV
-                  </button>
-                  <button
-                    className="phone-text-btn"
-                    style={{ padding: '8px 14px', fontSize: '12px' }}
-                    onClick={() => setShowAddLeadModal(true)}
-                  >
-                    + Add Single Lead
+                    <Upload size={13} /> Import Spreadsheet
                   </button>
                 </div>
               </div>
@@ -551,78 +616,176 @@ export default function PhoneTab({ user, repName, isActive }) {
                 {filteredContacts.map(c => {
                   const isSelected = selectedContact?.id === c.id;
                   const isLiveCalling = isCalling && activeCallContact?.id === c.id;
-                  const isPostCon = (c.service_type || '').toLowerCase().includes('construction');
+                  const isInlineEditing = inlineEditingLeadId === c.id;
 
-                  // Completeness checks
-                  const hasName = Boolean(c.name && !c.name.toLowerCase().includes('decision maker'));
-                  const hasPosition = Boolean(c.position);
-                  const hasPhone = Boolean(c.phone);
-                  const hasEmail = Boolean(c.email);
+                  // Find same company count and hierarchy
+                  const normC = normalizeCompanyName(c.company);
+                  const sameCompanyContacts = normC ? contacts.filter(other => other.id !== c.id && normalizeCompanyName(other.company) === normC) : [];
+                  const cRank = getSeniorityRank(c.seniority, c.position);
+                  const cSuperiors = sameCompanyContacts.filter(other => getSeniorityRank(other.seniority, other.position) > cRank);
+
+                  if (isInlineEditing) {
+                    return (
+                      <div
+                        key={c.id}
+                        className="phone-lead-card selected"
+                        style={{ padding: 12, cursor: 'default' }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="text-[11px] font-bold text-blue-400 mb-2 flex items-center justify-between">
+                          <span>Inline Quick Edit</span>
+                          <button
+                            type="button"
+                            className="text-slate-400 hover:text-white"
+                            onClick={() => setInlineEditingLeadId(null)}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                        <div className="space-y-1.5">
+                          <input
+                            type="text"
+                            className="phone-search-input"
+                            style={{ padding: '5px 8px', fontSize: '12px' }}
+                            placeholder="Full Name"
+                            value={inlineFormData.name}
+                            onChange={e => setInlineFormData({ ...inlineFormData, name: e.target.value })}
+                          />
+                          <input
+                            type="text"
+                            className="phone-search-input"
+                            style={{ padding: '5px 8px', fontSize: '12px' }}
+                            placeholder="Company Name"
+                            value={inlineFormData.company}
+                            onChange={e => setInlineFormData({ ...inlineFormData, company: e.target.value })}
+                          />
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <input
+                              type="text"
+                              className="phone-search-input"
+                              style={{ padding: '5px 8px', fontSize: '11px' }}
+                              placeholder="Job Title"
+                              value={inlineFormData.position}
+                              onChange={e => setInlineFormData({ ...inlineFormData, position: e.target.value })}
+                            />
+                            <input
+                              type="tel"
+                              className="phone-search-input"
+                              style={{ padding: '5px 8px', fontSize: '11px' }}
+                              placeholder="Phone"
+                              value={inlineFormData.phone}
+                              onChange={e => setInlineFormData({ ...inlineFormData, phone: e.target.value })}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <input
+                              type="email"
+                              className="phone-search-input"
+                              style={{ padding: '5px 8px', fontSize: '11px' }}
+                              placeholder="Email"
+                              value={inlineFormData.email}
+                              onChange={e => setInlineFormData({ ...inlineFormData, email: e.target.value })}
+                            />
+                            <input
+                              type="text"
+                              className="phone-search-input"
+                              style={{ padding: '5px 8px', fontSize: '11px' }}
+                              placeholder="City"
+                              value={inlineFormData.city}
+                              onChange={e => setInlineFormData({ ...inlineFormData, city: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end gap-2 mt-2 pt-2 border-t border-slate-800">
+                          <button
+                            type="button"
+                            className="phone-text-btn"
+                            style={{ padding: '4px 8px', fontSize: '11px' }}
+                            onClick={() => setInlineEditingLeadId(null)}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            className="phone-call-btn"
+                            style={{ padding: '4px 10px', fontSize: '11px' }}
+                            onClick={() => handleSaveQueueInlineEdit(c.id)}
+                          >
+                            Save Update
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
                       key={c.id}
                       className={`phone-lead-card ${isSelected ? 'selected' : ''}`}
                       onClick={() => setSelectedContact(c)}
+                      onDoubleClick={(e) => handleQueueCardDoubleClick(c, e)}
                     >
                       <div className="phone-lead-top">
                         <div className="phone-lead-name">
-                          <span className="truncate max-w-[200px]">{c.company || c.name}</span>
+                          <span className="truncate max-w-[210px]">{c.company || c.name}</span>
                           {isLiveCalling && (
                             <span style={{ color: '#10b981', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               <span className="phone-timer-dot" /> LIVE
                             </span>
                           )}
                         </div>
-                        <span className={`phone-lead-type-badge ${isPostCon ? 'badge-postcon' : 'badge-commercial'}`}>
-                          {isPostCon ? '🔨 Post-Con' : '🏢 Commercial'}
+                        <span className="phone-lead-type-badge badge-commercial">
+                          {c.city || 'GTA'}
                         </span>
                       </div>
 
                       {/* Contact Person & Position */}
                       <div className="flex items-center gap-1.5 text-xs text-slate-300 font-semibold my-1">
-                        <User size={12} className={hasName ? "text-emerald-400" : "text-amber-400"} />
-                        <span className="truncate">{c.name || 'Unknown Contact'}</span>
-                        {c.position ? (
-                          <span className="text-[10px] text-blue-300 bg-blue-900/40 px-1.5 py-0.5 rounded border border-blue-800/40 truncate max-w-[120px]">
+                        <User size={12} className="text-slate-400 shrink-0" />
+                        <span className="truncate">{c.name || 'Decision Maker'}</span>
+                        {c.position && (
+                          <span className="text-[10px] text-blue-300 bg-blue-900/40 px-1.5 py-0.5 rounded border border-blue-800/40 truncate max-w-[130px]">
                             {c.position}
-                          </span>
-                        ) : (
-                          <span className="text-[10px] text-amber-400/80 bg-amber-900/30 px-1 py-0.5 rounded">
-                            + Tag Role
                           </span>
                         )}
                       </div>
+
+                      {/* Company Hierarchy Intelligence Tag */}
+                      {sameCompanyContacts.length > 0 && (
+                        <div className="flex items-center gap-1 text-[10px] text-amber-300/90 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 my-1 truncate">
+                          <Users size={10} className="shrink-0" />
+                          <span className="truncate">
+                            {cSuperiors.length > 0 
+                              ? `Reports to ${cSuperiors[0].name} (${cSuperiors[0].position || 'Manager'})`
+                              : `${sameCompanyContacts.length} colleagues at ${c.company}`}
+                          </span>
+                        </div>
+                      )}
 
                       {/* Phone & Direct Status */}
                       <div className="flex items-center justify-between text-xs mt-1">
-                        <div className="phone-lead-phone font-mono">
+                        <div className="phone-lead-phone font-mono text-[12px]">
                           {c.phone ? (
                             c.phone
                           ) : (
-                            <span className="text-amber-400 font-sans text-[11px] flex items-center gap-1">
-                              <AlertTriangle size={11} /> No Direct Phone (HQ Lookup)
+                            <span className="text-slate-400 font-sans text-[11px]">
+                              HQ Switchboard Only
                             </span>
                           )}
                         </div>
-                        {hasEmail && (
-                          <span className="text-[10px] text-indigo-300 bg-indigo-950/60 px-1.5 py-0.5 rounded border border-indigo-800/40">
-                            ✉️ Email
+                        {c.email && (
+                          <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]">
+                            {c.email}
                           </span>
                         )}
-                      </div>
-
-                      {/* Service / Vertical Tag */}
-                      <div className="phone-lead-service mt-1">
-                        {c.service_type || 'Post-Construction Rough & Final Turnover'}
                       </div>
 
                       {/* Metadata Row */}
                       <div className="phone-lead-meta">
-                        <span>{c.city || 'GTA'}</span>
+                        <span className="text-[10px] text-slate-400">{getSeniorityLabel(cRank, c.position)}</span>
                         <span className="phone-lead-val">${c.estimated_value || '2,500'}</span>
                         <span className="uppercase text-[10px] font-bold text-slate-400">
-                          {c.status === 'walkthrough_booked' ? '🚶‍♂️ Walkthrough' : c.status || 'New'}
+                          {c.status === 'walkthrough_booked' ? 'Walkthrough' : c.status || 'New'}
                         </span>
                       </div>
                     </div>
@@ -633,10 +796,10 @@ export default function PhoneTab({ user, repName, isActive }) {
           </div>
         </div>
 
-        {/* RIGHT COLUMN: Workstation Canvas & Active Calling Cockpit */}
+        {/* RIGHT COLUMN: Active Calling Cockpit & Miro Mind Map */}
         <div className="phone-panel">
           
-          {/* Top Panel Header: Stats + Sub-view Navigation */}
+          {/* Top Panel Header: Stats + Navigation */}
           <div style={{ padding: '16px 18px 0' }}>
             {/* Metric Strip */}
             <div className="phone-metrics-strip">
@@ -659,7 +822,7 @@ export default function PhoneTab({ user, repName, isActive }) {
             </div>
 
             {/* Sub-view Nav Pills */}
-            <div className="phone-subtabs">
+            <div className="phone-subtabs" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
               <button
                 className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
                 onClick={() => setSubView('queue')}
@@ -671,24 +834,9 @@ export default function PhoneTab({ user, repName, isActive }) {
                 className={`phone-subtab-btn ${subView === 'miro' ? 'active' : ''}`}
                 onClick={() => setSubView('miro')}
                 title="Interactive Miro Mind Map Script"
-                style={{ position: 'relative' }}
               >
-                <Map size={13} className="text-amber-400" />
+                <Map size={13} className="text-blue-400" />
                 <span>Miro Mind Map</span>
-              </button>
-              <button
-                className={`phone-subtab-btn ${subView === 'scripts' ? 'active' : ''}`}
-                onClick={() => setSubView('scripts')}
-                title="B2B Commercial & GC Cheat Sheets"
-              >
-                <span>Quick Scripts</span>
-              </button>
-              <button
-                className={`phone-subtab-btn ${subView === 'dialpad' ? 'active' : ''}`}
-                onClick={() => setSubView('dialpad')}
-                title="Manual Keypad"
-              >
-                <span>Dial Pad</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'logs' ? 'active' : ''}`}
@@ -707,11 +855,11 @@ export default function PhoneTab({ user, repName, isActive }) {
               <>
                 {selectedContact ? (
                   <>
-                    {/* Active Contact Dossier Card with Live Field Enrichment */}
+                    {/* Active Contact Dossier Card with Company Hierarchy & Phone Routing */}
                     <div className="phone-active-dossier">
                       <div className="phone-dossier-top">
                         <div className="flex-1 min-w-0 pr-2">
-                          {isEditingContact ? (
+                          {isEditingDossier ? (
                             <div className="space-y-2 mb-2">
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
@@ -770,27 +918,12 @@ export default function PhoneTab({ user, repName, isActive }) {
                                 </div>
                               </div>
 
-                              {/* Quick Role Chip Tags */}
-                              <div className="flex flex-wrap gap-1.5 pt-1">
-                                <span className="text-[10px] text-slate-400 self-center">Quick Tag:</span>
-                                {QUICK_ROLES.map(role => (
-                                  <button
-                                    key={role}
-                                    type="button"
-                                    className="text-[10px] px-2 py-0.5 rounded bg-blue-900/30 hover:bg-blue-800/50 text-blue-300 border border-blue-700/40"
-                                    onClick={() => setEditTitle(role)}
-                                  >
-                                    {role}
-                                  </button>
-                                ))}
-                              </div>
-
                               <div className="flex gap-2 justify-end pt-1">
                                 <button
                                   type="button"
                                   className="phone-text-btn"
                                   style={{ padding: '4px 10px', fontSize: '11px' }}
-                                  onClick={() => setIsEditingContact(false)}
+                                  onClick={() => setIsEditingDossier(false)}
                                 >
                                   Cancel
                                 </button>
@@ -798,7 +931,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                                   type="button"
                                   className="phone-call-btn"
                                   style={{ padding: '4px 12px', fontSize: '11px' }}
-                                  onClick={handleSaveContactDetails}
+                                  onClick={handleSaveDossier}
                                 >
                                   <Save size={12} /> Save Info
                                 </button>
@@ -810,9 +943,9 @@ export default function PhoneTab({ user, repName, isActive }) {
                                 <span className="phone-dossier-name truncate">{selectedContact.company}</span>
                                 <button
                                   type="button"
-                                  onClick={() => setIsEditingContact(true)}
+                                  onClick={() => setIsEditingDossier(true)}
                                   className="text-slate-400 hover:text-blue-400 p-1 rounded"
-                                  title="Quick Enrich Lead Info"
+                                  title="Edit Contact Info"
                                 >
                                   <Edit3 size={13} />
                                 </button>
@@ -828,33 +961,82 @@ export default function PhoneTab({ user, repName, isActive }) {
                                   <User size={13} className="text-slate-400" />
                                   {selectedContact.name}
                                 </span>
-                                {selectedContact.position ? (
+                                {selectedContact.position && (
                                   <span className="text-xs font-semibold text-blue-300 bg-blue-950/70 border border-blue-800/50 px-2 py-0.5 rounded-full">
                                     {selectedContact.position}
                                   </span>
+                                )}
+                                <span className="text-[11px] text-slate-400 font-medium border border-slate-700/50 px-2 py-0.5 rounded-full">
+                                  {getSeniorityLabel(currentRank, selectedContact.position)}
+                                </span>
+                              </div>
+
+                              {/* Multi-Phone Direct Routing Buttons */}
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                {selectedContact.work_direct_phone ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => startCall(selectedContact, selectedContact.work_direct_phone)}
+                                    className="text-xs font-mono font-bold text-blue-300 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/50 px-2.5 py-1 rounded-md flex items-center gap-1.5 transition"
+                                    title="Call Direct Extension"
+                                  >
+                                    <Phone size={11} className="text-blue-400" />
+                                    <span>Direct: {selectedContact.work_direct_phone}</span>
+                                  </button>
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => setIsEditingContact(true)}
-                                    className="text-[11px] text-amber-400/90 bg-amber-950/40 border border-amber-800/40 px-2 py-0.5 rounded-full hover:bg-amber-900/60"
+                                    onClick={() => startCall(selectedContact, selectedContact.phone)}
+                                    className="text-xs font-mono font-bold text-blue-300 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/50 px-2.5 py-1 rounded-md flex items-center gap-1.5 transition"
                                   >
-                                    + Tag Role (e.g. PM / Super)
+                                    <Phone size={11} className="text-blue-400" />
+                                    <span>Line: {selectedContact.phone || 'No Phone'}</span>
                                   </button>
                                 )}
-                              </div>
 
-                              <div className="flex items-center gap-4 mt-1.5 text-xs text-slate-300">
-                                <div className="font-mono font-bold text-blue-400">
-                                  {selectedContact.phone || (
-                                    <span className="text-amber-400 font-sans text-xs">
-                                      ⚠️ No Direct Phone (Call Switchboard)
-                                    </span>
-                                  )}
-                                </div>
+                                {selectedContact.mobile_phone && selectedContact.mobile_phone !== selectedContact.work_direct_phone && (
+                                  <button
+                                    type="button"
+                                    onClick={() => startCall(selectedContact, selectedContact.mobile_phone)}
+                                    className="text-xs font-mono text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/50 px-2 py-1 rounded-md flex items-center gap-1.5 transition"
+                                    title="Call Mobile Cell"
+                                  >
+                                    <PhoneCall size={11} className="text-emerald-400" />
+                                    <span>Cell: {selectedContact.mobile_phone}</span>
+                                  </button>
+                                )}
+
+                                {selectedContact.corporate_phone && selectedContact.corporate_phone !== selectedContact.work_direct_phone && (
+                                  <button
+                                    type="button"
+                                    onClick={() => startCall(selectedContact, selectedContact.corporate_phone)}
+                                    className="text-xs font-mono text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2 py-1 rounded-md flex items-center gap-1.5 transition"
+                                    title="Call Corporate Switchboard"
+                                  >
+                                    <Building2 size={11} className="text-slate-400" />
+                                    <span>HQ: {selectedContact.corporate_phone}</span>
+                                  </button>
+                                )}
+
                                 {selectedContact.email && (
-                                  <div className="text-slate-400 flex items-center gap-1">
-                                    <Mail size={12} className="text-indigo-400" /> {selectedContact.email}
-                                  </div>
+                                  <a
+                                    href={`mailto:${selectedContact.email}`}
+                                    className="text-xs text-slate-300 hover:text-white flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-md border border-slate-800"
+                                  >
+                                    <Mail size={11} className="text-indigo-400" />
+                                    <span>{selectedContact.email}</span>
+                                  </a>
+                                )}
+
+                                {selectedContact.linkedin && (
+                                  <a
+                                    href={selectedContact.linkedin}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-md border border-slate-800"
+                                  >
+                                    <ExternalLink size={10} /> LinkedIn
+                                  </a>
                                 )}
                               </div>
                             </div>
@@ -879,6 +1061,83 @@ export default function PhoneTab({ user, repName, isActive }) {
                         </div>
                       </div>
 
+                      {/* Same Company Organizational Hierarchy Box */}
+                      {colleagues.length > 0 && (
+                        <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
+                          <div className="text-[11px] font-bold text-white flex items-center justify-between">
+                            <span className="flex items-center gap-1.5">
+                              <Users size={13} className="text-blue-400" />
+                              Organizational Hierarchy at {selectedContact.company} ({colleagues.length + 1} Contacts Total)
+                            </span>
+                            <span className="text-[10px] text-slate-400">
+                              Click colleague to switch
+                            </span>
+                          </div>
+
+                          {/* Superiors List */}
+                          {superiors.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wide">
+                                Superior:
+                              </span>
+                              {superiors.map(sup => (
+                                <button
+                                  key={sup.id}
+                                  type="button"
+                                  className="text-xs px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-200 border border-amber-500/30 flex items-center gap-1 transition"
+                                  onClick={() => setSelectedContact(sup)}
+                                >
+                                  <ArrowUpRight size={11} className="text-amber-400" />
+                                  <span className="font-semibold">{sup.name}</span>
+                                  <span className="text-[10px] text-slate-400">({sup.position || 'Manager'})</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Subordinates / Team List */}
+                          {subordinates.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wide">
+                                Team / Coordinators:
+                              </span>
+                              {subordinates.map(sub => (
+                                <button
+                                  key={sub.id}
+                                  type="button"
+                                  className="text-xs px-2.5 py-1 rounded-md bg-blue-900/30 hover:bg-blue-800/50 text-blue-200 border border-blue-700/40 flex items-center gap-1 transition"
+                                  onClick={() => setSelectedContact(sub)}
+                                >
+                                  <User size={11} className="text-blue-400" />
+                                  <span className="font-semibold">{sub.name}</span>
+                                  <span className="text-[10px] text-slate-400">({sub.position || 'Coordinator'})</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Peers */}
+                          {peers.length > 0 && (
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
+                                Peers:
+                              </span>
+                              {peers.map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  className="text-xs px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1 transition"
+                                  onClick={() => setSelectedContact(p)}
+                                >
+                                  <span>{p.name}</span>
+                                  <span className="text-[10px] text-slate-400">({p.position || 'PM'})</span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
                       {/* Detail Matrix */}
                       <div className="phone-dossier-grid">
                         <div className="phone-dossier-cell">
@@ -886,25 +1145,27 @@ export default function PhoneTab({ user, repName, isActive }) {
                           <span className="phone-dossier-val">{selectedContact.city || 'GTA'}</span>
                         </div>
                         <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">Service Scope</span>
-                          <span className="phone-dossier-val truncate">{selectedContact.service_type || 'Post-Construction Turnover'}</span>
+                          <span className="phone-dossier-label">Department</span>
+                          <span className="phone-dossier-val truncate">
+                            {selectedContact.departments || selectedContact.service_type || 'Operations'}
+                          </span>
                         </div>
                         <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">Target Bid Value</span>
+                          <span className="phone-dossier-label">Target Job Value</span>
                           <span className="phone-dossier-val" style={{ color: '#10b981' }}>
                             ${selectedContact.estimated_value || '2,500'}
                           </span>
                         </div>
                       </div>
 
-                      {selectedContact.notes && (
-                        <div style={{ fontSize: '11px', color: '#94a3b8', background: 'rgba(0,0,0,0.2)', padding: '6px 10px', borderRadius: '8px' }}>
-                          <strong>Lead Notes / Apollo Intelligence:</strong> {selectedContact.notes}
+                      {selectedContact.address && (
+                        <div className="text-[11px] text-slate-400 bg-black/20 p-2 rounded-lg">
+                          <strong>Address:</strong> {selectedContact.address}
                         </div>
                       )}
                     </div>
 
-                    {/* Active Live Call Timer & Disposition Box */}
+                    {/* Active Call Console & 1-Tap Dispositions */}
                     <div className="phone-active-call-box">
                       <div className="phone-call-timer-row">
                         <div className="phone-timer-badge">
@@ -912,20 +1173,20 @@ export default function PhoneTab({ user, repName, isActive }) {
                           <span>{isCalling ? `ON CALL: ${formatDuration(callDuration)}` : 'CALL DISPOSITION'}</span>
                         </div>
                         
-                        {/* Quick Toggle for In-Call Miro Script */}
+                        {/* Toggle Miro Mind Map in Call */}
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
-                            className="text-xs px-2.5 py-1 rounded-md font-semibold bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 transition"
+                            className="text-xs px-3 py-1 rounded-md font-semibold bg-blue-900/30 hover:bg-blue-800/50 text-blue-300 border border-blue-700/40 flex items-center gap-1.5 transition"
                             onClick={() => setInCallMiroOpen(!inCallMiroOpen)}
                           >
                             <Map size={12} />
-                            {inCallMiroOpen ? 'Hide Mind Map' : '🗺️ Open Miro Mind Map'}
+                            {inCallMiroOpen ? 'Hide Mind Map' : 'Open Miro Mind Map Script'}
                           </button>
                         </div>
                       </div>
 
-                      {/* Inline Miro Mind Map Split (when rep toggles it during call) */}
+                      {/* Inline Miro Mind Map Split */}
                       {inCallMiroOpen && (
                         <div className="my-2 border border-slate-700/60 rounded-xl overflow-hidden">
                           <MiroScriptEmbed isCompact={true} />
@@ -936,13 +1197,13 @@ export default function PhoneTab({ user, repName, isActive }) {
                       <div>
                         <textarea
                           className="phone-notes-area"
-                          placeholder="Type live call notes... (e.g. Spoke with Site Super Dave, rough clean done, needs final handover clean next Thursday on 45,000 sq ft office fit-out. Steel toes required on site.)"
+                          placeholder="Type call notes... (e.g. Spoke with PM Dave, rough clean complete, needs walkthrough next Tuesday for final occupancy clean on 30,000 sq ft build)"
                           value={callNotes}
                           onChange={e => setCallNotes(e.target.value)}
                         />
                       </div>
 
-                      {/* 1-Tap Disposition Buttons */}
+                      {/* 1-Tap Clean Disposition Buttons (ZERO EMOJIS) */}
                       <div>
                         <div style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', textTransform: 'uppercase', marginBottom: 6 }}>
                           Record Call Outcome:
@@ -962,14 +1223,14 @@ export default function PhoneTab({ user, repName, isActive }) {
                             }}
                             onClick={() => handleDisposition('WALKTHROUGH')}
                           >
-                            🚶‍♂️ BOOK SITE WALKTHROUGH ASSESSMENT (PRIMARY GOAL)
+                            BOOK SITE WALKTHROUGH ASSESSMENT (PRIMARY GOAL)
                           </button>
 
                           <button
                             className="phone-disp-btn won"
                             onClick={() => handleDisposition('SALE')}
                           >
-                            🏆 WON TRADE SUBCONTRACT / PO ($)
+                            WON TRADE SUBCONTRACT / PO ($)
                           </button>
 
                           <button
@@ -977,7 +1238,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ borderColor: 'rgba(6, 182, 212, 0.4)', color: '#22d3ee' }}
                             onClick={() => handleDisposition('SEND_QUOTE')}
                           >
-                            ✉️ Send Bid / Rate Card
+                            Send Bid / Spec Sheet
                           </button>
 
                           <button
@@ -985,7 +1246,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c084fc' }}
                             onClick={() => handleDisposition('CALLBACK')}
                           >
-                            📅 Callback Scheduled
+                            Callback Scheduled
                           </button>
 
                           <button
@@ -993,7 +1254,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
                             onClick={() => handleDisposition('GATEKEEPER')}
                           >
-                            🚪 Gatekeeper / Found DM
+                            Gatekeeper / Found DM
                           </button>
 
                           <button
@@ -1001,7 +1262,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#10b981' }}
                             onClick={() => handleDisposition('CONVO')}
                           >
-                            🗣️ Qualified Interest
+                            Qualified Interest
                           </button>
 
                           <button
@@ -1009,7 +1270,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#94a3b8' }}
                             onClick={() => handleDisposition('VOICEMAIL')}
                           >
-                            📼 Left Voicemail
+                            Left Voicemail
                           </button>
 
                           <button
@@ -1017,7 +1278,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#94a3b8' }}
                             onClick={() => handleDisposition('NO_ANSWER')}
                           >
-                            📵 No Answer
+                            No Answer
                           </button>
 
                           <button
@@ -1025,59 +1286,30 @@ export default function PhoneTab({ user, repName, isActive }) {
                             style={{ color: '#f87171' }}
                             onClick={() => handleDisposition('NOT_INTERESTED')}
                           >
-                            ⛔ Not Interested
+                            Not Interested
                           </button>
                         </div>
                       </div>
-                    </div>
-
-                    {/* Objection Rebuttal Battle Cards */}
-                    <div className="phone-scripts-card">
-                      <div className="phone-scripts-header flex items-center justify-between">
-                        <span>🔨 Post-Construction & Commercial Objection Battle-Cards</span>
-                        <span className="text-[10px] text-slate-400">1-Tap Rebuttals</span>
-                      </div>
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {OBJECTION_REBUTTALS.map((r, idx) => (
-                          <button
-                            key={idx}
-                            className={`phone-filter-pill ${selectedObjection === r.title ? 'active' : ''}`}
-                            onClick={() => setSelectedObjection(selectedObjection === r.title ? '' : r.title)}
-                          >
-                            "{r.title}"
-                          </button>
-                        ))}
-                      </div>
-
-                      {selectedObjection && (
-                        <div className="phone-script-box" style={{ marginTop: 10 }}>
-                          <div className="text-xs font-bold text-amber-300 mb-1">
-                            Trigger: {OBJECTION_REBUTTALS.find(r => r.title === selectedObjection)?.trigger}
-                          </div>
-                          <strong style={{ color: '#60a5fa' }}>Turnaround: </strong>
-                          {OBJECTION_REBUTTALS.find(r => r.title === selectedObjection)?.rebuttal}
-                        </div>
-                      )}
                     </div>
                   </>
                 ) : (
                   <div style={{ textAlign: 'center', padding: '60px 20px', color: '#88a2c0' }}>
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                      <HardHat size={38} className="text-amber-400" />
+                      <Building2 size={38} className="text-blue-400" />
                     </div>
                     <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginBottom: 8 }}>
-                      Post-Construction & Commercial Inside Sales Console
+                      Post-Construction & Commercial Calling Console
                     </div>
                     <p style={{ fontSize: '13px', color: '#88a2c0', maxWidth: 380, margin: '0 auto 20px', lineHeight: 1.5 }}>
-                      Select a General Contractor or commercial account on the left to start cold calling, open your Miro script mind map, and book site walkthroughs.
+                      Select a general contractor or commercial account on the left to start outbound calling, view organizational hierarchy, and book walkthroughs.
                     </p>
                     <div className="flex justify-center gap-2">
                       <button
                         className="phone-call-btn"
                         style={{ padding: '9px 18px', fontSize: '13px' }}
-                        onClick={() => setShowApolloModal(true)}
+                        onClick={() => setShowImporterModal(true)}
                       >
-                        <Upload size={14} /> Import Apollo.io Leads
+                        <Upload size={14} /> Import Spreadsheet
                       </button>
                     </div>
                   </div>
@@ -1092,106 +1324,7 @@ export default function PhoneTab({ user, repName, isActive }) {
               </div>
             )}
 
-            {/* VIEW 3: QUICK B2B & GC SCRIPTS CHEAT SHEET */}
-            {subView === 'scripts' && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div style={{ display: 'flex', gap: 6, background: '#001326', padding: 4, borderRadius: 10, overflowX: 'auto' }}>
-                  {Object.entries(CALL_SCRIPTS).map(([key, script]) => (
-                    <button
-                      key={key}
-                      className={`phone-subtab-btn ${selectedScriptKey === key ? 'active' : ''}`}
-                      onClick={() => setSelectedScriptKey(key)}
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      {script.title}
-                    </button>
-                  ))}
-                </div>
-
-                {CALL_SCRIPTS[selectedScriptKey] && (
-                  <div className="phone-scripts-card">
-                    <h4 style={{ fontSize: '15px', fontWeight: 800, color: '#fff', marginBottom: 12 }}>
-                      {CALL_SCRIPTS[selectedScriptKey].title}
-                    </h4>
-
-                    <div style={{ marginBottom: 12 }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase' }}>
-                        1. Opener & Hook:
-                      </span>
-                      <div className="phone-script-box">
-                        {CALL_SCRIPTS[selectedScriptKey].opener}
-                      </div>
-                    </div>
-
-                    <div style={{ marginBottom: 12 }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#f59e0b', textTransform: 'uppercase' }}>
-                        2. Discovery & Trade Qualification:
-                      </span>
-                      <div className="phone-script-box" style={{ borderLeftColor: '#f59e0b' }}>
-                        {CALL_SCRIPTS[selectedScriptKey].discovery}
-                      </div>
-                    </div>
-
-                    {CALL_SCRIPTS[selectedScriptKey].value && (
-                      <div style={{ marginBottom: 12 }}>
-                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#a855f7', textTransform: 'uppercase' }}>
-                          3. Trade Value & Credentials:
-                        </span>
-                        <div className="phone-script-box" style={{ borderLeftColor: '#a855f7' }}>
-                          {CALL_SCRIPTS[selectedScriptKey].value}
-                        </div>
-                      </div>
-                    )}
-
-                    <div>
-                      <span style={{ fontSize: '11px', fontWeight: 700, color: '#10b981', textTransform: 'uppercase' }}>
-                        4. Walkthrough Close:
-                      </span>
-                      <div className="phone-script-box" style={{ borderLeftColor: '#10b981' }}>
-                        {CALL_SCRIPTS[selectedScriptKey].close}
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* VIEW 4: MANUAL DIAL PAD */}
-            {subView === 'dialpad' && (
-              <div className="phone-dialpad-container">
-                <div className="phone-dial-display">
-                  <span>{dialNumber || 'Enter Phone #'}</span>
-                  {dialNumber && (
-                    <button className="phone-dial-clear" onClick={() => setDialNumber('')}>
-                      ✕
-                    </button>
-                  )}
-                </div>
-
-                <div className="phone-keypad-grid">
-                  {['1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '0', '#'].map(k => (
-                    <button
-                      key={k}
-                      className="phone-key-btn"
-                      onClick={() => handleDialPress(k)}
-                    >
-                      <span className="phone-key-num">{k}</span>
-                    </button>
-                  ))}
-                </div>
-
-                <button
-                  className="phone-call-btn"
-                  style={{ width: '100%', padding: '14px', fontSize: '15px' }}
-                  onClick={launchManualDial}
-                  disabled={!dialNumber}
-                >
-                  <Phone size={15} style={{ marginRight: 8 }} /> Call Number
-                </button>
-              </div>
-            )}
-
-            {/* VIEW 5: CALL HISTORY */}
+            {/* VIEW 3: CALL HISTORY LOGS */}
             {subView === 'logs' && (
               <div className="phone-scripts-card">
                 <div className="phone-scripts-header flex items-center justify-between">
@@ -1223,7 +1356,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                             <div style={{ fontSize: '11px', color: '#88a2c0' }}>{call.phone_number}</div>
                           </td>
                           <td>
-                            <span className="phone-lead-type-badge badge-postcon">
+                            <span className="phone-lead-type-badge badge-commercial">
                               {call.outcome_type}
                             </span>
                           </td>
@@ -1248,10 +1381,10 @@ export default function PhoneTab({ user, repName, isActive }) {
         onConfirm={confirmWalkthroughBooking}
       />
 
-      {/* Apollo Leads Importer Modal */}
-      <ApolloImporterModal
-        isOpen={showApolloModal}
-        onClose={() => setShowApolloModal(false)}
+      {/* Lead Importer Modal (Supports CSV, XLSX, XLS, TSV) */}
+      <LeadImporterModal
+        isOpen={showImporterModal}
+        onClose={() => setShowImporterModal(false)}
         onImportSuccess={() => {
           loadContacts();
           refreshStats();
@@ -1263,10 +1396,10 @@ export default function PhoneTab({ user, repName, isActive }) {
         <div className="phone-modal-overlay">
           <div className="phone-modal-content">
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#10b981', marginBottom: 8 }}>
-              Cleaning Subcontract / Job Won!
+              Cleaning Subcontract / Job Won
             </h3>
             <p style={{ fontSize: '12px', color: '#88a2c0', marginBottom: 16 }}>
-              Enter the agreed trade contract value and cleaning scope to credit your commission and book the job into operations.
+              Enter the agreed trade contract value and cleaning scope to credit your commission and book the account.
             </p>
 
             <div style={{ marginBottom: 12 }}>
@@ -1313,28 +1446,28 @@ export default function PhoneTab({ user, repName, isActive }) {
         </div>
       )}
 
-      {/* Quick Add B2B Lead Modal */}
+      {/* Manual Add Lead Modal */}
       {showAddLeadModal && (
         <div className="phone-modal-overlay">
           <div className="phone-modal-content" style={{ maxWidth: 500 }}>
             <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', marginBottom: 4 }}>
-              Add Cold Call Target
+              Add Calling Target
             </h3>
             <p style={{ fontSize: '12px', color: '#88a2c0', marginBottom: 16 }}>
-              Add a General Contractor, Project Manager, or commercial account for outbound tele-sales.
+              Add a general contractor, project manager, or commercial account for outbound tele-sales.
             </p>
 
             <form onSubmit={handleAddNewLead}>
               <div style={{ marginBottom: 10 }}>
                 <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                  Company / General Contractor Name *
+                  Company Name *
                 </label>
                 <input
                   type="text"
                   required
                   className="phone-search-input"
                   style={{ padding: '10px 14px' }}
-                  placeholder="e.g. EllisDon Construction / PCL Builders"
+                  placeholder="e.g. EllisDon Construction"
                   value={newLeadCompany}
                   onChange={e => setNewLeadCompany(e.target.value)}
                 />
@@ -1428,39 +1561,14 @@ export default function PhoneTab({ user, repName, isActive }) {
                 </div>
               </div>
 
-              <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                  Target Cleaning Vertical
-                </label>
-                <select
-                  className="phone-search-input"
-                  style={{ padding: '10px 14px', background: '#001326' }}
-                  value={newLeadVertical}
-                  onChange={e => {
-                    setNewLeadVertical(e.target.value);
-                    if (e.target.value === 'post_construction') {
-                      setNewLeadService('Post-Construction Rough & Final Turnover Clean');
-                      setNewLeadPrice('2500');
-                    } else {
-                      setNewLeadService('Commercial Dumpster Steam Sanitization');
-                      setNewLeadPrice('650');
-                    }
-                  }}
-                >
-                  <option value="post_construction">🔨 Post-Construction (General Contractors & Builders)</option>
-                  <option value="commercial">🏢 Commercial Plazas & Facilities</option>
-                  <option value="property_management">🏠 Property Management & Multi-Res</option>
-                </select>
-              </div>
-
               <div style={{ marginBottom: 14 }}>
                 <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                  Gatekeeper / Switchboard Notes
+                  Notes & Details
                 </label>
                 <textarea
                   className="phone-search-input"
                   style={{ padding: '8px 12px', minHeight: 60 }}
-                  placeholder="HQ receptionist extension, best time to reach PM, project site address..."
+                  placeholder="Direct extension, job site location, project details..."
                   value={newLeadNotes}
                   onChange={e => setNewLeadNotes(e.target.value)}
                 />
