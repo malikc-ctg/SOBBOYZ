@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Copy, Truck, Info, Minus, Plus } from 'lucide-react';
+import { Copy, Truck, Info, Minus, Plus, FileText, Calculator, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   calcJunkRemoval,
@@ -31,6 +31,7 @@ export function JunkRemovalSection({
   onClose,
 }: JunkRemovalSectionProps) {
   const [loading, setLoading] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'form' | 'breakdown'>('form');
   const [volume, setVolume] = useState<JunkVolume>('quarter');
   const [heavyMaterials, setHeavyMaterials] = useState(false);
   const [stairsCount, setStairsCount] = useState(0);
@@ -46,6 +47,8 @@ export function JunkRemovalSection({
       disassemblyItemCount,
     });
   }, [volume, heavyMaterials, stairsCount, appliancesCount, disassemblyItemCount]);
+
+  const displayTotal = fmt(result.total);
 
   const handleCopy = () => {
     if (!result) return;
@@ -124,8 +127,40 @@ export function JunkRemovalSection({
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+      {/* Mobile Segmented View Switcher */}
+      <div className="md:hidden border-b bg-muted/40 p-1.5 flex gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={() => setMobileTab('form')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+            mobileTab === 'form'
+              ? 'bg-background text-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          <span>1. Service Details</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('breakdown')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+            mobileTab === 'breakdown'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Calculator className="h-3.5 w-3.5" />
+          <span>2. Quote Breakdown ({displayTotal})</span>
+        </button>
+      </div>
+
       {/* ── LEFT: Form ── */}
-      <div className="w-full md:w-[60%] overflow-y-auto p-5 space-y-6">
+      <div
+        className={`w-full md:w-[60%] overflow-y-auto overscroll-contain touch-pan-y ${
+          mobileTab === 'form' ? 'flex-1' : 'hidden md:block'
+        } p-4 sm:p-5 space-y-6`}
+      >
         {/* Contact Information */}
         <LeadContactFields contact={contact} onChange={onContactChange} isCommercial={true} />
 
@@ -274,11 +309,39 @@ export function JunkRemovalSection({
             </div>
           </div>
         </section>
+
+        {/* Mobile Bottom Action: Proceed to Quote Breakdown */}
+        <div className="md:hidden pt-4 border-t">
+          <Button
+            type="button"
+            className="w-full font-bold text-sm shadow-xs"
+            size="lg"
+            onClick={() => setMobileTab('breakdown')}
+          >
+            Review Quote Breakdown ({displayTotal}) →
+          </Button>
+        </div>
       </div>
 
       {/* ── RIGHT: Summary Card ── */}
-      <div className="w-full md:w-[40%] border-t md:border-t-0 md:border-l bg-muted/20 p-5 flex flex-col justify-between">
-        <div className="space-y-4">
+      <div
+        className={`w-full md:w-[40%] border-t md:border-t-0 md:border-l bg-muted/20 p-4 sm:p-5 flex flex-col justify-between ${
+          mobileTab === 'breakdown' ? 'flex-1 overflow-y-auto overscroll-contain touch-pan-y' : 'hidden md:flex'
+        }`}
+      >
+        <div className="space-y-4 min-h-0">
+          {/* Mobile back link */}
+          <div className="md:hidden mb-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs -ml-2 text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileTab('form')}
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Back to Service Details
+            </Button>
+          </div>
           <div>
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
               Junk Haulaway Estimate

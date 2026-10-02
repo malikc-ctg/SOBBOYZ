@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { AlertTriangle, Copy, Info } from 'lucide-react';
+import { AlertTriangle, Copy, Info, FileText, Calculator, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import { calcStripAndWax } from '@/lib/pricing/commercial-calculator';
 import { LeadContactFields, type LeadContactData } from './LeadContactFields';
@@ -36,6 +36,7 @@ export function StripAndWaxSection({
   onClose,
 }: StripAndWaxSectionProps) {
   const [loading, setLoading] = useState(false);
+  const [mobileTab, setMobileTab] = useState<'form' | 'breakdown'>('form');
   const [sqftStr,      setSqftStr]      = useState('');
   const [burnishAddon, setBurnishAddon] = useState(false);
 
@@ -51,6 +52,8 @@ export function StripAndWaxSection({
     () => (hasValidInput ? calcStripAndWax({ sqft, burnishAddon }) : null),
     [sqft, burnishAddon, hasValidInput],
   );
+
+  const displayTotal = result ? fmt(result.stripTotal) : '$0.00';
 
   const handleCopy = () => {
     if (!result) return;
@@ -127,9 +130,41 @@ export function StripAndWaxSection({
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+      {/* Mobile Segmented View Switcher */}
+      <div className="md:hidden border-b bg-muted/40 p-1.5 flex gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={() => setMobileTab('form')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+            mobileTab === 'form'
+              ? 'bg-background text-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          <span>1. Service Details</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('breakdown')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+            mobileTab === 'breakdown'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Calculator className="h-3.5 w-3.5" />
+          <span>2. Quote Breakdown ({displayTotal})</span>
+        </button>
+      </div>
+
       {/* ── LEFT: Form ── */}
-      <div className="w-full md:w-[60%] overflow-y-auto">
-        <div className="p-5 space-y-5">
+      <div
+        className={`w-full md:w-[60%] overflow-y-auto overscroll-contain touch-pan-y ${
+          mobileTab === 'form' ? 'flex-1' : 'hidden md:block'
+        }`}
+      >
+        <div className="p-4 sm:p-5 space-y-5">
           {/* Contact Information */}
           <LeadContactFields contact={contact} onChange={onContactChange} isCommercial={true} />
 
@@ -193,13 +228,42 @@ export function StripAndWaxSection({
               </div>
             </div>
           </section>
+
+          {/* Mobile Bottom Action: Proceed to Quote Breakdown */}
+          <div className="md:hidden pt-4 border-t">
+            <Button
+              type="button"
+              className="w-full font-bold text-sm shadow-xs"
+              size="lg"
+              onClick={() => setMobileTab('breakdown')}
+            >
+              Review Quote Breakdown ({displayTotal}) →
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* ── RIGHT: Quote Breakdown ── */}
-      <div className="w-full md:w-[40%] bg-muted/30 border-l flex flex-col">
-        <div className="p-5 flex-1 flex flex-col overflow-hidden">
-          <div className="bg-card border rounded-xl shadow-sm p-5 flex-1 flex flex-col overflow-hidden">
+      <div
+        className={`w-full md:w-[40%] bg-muted/30 border-l flex flex-col ${
+          mobileTab === 'breakdown' ? 'flex-1 overflow-y-auto overscroll-contain touch-pan-y' : 'hidden md:flex'
+        }`}
+      >
+        <div className="p-3 sm:p-5 flex-1 flex flex-col min-h-0">
+          {/* Mobile back link */}
+          <div className="md:hidden mb-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs -ml-2 text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileTab('form')}
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Back to Service Details
+            </Button>
+          </div>
+
+          <div className="bg-card border rounded-xl shadow-sm p-4 sm:p-5 flex-1 flex flex-col min-h-0">
             <div className="flex justify-between items-center mb-4 shrink-0">
               <h2 className="font-bold text-lg tracking-tight">Quote Breakdown</h2>
               <Button

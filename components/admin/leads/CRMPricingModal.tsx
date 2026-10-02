@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -45,6 +45,7 @@ import {
   Building2,
   Warehouse,
   Check,
+  ArrowLeft,
 } from 'lucide-react';
 import { ResidentialCarpetSection }  from './ResidentialCarpetSection';
 import { CommercialCarpetSection }   from './CommercialCarpetSection';
@@ -290,34 +291,48 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
     }
   };
 
+  // Lock body scroll and prevent touch through when modal is open
+  useEffect(() => {
+    if (!open) return;
+    const originalOverflow = document.body.style.overflow;
+    const originalTouchAction = document.body.style.touchAction;
+    document.body.style.overflow = 'hidden';
+    document.body.style.touchAction = 'none';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.touchAction = originalTouchAction;
+    };
+  }, [open]);
+
   const activeServiceList = sector === 'residential' ? RESIDENTIAL_SERVICES : COMMERCIAL_SERVICES;
 
   return (
-    <Dialog modal={false} open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button size="lg" className="font-bold text-md">
           <Calculator className="h-5 w-5 mr-2" /> New Lead / Quote
         </Button>
       </DialogTrigger>
       <DialogContent
-        className="max-w-6xl w-full h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background"
+        className="max-w-6xl w-[96vw] md:w-full h-[92dvh] md:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden bg-background rounded-xl sm:rounded-lg"
         onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader className="px-6 py-3 border-b shrink-0">
+        <DialogHeader className="px-4 sm:px-6 py-3 border-b shrink-0">
           <DialogTitle className="text-lg">Generate Pricing Quote</DialogTitle>
           <DialogDescription className="sr-only">
             Generate a new pricing quote using the Sea of Blue rate card.
           </DialogDescription>
         </DialogHeader>
 
-        {/* ── Condensed 2-Tier Sector & Service Selector ── */}
-        <div className="px-6 py-2 border-b shrink-0 bg-muted/30 flex items-center justify-between gap-4 flex-wrap">
+        {/* ── Condensed 2-Tier Sector & Service Selector (Single-row scrollable on mobile) ── */}
+        <div className="px-3 sm:px-6 py-2 border-b shrink-0 bg-muted/30 flex items-center gap-2 sm:gap-4 overflow-x-auto scrollbar-none">
           {/* Sector Toggle */}
-          <div className="flex items-center gap-1 bg-background/80 p-1 rounded-lg border shadow-xs">
+          <div className="flex items-center gap-1 bg-background/80 p-0.5 sm:p-1 rounded-lg border shadow-xs shrink-0">
             <button
               type="button"
               onClick={() => handleSelectSector('residential')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs font-semibold transition-all ${
                 sector === 'residential'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -329,7 +344,7 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
             <button
               type="button"
               onClick={() => handleSelectSector('commercial')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs font-semibold transition-all ${
                 sector === 'commercial'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -340,9 +355,11 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
             </button>
           </div>
 
+          <div className="h-4 w-px bg-border shrink-0 hidden sm:block" />
+
           {/* Sector-Specific Service Pills */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[11px] font-medium text-muted-foreground mr-1 uppercase tracking-wider">
+          <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto">
+            <span className="text-[11px] font-medium text-muted-foreground mr-1 uppercase tracking-wider hidden sm:inline">
               {sector === 'residential' ? 'Residential Services:' : 'Commercial Services:'}
             </span>
             {activeServiceList.map((srv) => (
@@ -351,7 +368,7 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
                 type="button"
                 variant={serviceTab === srv.value ? 'default' : 'outline'}
                 size="sm"
-                className={`text-xs h-8 px-3 transition-colors ${
+                className={`text-xs h-7 sm:h-8 px-2.5 sm:px-3 whitespace-nowrap shrink-0 transition-colors ${
                   serviceTab === srv.value
                     ? 'font-semibold shadow-xs'
                     : 'bg-background hover:bg-muted'
@@ -452,6 +469,7 @@ function PricingModalContent({
   const [loading, setLoading] = useState(false);
   const [quoteFinalized, setQuoteFinalized] = useState(false);
   const [scopeText, setScopeText] = useState('');
+  const [mobileTab, setMobileTab] = useState<'form' | 'breakdown'>('form');
 
   // --- Property ---
   const [propertyType, setPropertyType] = useState<PropertyType>('condo');
@@ -716,9 +734,41 @@ function PricingModalContent({
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+      {/* Mobile Segmented View Switcher */}
+      <div className="md:hidden border-b bg-muted/40 p-1.5 flex gap-1 shrink-0">
+        <button
+          type="button"
+          onClick={() => setMobileTab('form')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+            mobileTab === 'form'
+              ? 'bg-background text-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <FileText className="h-3.5 w-3.5" />
+          <span>1. Service Details</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobileTab('breakdown')}
+          className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-md text-xs font-semibold transition-all ${
+            mobileTab === 'breakdown'
+              ? 'bg-primary text-primary-foreground shadow-xs'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Calculator className="h-3.5 w-3.5" />
+          <span>2. Quote Breakdown ({displayTotal})</span>
+        </button>
+      </div>
+
       {/* LEFT COLUMN: Form Inputs */}
-      <div className="w-full md:w-[60%] overflow-y-auto">
-        <div className="p-5 space-y-5">
+      <div
+        className={`w-full md:w-[60%] overflow-y-auto overscroll-contain touch-pan-y ${
+          mobileTab === 'form' ? 'flex-1' : 'hidden md:block'
+        }`}
+      >
+        <div className="p-4 sm:p-5 space-y-5">
 
           {/* ── Contact Info ── */}
           <LeadContactFields contact={contact} onChange={onContactChange} />
@@ -1008,13 +1058,42 @@ function PricingModalContent({
               );
             })}
           </section>
+
+          {/* Mobile Bottom Action: Proceed to Quote Breakdown */}
+          <div className="md:hidden pt-4 border-t">
+            <Button
+              type="button"
+              className="w-full font-bold text-sm shadow-xs"
+              size="lg"
+              onClick={() => setMobileTab('breakdown')}
+            >
+              Review Quote Breakdown ({displayTotal}) →
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* RIGHT COLUMN: Quote Breakdown (Sticky) */}
-      <div className="w-full md:w-[40%] bg-muted/30 border-l flex flex-col">
-        <div className="p-5 flex-1 flex flex-col overflow-hidden">
-          <div className="bg-card border rounded-xl shadow-sm p-5 flex-1 flex flex-col overflow-hidden">
+      {/* RIGHT COLUMN: Quote Breakdown (Sticky on Desktop, Tabbed on Mobile) */}
+      <div
+        className={`w-full md:w-[40%] bg-muted/30 border-l flex flex-col ${
+          mobileTab === 'breakdown' ? 'flex-1 overflow-y-auto overscroll-contain touch-pan-y' : 'hidden md:flex'
+        }`}
+      >
+        <div className="p-3 sm:p-5 flex-1 flex flex-col min-h-0">
+          {/* Mobile back link */}
+          <div className="md:hidden mb-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="text-xs -ml-2 text-muted-foreground hover:text-foreground"
+              onClick={() => setMobileTab('form')}
+            >
+              <ArrowLeft className="h-3.5 w-3.5 mr-1" /> Back to Service Details
+            </Button>
+          </div>
+
+          <div className="bg-card border rounded-xl shadow-sm p-4 sm:p-5 flex-1 flex flex-col min-h-0">
             {/* Header */}
             <div className="flex justify-between items-center mb-4 shrink-0">
               <h2 className="font-bold text-lg tracking-tight">Quote Breakdown</h2>
