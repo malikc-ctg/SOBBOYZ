@@ -4,10 +4,8 @@ import { requireRole } from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit';
 import { resolveOrCreateZone } from '@/lib/zone-matcher';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
   // Admin-only
   const auth = await requireRole(['admin']);

@@ -5,7 +5,8 @@ import { NextResponse } from 'next/server';
 const MAX_CHARGE_AMOUNT = 10_000;
 const MAX_DESCRIPTION_LENGTH = 200;
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 

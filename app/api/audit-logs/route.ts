@@ -3,6 +3,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
     const { searchParams } = new URL(request.url);

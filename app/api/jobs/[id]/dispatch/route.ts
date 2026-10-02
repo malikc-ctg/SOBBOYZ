@@ -8,10 +8,11 @@ import { getSmartDispatchSuggestions } from '@/lib/smart-dispatch';
  * GET /api/jobs/[id]/dispatch — Smart dispatch suggestions
  * Returns a ranked list of employees with drive times.
  */
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
+  const params = await props.params;
   try {
     const supabase = await createServiceClient();
     const { id } = params;
@@ -36,10 +37,11 @@ export async function GET(
 /**
  * POST /api/jobs/[id]/dispatch — Dispatch offers to employees or directly assign crew
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
+  const params = await props.params;
   try {
     const supabase = await createServiceClient();
     const { id } = params;

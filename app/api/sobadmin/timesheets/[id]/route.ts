@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { requireRole } from '@/lib/api-auth';
 
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
+  const params = await props.params;
   try {
     const { id } = params;
     const body = await request.json();
@@ -79,7 +83,11 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
+  const params = await props.params;
   try {
     const { id } = params;
     const supabase = await createServiceClient();

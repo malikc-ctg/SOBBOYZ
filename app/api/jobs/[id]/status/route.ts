@@ -9,10 +9,8 @@ import JobAssigned from '@/emails/employee/JobAssigned';
 import EmployeeJobCancelled from '@/emails/employee/JobCancelled';
 import React from 'react';
 import { sendJobAssignedPush, sendGenericPush } from '@/lib/web-push';
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     // Auth check
     const auth = await requireAuth();

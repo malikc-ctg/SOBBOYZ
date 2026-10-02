@@ -1,4 +1,5 @@
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { linkEmployeeByVerifiedEmail } from '@/lib/employee-link';
 import { NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
 
@@ -26,35 +27,14 @@ export async function GET() {
       .eq('profile_id', user.id)
       .maybeSingle();
 
-    // 2. If not found by profile_id, check if an employee record exists with this email (e.g. invited employee) and link it
-    if (!employee && user.email) {
-      let { data: empByEmail } = await serviceClient
-        .from('employees')
-        .select('id, profile_id')
-        .ilike('email', user.email)
-        .maybeSingle();
-
-      if (!empByEmail && user.email.toLowerCase().endsWith('@gmial.com')) {
-        const normalized = user.email.toLowerCase().replace(/@gmial\.com$/, '@gmail.com');
-        const { data: fixedEmp } = await serviceClient
-          .from('employees')
-          .select('id, profile_id')
-          .ilike('email', normalized)
-          .maybeSingle();
-        empByEmail = fixedEmp;
-      }
-
-      if (empByEmail) {
-        // Link profile_id to this employee
-        await serviceClient
-          .from('employees')
-          .update({ profile_id: user.id })
-          .eq('id', empByEmail.id);
-
+    // 2. If not found by profile_id, link an invited employee record with this (verified) email
+    if (!employee) {
+      const linkedId = await linkEmployeeByVerifiedEmail(serviceClient, user);
+      if (linkedId) {
         const { data: linkedEmp, error: linkedError } = await serviceClient
           .from('employees')
           .select('*, zone:zones!contractors_zone_id_fkey(*), selected_zones:contractor_zones(zone:zones(*))')
-          .eq('id', empByEmail.id)
+          .eq('id', linkedId)
           .single();
 
         employee = linkedEmp;
@@ -109,25 +89,15 @@ export async function PATCH(request: Request) {
       .eq('profile_id', user.id)
       .maybeSingle();
 
-    if (!currentEmployee && user.email) {
-      let { data: empByEmail } = await serviceClient
-        .from('employees')
-        .select('id, notes')
-        .ilike('email', user.email)
-        .maybeSingle();
-
-      if (!empByEmail && user.email.toLowerCase().endsWith('@gmial.com')) {
-        const normalized = user.email.toLowerCase().replace(/@gmial\.com$/, '@gmail.com');
-        const { data: fixedEmp } = await serviceClient
+    if (!currentEmployee) {
+      const linkedId = await linkEmployeeByVerifiedEmail(serviceClient, user);
+      if (linkedId) {
+        const { data: linkedEmp } = await serviceClient
           .from('employees')
           .select('id, notes')
-          .ilike('email', normalized)
-          .maybeSingle();
-        empByEmail = fixedEmp;
-      }
-
-      if (empByEmail) {
-        currentEmployee = empByEmail;
+          .eq('id', linkedId)
+          .single();
+        currentEmployee = linkedEmp;
       }
     }
 

@@ -90,6 +90,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
     const { searchParams } = new URL(request.url);

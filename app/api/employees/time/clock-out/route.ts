@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
+import { linkEmployeeByVerifiedEmail } from '@/lib/employee-link';
 
 export async function POST(request: Request) {
   // Clock Out
@@ -16,20 +17,9 @@ export async function POST(request: Request) {
       .eq('profile_id', user.id)
       .maybeSingle();
 
-    if (!employee && user.email) {
-      const { data: empByEmail } = await serviceClient
-        .from('employees')
-        .select('id, profile_id')
-        .ilike('email', user.email)
-        .maybeSingle();
-      if (empByEmail) {
-        // Link profile_id to this employee
-        await serviceClient
-          .from('employees')
-          .update({ profile_id: user.id })
-          .eq('id', empByEmail.id);
-        employee = empByEmail;
-      }
+    if (!employee) {
+      const linkedId = await linkEmployeeByVerifiedEmail(serviceClient, user);
+      if (linkedId) employee = { id: linkedId, profile_id: user.id };
     }
 
     if (!employee) {

@@ -17,6 +17,7 @@ export async function GET() {
 
     // Get employee ID using service client to avoid RLS hurdles
     const { createServiceClient } = await import('@/lib/supabase/server');
+    const { linkEmployeeByVerifiedEmail } = await import('@/lib/employee-link');
     const serviceClient = await createServiceClient();
     
     let { data: employee } = await serviceClient
@@ -25,13 +26,16 @@ export async function GET() {
       .eq('profile_id', user.id)
       .maybeSingle();
 
-    if (!employee && user.email) {
-      const { data: empByEmail } = await serviceClient
-        .from('employees')
-        .select('id, hourly_wage, notes')
-        .ilike('email', user.email)
-        .maybeSingle();
-      if (empByEmail) employee = empByEmail;
+    if (!employee) {
+      const linkedId = await linkEmployeeByVerifiedEmail(serviceClient, user);
+      if (linkedId) {
+        const { data: linkedEmp } = await serviceClient
+          .from('employees')
+          .select('id, hourly_wage, notes')
+          .eq('id', linkedId)
+          .single();
+        employee = linkedEmp;
+      }
     }
 
     if (!employee) {

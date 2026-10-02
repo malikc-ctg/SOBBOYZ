@@ -21,6 +21,9 @@ function parseWage(employee: any): number {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
     const { searchParams } = new URL(request.url);
@@ -120,6 +123,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
     const body = await request.json();

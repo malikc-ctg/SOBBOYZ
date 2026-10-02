@@ -1,11 +1,10 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/api-auth';
+import { linkEmployeeByVerifiedEmail } from '@/lib/employee-link';
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
   // Auth check
   const auth = await requireAuth();
@@ -36,13 +35,9 @@ export async function POST(
       .eq('profile_id', auth.id)
       .maybeSingle();
 
-    if (!employee && auth.email) {
-      const { data: empByEmail } = await supabase
-        .from('employees')
-        .select('id')
-        .ilike('email', auth.email.replace(/[\\%_]/g, (c: string) => '\\' + c))
-        .maybeSingle();
-      if (empByEmail) employee = empByEmail;
+    if (!employee) {
+      const linkedId = await linkEmployeeByVerifiedEmail(supabase, auth);
+      if (linkedId) employee = { id: linkedId };
     }
 
     if (!employee || offer.employee_id !== employee.id) {

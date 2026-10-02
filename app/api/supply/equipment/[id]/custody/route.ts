@@ -2,10 +2,8 @@ import { requireRole } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { updateEquipmentCustody } from '@/lib/equipment-management';
 
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const auth = await requireRole(['admin']);
   if (auth instanceof NextResponse) return auth;
 

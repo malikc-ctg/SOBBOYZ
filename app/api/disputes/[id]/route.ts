@@ -3,10 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDisputeWithMessages, addDisputeMessage, resolveDispute } from '@/lib/dispute-engine';
 import { requireRole } from '@/lib/api-auth';
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(_request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
   // Admin-only
   const auth = await requireRole(['admin']);
@@ -19,10 +17,11 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
+  const params = await props.params;
   // Add message to dispute thread
   try {
     const body = await request.json();
@@ -44,10 +43,11 @@ export async function POST(
   }
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
+  const params = await props.params;
   // Resolve dispute
   try {
     const body = await request.json();

@@ -4,8 +4,9 @@ import { requireRole } from '@/lib/api-auth';
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; memberId: string } }
+  props: { params: Promise<{ id: string; memberId: string }> }
 ) {
+  const params = await props.params;
   try {
     const auth = await requireRole(['admin']);
     if (auth instanceof NextResponse) return auth;

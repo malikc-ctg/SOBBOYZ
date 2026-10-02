@@ -1,3 +1,4 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import { z } from 'zod';
@@ -50,6 +51,9 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json();
     const data = schema.parse(body);
