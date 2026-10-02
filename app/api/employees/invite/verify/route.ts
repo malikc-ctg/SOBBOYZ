@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { isInviteExpired } from '@/lib/employee-invites';
 import { createServiceClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
@@ -28,6 +29,10 @@ export async function GET(request: Request) {
 
     if (employee.status !== 'invited') {
       return NextResponse.json({ error: 'This invite has already been accepted or is no longer valid.' }, { status: 400 });
+    }
+
+    if (isInviteExpired(employee.notes)) {
+      return NextResponse.json({ error: 'This invite has expired. Ask an admin to send a new one.' }, { status: 410 });
     }
 
     return NextResponse.json({ employee });

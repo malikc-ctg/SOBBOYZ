@@ -40,37 +40,44 @@ export async function updateSession(request: NextRequest) {
   // Protect admin routes: redirect unauthenticated users to admin login
   const pathname = request.nextUrl.pathname;
   
-  const isAdminRoute = pathname.startsWith('/sobadmin');
-  const isAdminLogin = pathname === '/sobadmin/login';
-  const isAdminApi = pathname.startsWith('/api/sobadmin');
+  const isAdminRoute = pathname === '/sobadmin' || pathname.startsWith('/sobadmin/');
+  const isAdminPublic = pathname === '/sobadmin/login' || pathname === '/sobadmin/forgot-password';
 
-  const isEmployeeRoute = pathname.startsWith('/employee');
-  const isEmployeeLogin = pathname === '/employee/login';
-  const isEmployeeOnboarding = pathname === '/employee/onboarding';
+  const isEmployeeRoute = pathname === '/employee' || pathname.startsWith('/employee/');
+  const isEmployeePublic =
+    pathname === '/employee/login' ||
+    pathname === '/employee/forgot-password' ||
+    pathname === '/employee/onboarding';
 
-  const isPartnerRoute = pathname.startsWith('/partner');
-  const isPartnerLogin = pathname === '/partner/login'; // assuming this exists or will exist
+  const isPartnerRoute = pathname === '/partner' || pathname.startsWith('/partner/');
+  const isPartnerLogin = pathname === '/partner/login';
 
-  // Admin auth redirect bypassed — auto-load admin console without login
-  // if (isAdminRoute && !isAdminLogin && !isAdminApi && !user) {
-  //   const loginUrl = request.nextUrl.clone();
-  //   loginUrl.pathname = '/sobadmin/login';
-  //   loginUrl.searchParams.set('redirect', pathname);
-  //   return NextResponse.redirect(loginUrl);
-  // }
-
-  // if (isEmployeeRoute && !isEmployeeLogin && !isEmployeeOnboarding && !user) {
-  //   const loginUrl = request.nextUrl.clone();
-  //   loginUrl.pathname = '/employee/login';
-  //   loginUrl.searchParams.set('redirect', pathname);
-  //   return NextResponse.redirect(loginUrl);
-  // }
-
-  if (isPartnerRoute && !isPartnerLogin && !user) {
+  const redirectToLogin = (loginPath: string) => {
     const loginUrl = request.nextUrl.clone();
-    loginUrl.pathname = '/partner/login';
+    loginUrl.pathname = loginPath;
+    loginUrl.search = '';
     loginUrl.searchParams.set('redirect', pathname);
     return NextResponse.redirect(loginUrl);
+  };
+
+  if (isAdminRoute && !isAdminPublic) {
+    if (!user) return redirectToLogin('/sobadmin/login');
+
+    // Admin console requires the admin app role (readable via the profiles_own RLS policy)
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (profile?.role !== 'admin') return redirectToLogin('/sobadmin/login');
+  }
+
+  if (isEmployeeRoute && !isEmployeePublic && !user) {
+    return redirectToLogin('/employee/login');
+  }
+
+  if (isPartnerRoute && !isPartnerLogin && !user) {
+    return redirectToLogin('/partner/login');
   }
 
   return supabaseResponse;

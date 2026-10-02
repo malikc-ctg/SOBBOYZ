@@ -1,3 +1,4 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { getEquipmentAssets } from '@/lib/equipment-management';
 import { createServiceClient } from '@/lib/supabase/server';
@@ -5,6 +6,9 @@ import { createServiceClient } from '@/lib/supabase/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { searchParams } = new URL(req.url);
     const zoneId = searchParams.get('zone_id') || undefined;
@@ -17,6 +21,9 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json();
     const {

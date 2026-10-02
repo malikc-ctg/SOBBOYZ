@@ -1,16 +1,17 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireRole } from '@/lib/api-auth';
+import { requireRole } from '@/lib/api-auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  const auth = await requireRole(['admin', 'employee']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
-    
-    // Bypass authentication as requested by the user to auto-load admin console
-    const isAdmin = true;
+    const isAdmin = auth.role === 'admin';
 
     const { data, error } = await supabase
       .from('jobs')
@@ -18,7 +19,50 @@ export async function GET(
       .eq('id', params.id)
       .single();
 
-    if (error) throw error;
+    if (error || !data) {
+      return NextResponse.json({ error: 'Job not found' }, { status: 404 });
+    }
+
+    // Employees may only view jobs they are assigned to or have been offered
+    if (!isAdmin) {
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('profile_id', auth.id)
+        .maybeSingle();
+
+      let allowed = false;
+      if (employee) {
+        allowed =
+          data.assigned_employee_id === employee.id ||
+          (Array.isArray(data.assigned_employee_ids) && data.assigned_employee_ids.includes(employee.id));
+
+        if (!allowed) {
+          const { data: cleanerRow } = await supabase
+            .from('job_cleaners')
+            .select('id')
+            .eq('job_id', params.id)
+            .eq('employee_id', employee.id)
+            .maybeSingle();
+          allowed = !!cleanerRow;
+        }
+
+        if (!allowed) {
+          const { data: offerRow } = await supabase
+            .from('job_offers')
+            .select('id')
+            .eq('job_id', params.id)
+            .eq('employee_id', employee.id)
+            .limit(1)
+            .maybeSingle();
+          allowed = !!offerRow;
+        }
+      }
+
+      if (!allowed) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+      }
+    }
 
     // Fetch photos attached to this job
     const { data: photos } = await supabase
@@ -47,8 +91,6 @@ export async function GET(
     } else if (data?.employee) {
       data.assigned_employees = [data.employee];
     }
-    
-    // Security check bypassed
 
     return NextResponse.json(data);
   } catch (err: unknown) {

@@ -1,3 +1,4 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   parseHomeDepotProXtraCSV,
@@ -7,6 +8,9 @@ import {
 import { createServiceClient } from '@/lib/supabase/server';
 
 export async function GET() {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
     let purchases: any[] = [];
@@ -27,6 +31,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json();
     const { csvContent, vendorHint } = body;

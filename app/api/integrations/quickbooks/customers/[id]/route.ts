@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireRole } from '@/lib/api-auth';
+import { requireRole } from '@/lib/api-auth';
 import { getCustomerBalance } from '@/lib/quickbooks/reports';
 
 export const dynamic = 'force-dynamic';
@@ -9,8 +9,8 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    await requireAuth();
-    await requireRole(['admin']);
+    const auth = await requireRole(['admin']);
+    if (auth instanceof NextResponse) return auth;
 
     const balance = await getCustomerBalance(params.id);
 

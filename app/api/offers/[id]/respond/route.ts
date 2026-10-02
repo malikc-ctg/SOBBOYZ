@@ -29,6 +29,26 @@ export async function POST(
       return NextResponse.json({ error: 'Offer not found' }, { status: 404 });
     }
 
+    // Only the employee the offer was made to may respond (same lookup as GET /api/offers)
+    let { data: employee } = await supabase
+      .from('employees')
+      .select('id')
+      .eq('profile_id', auth.id)
+      .maybeSingle();
+
+    if (!employee && auth.email) {
+      const { data: empByEmail } = await supabase
+        .from('employees')
+        .select('id')
+        .ilike('email', auth.email.replace(/[\\%_]/g, (c: string) => '\\' + c))
+        .maybeSingle();
+      if (empByEmail) employee = empByEmail;
+    }
+
+    if (!employee || offer.employee_id !== employee.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     if (offer.status !== 'pending') {
       return NextResponse.json({ error: 'Offer is no longer pending' }, { status: 422 });
     }

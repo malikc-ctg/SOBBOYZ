@@ -1,8 +1,12 @@
+import { requireRole } from '@/lib/api-auth';
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateMonthlyMRR, calculateNextRunDate } from '@/lib/recurring-utils';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
     const customerId = request.nextUrl.searchParams.get('customer_id');
@@ -27,6 +31,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
     const body = await request.json();

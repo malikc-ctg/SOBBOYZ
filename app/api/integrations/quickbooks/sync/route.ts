@@ -1,3 +1,4 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase/server';
 import {
@@ -7,6 +8,9 @@ import {
 } from '@/lib/quickbooks/sync';
 
 export async function POST(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await request.json().catch(() => ({}));
     const action = body.action || 'test';

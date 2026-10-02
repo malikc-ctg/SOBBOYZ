@@ -2,7 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { isValidTransition } from '@/lib/job-state-machine';
 import { NextRequest, NextResponse } from 'next/server';
 import type { JobStatus } from '@/types';
-import { requireRole, requireAuth } from '@/lib/api-auth';
+import { requireAuth } from '@/lib/api-auth';
 import { sendEmail } from '@/lib/resend';
 import { logAudit } from '@/lib/audit';
 import JobAssigned from '@/emails/employee/JobAssigned';
@@ -22,20 +22,8 @@ export async function PATCH(
     const { id } = params;
     const { status: newStatus, ...extraFields } = await request.json();
 
-    // Check if admin: either auth.role is 'admin' (from requireAuth), or check profiles via service client, or admin email
-    let isAdmin = auth.role === 'admin';
-    if (!isAdmin && auth.id) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', auth.id)
-        .maybeSingle();
-      isAdmin = profile?.role === 'admin';
-    }
-
-    if (!isAdmin && auth.email && (auth.email === 'admin@seaofblue.app' || auth.email.endsWith('@seaofblue.app'))) {
-      isAdmin = true;
-    }
+    // requireAuth() resolves the app role from profiles
+    const isAdmin = auth.role === 'admin';
 
     // Get current job
     const { data: job, error: fetchError } = await supabase
@@ -109,11 +97,13 @@ export async function PATCH(
       updateData.dispute_reason = extraFields.dispute_reason;
     }
 
-    // Merge any additional allowed fields
-    if (extraFields.final_price !== undefined) updateData.final_price = extraFields.final_price;
-    if (extraFields.admin_notes !== undefined) updateData.admin_notes = extraFields.admin_notes;
-    if (extraFields.assigned_employee_id !== undefined) {
-      updateData.assigned_employee_id = extraFields.assigned_employee_id;
+    // Merge any additional admin-only fields
+    if (isAdmin) {
+      if (extraFields.final_price !== undefined) updateData.final_price = extraFields.final_price;
+      if (extraFields.admin_notes !== undefined) updateData.admin_notes = extraFields.admin_notes;
+      if (extraFields.assigned_employee_id !== undefined) {
+        updateData.assigned_employee_id = extraFields.assigned_employee_id;
+      }
     }
 
     const { data, error } = await supabase

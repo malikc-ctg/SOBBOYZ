@@ -2,6 +2,29 @@ import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { logAudit } from '@/lib/audit';
 
+const ALLOWED_PHOTO_TYPES = ['before', 'after', 'problem', 'damage', 'issue', 'checklist'];
+
+const IMAGE_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+  'image/heic': 'heic',
+  'image/heif': 'heif',
+  'image/gif': 'gif',
+};
+
+const EXTENSION_MIME_TYPES: Record<string, string> = {
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  png: 'image/png',
+  webp: 'image/webp',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  gif: 'image/gif',
+};
+
+const MAX_PHOTO_BYTES = 15 * 1024 * 1024;
+
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
@@ -31,6 +54,23 @@ export async function POST(request: NextRequest) {
 
     if (!file || !jobId) {
       return NextResponse.json({ error: 'Missing required fields (file, job_id)' }, { status: 400 });
+    }
+
+    if (!ALLOWED_PHOTO_TYPES.includes(photoType)) {
+      return NextResponse.json({ error: 'Invalid photo_type' }, { status: 400 });
+    }
+
+    // Only accept images, and derive the stored extension from the MIME type rather than
+    // the client-supplied filename (prevents uploading e.g. .html/.svg served publicly)
+    // Some browsers send HEIC photos with an empty MIME type; fall back to an allowlisted extension
+    const nameExt = (file.name?.split('.').pop() || '').toLowerCase();
+    const mimeType = file.type || EXTENSION_MIME_TYPES[nameExt] || '';
+    const fileExt = IMAGE_EXTENSIONS[mimeType];
+    if (!fileExt) {
+      return NextResponse.json({ error: 'Only JPEG, PNG, WebP, HEIC or GIF images are allowed' }, { status: 400 });
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      return NextResponse.json({ error: 'Photo is too large (max 15 MB)' }, { status: 413 });
     }
 
     // Verify job exists
@@ -73,7 +113,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique filename
-    const fileExt = file.name ? file.name.split('.').pop() : 'jpg';
     const fileName = `${jobId}/${photoType}_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
 
     // Upload to Supabase Storage bucket 'job_photos'
@@ -82,7 +121,8 @@ export async function POST(request: NextRequest) {
       .from('job_photos')
       .upload(fileName, file, {
         cacheControl: '3600',
-        upsert: true,
+        contentType: mimeType,
+        upsert: false,
       });
 
     if (uploadError) {

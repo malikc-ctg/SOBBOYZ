@@ -1,3 +1,4 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 // Robust Mapbox token with verified working fallback
@@ -8,6 +9,9 @@ const MAPBOX_TOKEN =
     'NmEwMW41bTJ0cTA0bGhzaGEzeSJ9.YJjZr2UJZfA8flRbrbamuw';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q')?.trim() || '';

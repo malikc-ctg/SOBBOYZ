@@ -1,6 +1,7 @@
 'use server';
 
 import { createServiceClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import React from 'react';
 import { calculateQuote } from '@/lib/pricing/calculator';
 import type { PackageType, Frequency, PropertyType } from '@/lib/pricing/constants';
@@ -210,13 +211,20 @@ export async function getLiveQuote(data: {
 export async function createCustomerAccountAndLinkQuote(data: any) {
   try {
     const supabase = await createServiceClient();
+    const fullName = `${data.firstName} ${data.lastName}`.trim();
 
-    // 1. Create the Auth User
-    const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+    // 1. Create the Auth User through the normal sign-up flow so Supabase requires the
+    //    person to confirm they own this email before the account can sign in. Creating a
+    //    pre-confirmed user here would let anyone register (and see data for) any email.
+    const anonClient = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY! || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    );
+    const { data: signUpData, error: authError } = await anonClient.auth.signUp({
       email: data.email,
       password: data.password,
-      email_confirm: true,
-      user_metadata: { role: 'customer', full_name: `${data.firstName} ${data.lastName}`.trim() },
+      options: { data: { full_name: fullName } },
     });
 
     if (authError) {
@@ -226,42 +234,58 @@ export async function createCustomerAccountAndLinkQuote(data: any) {
       return { success: false, error: authError.message };
     }
 
+    // Supabase returns a user with no identities when the email is already registered
+    const newUser = signUpData.user;
+    if (!newUser || (Array.isArray(newUser.identities) && newUser.identities.length === 0)) {
+      return { success: false, error: 'An account with this email already exists. Please log in.' };
+    }
+    const authUser = { user: newUser };
+    const needsEmailConfirmation = !signUpData.session;
+
     // 2. Ensure Profile Exists (Manually handle in case trigger fails)
     const { error: profileError } = await supabase.from('profiles').upsert({
       id: authUser.user.id,
       email: data.email,
-      full_name: `${data.firstName} ${data.lastName}`.trim(),
+      full_name: fullName,
       phone: data.phone,
       role: 'customer'
-    });
-    
+    }, { onConflict: 'id', ignoreDuplicates: true });
+
     if (profileError) {
       console.error('Error creating profile manually:', profileError);
     }
-    
+
     // Check if zone exists
     const { data: zone } = await supabase.from('zones').select('id').limit(1).single();
 
-    const { data: customer, error: customerError } = await supabase
+    // Never attach an existing customer record (jobs, address, credits) to a new account
+    // here: the email is not verified yet. The portal links it after the email is confirmed.
+    const { data: existingCustomer } = await supabase
       .from('customers')
-      .upsert({
-        profile_id: authUser.user.id,
-        full_name: `${data.firstName} ${data.lastName}`.trim(),
-        email: data.email,
-        phone: data.phone,
-        address_line1: data.address,
-        city: data.city || '',
-        postal_code: data.postal_code || '',
-        zone_id: zone?.id,
-        notes: JSON.stringify({ is_onboarded: true }),
-        is_active: true
-      }, { onConflict: 'email' })
-      .select()
-      .single();
+      .select('id')
+      .ilike('email', String(data.email).replace(/[\\%_]/g, (c: string) => '\\' + c))
+      .maybeSingle();
 
-    if (customerError) {
-      console.error('Error creating/updating customer record:', customerError);
-      return { success: false, error: 'Failed to fully set up your profile. Please try again.' };
+    if (!existingCustomer) {
+      const { error: customerError } = await supabase
+        .from('customers')
+        .insert({
+          profile_id: authUser.user.id,
+          full_name: fullName,
+          email: data.email,
+          phone: data.phone,
+          address_line1: data.address,
+          city: data.city || '',
+          postal_code: data.postal_code || '',
+          zone_id: zone?.id,
+          notes: JSON.stringify({ is_onboarded: true }),
+          is_active: true
+        });
+
+      if (customerError) {
+        console.error('Error creating customer record:', customerError);
+        return { success: false, error: 'Failed to fully set up your profile. Please try again.' };
+      }
     }
 
     // 3. Submit the Lead exactly like submitQuoteRequest
@@ -297,7 +321,7 @@ export async function createCustomerAccountAndLinkQuote(data: any) {
       console.error('Supabase error inserting lead for new account:', leadError);
     }
 
-    return { success: true };
+    return { success: true, needsEmailConfirmation };
   } catch (err: any) {
     console.error('Error creating customer account:', err);
     return { success: false, error: 'Internal server error' };

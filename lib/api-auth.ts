@@ -1,100 +1,58 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
+
+export type AuthUser = { id: string; email?: string; role?: string; [key: string]: any };
 
 /**
  * Verifies the request is from an authenticated user.
- * Returns the user object or a 401 NextResponse.
+ * Returns the user object (with `role` set to the app role from `profiles`)
+ * or a 401 NextResponse.
  *
  * Usage:
  *   const auth = await requireAuth();
  *   if (auth instanceof NextResponse) return auth;
  *   const user = auth; // authenticated user
  */
-export async function requireAuth(): Promise<
-  { id: string; email?: string; role?: string; [key: string]: any } | NextResponse
-> {
+export async function requireAuth(): Promise<AuthUser | NextResponse> {
   try {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (!error && user) {
-      return user;
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Fallback: When accessing the admin console where auth is auto-loaded
-    const { createServiceClient } = await import('@/lib/supabase/server');
+    // Supabase's `user.role` is the Postgres role ("authenticated"), not the app role.
+    // Replace it with the role stored in `profiles` so callers can rely on it.
     const serviceClient = await createServiceClient();
-    const { data: adminProfile } = await serviceClient
+    const { data: profile } = await serviceClient
       .from('profiles')
-      .select('id, email, role')
-      .eq('role', 'admin')
-      .limit(1)
+      .select('role')
+      .eq('id', user.id)
       .maybeSingle();
 
-    if (adminProfile) {
-      return {
-        id: adminProfile.id,
-        email: adminProfile.email || 'admin@seaofblue.app',
-        role: 'admin',
-      };
-    }
-
-    return {
-      id: 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
-      email: 'admin@seaofblue.app',
-      role: 'admin',
-    };
+    return { ...user, role: profile?.role ?? undefined };
   } catch {
-    return {
-      id: 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
-      email: 'admin@seaofblue.app',
-      role: 'admin',
-    };
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 }
 
 /**
- * Verifies the request is from an authenticated user with a specific role.
- * Checks the `profiles` table for the role.
+ * Verifies the request is from an authenticated user with one of the given app roles
+ * (from the `profiles` table).
  */
 export async function requireRole(allowedRoles: string[]): Promise<
-  { id: string; email?: string; role: string; [key: string]: any } | NextResponse
+  AuthUser & { role: string } | NextResponse
 > {
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
-  // If already identified as an allowed role (e.g. admin fallback)
-  if (auth.role && allowedRoles.includes(auth.role)) {
-    return auth as any;
-  }
-
-  try {
-    const { createServiceClient } = await import('@/lib/supabase/server');
-    const supabase = await createServiceClient();
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', auth.id)
-      .single();
-
-    if (!profile || !allowedRoles.includes(profile.role)) {
-      if (allowedRoles.includes('admin')) {
-        return { ...auth, role: 'admin' };
-      }
-      return NextResponse.json(
-        { error: 'Forbidden: insufficient permissions' },
-        { status: 403 }
-      );
-    }
-
-    return { ...auth, role: profile.role };
-  } catch {
-    if (allowedRoles.includes('admin')) {
-      return { ...auth, role: 'admin' };
-    }
+  if (!auth.role || !allowedRoles.includes(auth.role)) {
     return NextResponse.json(
-      { error: 'Authorization check failed' },
-      { status: 500 }
+      { error: 'Forbidden: insufficient permissions' },
+      { status: 403 }
     );
   }
+
+  return auth as AuthUser & { role: string };
 }

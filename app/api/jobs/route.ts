@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveOrCreateZone } from '@/lib/zone-matcher';
-import { requireRole, requireAuth } from '@/lib/api-auth';
+import { requireRole } from '@/lib/api-auth';
 import { rateLimit } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
@@ -112,11 +112,26 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(['admin', 'employee']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const supabase = await createServiceClient();
-    
-    // Bypass authentication as requested by the user to auto-load admin console
-    const isAdmin = true;
+    const isAdmin = auth.role === 'admin';
+
+    // Employees may only list jobs they are assigned to
+    let ownEmployeeId: string | null = null;
+    if (!isAdmin) {
+      const { data: employee } = await supabase
+        .from('employees')
+        .select('id')
+        .eq('profile_id', auth.id)
+        .maybeSingle();
+      if (!employee) {
+        return NextResponse.json({ error: 'Employee profile not found' }, { status: 404 });
+      }
+      ownEmployeeId = employee.id as string;
+    }
 
     const { searchParams } = new URL(request.url);
 
@@ -140,13 +155,15 @@ export async function GET(request: NextRequest) {
     const zone_id = searchParams.get('zone_id');
     if (zone_id) query = query.eq('zone_id', zone_id);
 
-    const employee_id = searchParams.get('employee_id');
-    if (employee_id) query = query.eq('assigned_employee_id', employee_id);
+    if (ownEmployeeId) {
+      query = query.or(`assigned_employee_id.eq.${ownEmployeeId},assigned_employee_ids.cs.{${ownEmployeeId}}`);
+    } else {
+      const employee_id = searchParams.get('employee_id');
+      if (employee_id) query = query.eq('assigned_employee_id', employee_id);
 
-    const customer_id = searchParams.get('customer_id');
-    if (customer_id) query = query.eq('customer_id', customer_id);
-    
-    // Security check bypassed
+      const customer_id = searchParams.get('customer_id');
+      if (customer_id) query = query.eq('customer_id', customer_id);
+    }
 
     const limit = searchParams.get('limit');
     if (limit) query = query.limit(parseInt(limit));
@@ -157,6 +174,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(data);
   } catch (err: unknown) {
     console.error('GET /api/jobs error:', err);
-    return NextResponse.json({ error: (err as Error).message, stack: (err as Error).stack, fullError: err }, { status: 500 });
+    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

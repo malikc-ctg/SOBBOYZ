@@ -1,3 +1,4 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextResponse } from 'next/server';
 import { getVendorExpenses } from '@/lib/quickbooks/reports';
 import {
@@ -9,6 +10,9 @@ import {
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 60 * 24 * 60 * 60 * 1000);

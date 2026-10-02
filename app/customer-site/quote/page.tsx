@@ -18,6 +18,7 @@ export default function QuotePage() {
   const [error, setError] = useState<string | null>(null);
   const [quoteData, setQuoteData] = useState<any>(null);
   const [isSkipped, setIsSkipped] = useState(false);
+  const [needsEmailConfirmation, setNeedsEmailConfirmation] = useState(false);
 
   const [formData, setFormData] = useState({
     category: '',
@@ -104,15 +105,20 @@ export default function QuotePage() {
       });
 
       if (res.success) {
-        // Log them in!
-        const supabase = createClient();
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: formData.email,
-          password: formData.password,
-        });
-        
-        if (signInError) {
-          console.error("Auto login failed:", signInError);
+        if (res.needsEmailConfirmation) {
+          // The account can't sign in until the email address is confirmed
+          setNeedsEmailConfirmation(true);
+        } else {
+          // Log them in!
+          const supabase = createClient();
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: formData.email,
+            password: formData.password,
+          });
+
+          if (signInError) {
+            console.error("Auto login failed:", signInError);
+          }
         }
         
         setIsSkipped(false);
@@ -465,7 +471,11 @@ export default function QuotePage() {
                 </div>
               </div>
 
-              <p className="text-white/60 text-sm mb-8">We&apos;ve saved this to your new account. You can log in anytime to review and book.</p>
+              {needsEmailConfirmation ? (
+                <p className="text-white/60 text-sm mb-8">We&apos;ve saved this to your new account. Check your inbox for {formData.email} and confirm your email address, then log in to review and book.</p>
+              ) : (
+                <p className="text-white/60 text-sm mb-8">We&apos;ve saved this to your new account. You can log in anytime to review and book.</p>
+              )}
 
               <button 
                 onClick={() => router.push('/customer-site/portal')}

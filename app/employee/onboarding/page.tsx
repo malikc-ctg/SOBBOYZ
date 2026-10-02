@@ -233,12 +233,15 @@ export default function OnboardingPage() {
         if (!res.ok) throw new Error(data.error || 'Failed to complete onboarding');
 
         // Automatically log them in now that the account exists
-        const { error: signInError } = await supabase.auth.signInWithPassword({
-          email: data.email,
-          password: password
-        });
+        // (an existing account was linked while already signed in, so no sign-in is needed)
+        if (!data.linkedExistingAccount) {
+          const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: data.email,
+            password: password
+          });
 
-        if (signInError) throw signInError;
+          if (signInError) throw signInError;
+        }
 
       } else {
         // OLD FLOW (Backwards compatibility)

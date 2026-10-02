@@ -9,12 +9,17 @@ export async function POST(request: NextRequest) {
   if (limited) return limited;
 
   try {
-  // Admin-only
-  const auth = await requireRole(['admin']);
-  if (auth instanceof NextResponse) return auth;
+    // Public endpoint: the customer-site quote wizard and commercial form submit leads
+    // anonymously. Admins (CRM) get the full created row back; everyone else gets an ack.
+    const auth = await requireRole(['admin']);
+    const isAdmin = !(auth instanceof NextResponse);
 
     const supabase = await createServiceClient();
     const body = await request.json();
+
+    if (!isAdmin && (!body.customer_name || !body.customer_phone)) {
+      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    }
 
     const { data, error } = await supabase
       .from('leads')
@@ -44,10 +49,14 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
+    if (!isAdmin) {
+      return NextResponse.json({ lead_id: data.id, status: 'received' }, { status: 201 });
+    }
+
     return NextResponse.json(data, { status: 201 });
   } catch (err: unknown) {
     console.error('POST /api/leads error:', err);
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to create lead' }, { status: 500 });
   }
 }
 

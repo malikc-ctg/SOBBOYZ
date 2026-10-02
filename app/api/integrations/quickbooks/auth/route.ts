@@ -1,7 +1,11 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthorizationUrl, hasQuickBooksCredentials } from '@/lib/quickbooks/client';
 
 export async function GET(request: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     if (!hasQuickBooksCredentials()) {
       return NextResponse.redirect(

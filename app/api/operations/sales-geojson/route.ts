@@ -1,6 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/api-auth';
+import { requireRole } from '@/lib/api-auth';
 
 const STATUS_COLORS: Record<string, string> = {
   SALE: '#10b981',
@@ -22,7 +22,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAuth();
+    const auth = await requireRole(['admin']);
     if (auth instanceof NextResponse) return auth;
 
     const supabase = await createServiceClient();

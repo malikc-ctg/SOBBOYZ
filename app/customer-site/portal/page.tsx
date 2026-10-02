@@ -22,18 +22,44 @@ export default async function CustomerPortalPage() {
     .eq('profile_id', user.id)
     .single();
 
+  // Leads and unlinked customer records are matched by email, so only trust a verified email
+  const verifiedEmail = user.email && user.email_confirmed_at ? user.email : null;
+  const serviceClient = await createServiceClient();
+
+  if (!customer && verifiedEmail) {
+    // Link a customer record created for this email before the account existed (e.g. by an admin)
+    const { data: unlinkedCustomer } = await serviceClient
+      .from('customers')
+      .select('id')
+      .eq('email', verifiedEmail)
+      .is('profile_id', null)
+      .maybeSingle();
+
+    if (unlinkedCustomer) {
+      const { data: linkedCustomer } = await serviceClient
+        .from('customers')
+        .update({ profile_id: user.id })
+        .eq('id', unlinkedCustomer.id)
+        .is('profile_id', null)
+        .select()
+        .single();
+      if (linkedCustomer) customer = linkedCustomer;
+    }
+  }
+
   if (!customer) {
     // Check if they have a lead we can pull from
-    const { data: lead } = await supabase
-      .from('leads')
-      .select('*')
-      .eq('customer_email', user.email)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    const { data: lead } = verifiedEmail
+      ? await serviceClient
+          .from('leads')
+          .select('*')
+          .eq('customer_email', verifiedEmail)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null };
 
     // Auto-create customer using service client to bypass RLS
-    const serviceClient = await createServiceClient();
     
     // Ensure profile exists first (trigger might have failed)
     await serviceClient.from('profiles').upsert({
@@ -42,7 +68,7 @@ export default async function CustomerPortalPage() {
       full_name: lead?.customer_name || 'Valued Customer',
       phone: lead?.customer_phone || '555-555-5555',
       role: 'customer'
-    });
+    }, { onConflict: 'id', ignoreDuplicates: true });
     
     const { data: newCustomer, error } = await serviceClient
       .from('customers')
@@ -79,12 +105,14 @@ export default async function CustomerPortalPage() {
     .in('status', ['lead_received', 'quoted', 'deposit_paid'])
     .order('created_at', { ascending: false });
 
-  const { data: pendingLeads } = await supabase
-    .from('leads')
-    .select('*')
-    .eq('customer_email', customer?.email || user.email)
-    .not('status', 'in', '("converted","lost")')
-    .order('created_at', { ascending: false });
+  const { data: pendingLeads } = verifiedEmail
+    ? await serviceClient
+        .from('leads')
+        .select('*')
+        .eq('customer_email', verifiedEmail)
+        .not('status', 'in', '("converted","lost")')
+        .order('created_at', { ascending: false })
+    : { data: [] as any[] };
 
   const pendingItems = [
     ...(pendingJobs || []).map((j: any) => ({

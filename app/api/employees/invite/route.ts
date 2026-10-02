@@ -6,10 +6,11 @@ import EmployeeInvite from '@/emails/employee/EmployeeInvite';
 import React from 'react';
 
 export async function POST(request: Request) {
+  // Admin-only action
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
-    // Admin-only action
-    // const auth = await requireRole(['admin']);
-    // if (auth instanceof NextResponse) return auth;
 
     const body = await request.json();
     const { full_name, email, phone, zone_id, tier, payout_rate, hourly_wage, brings_own_supplies, has_vehicle, max_jobs_per_day } = body;
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     const updatedNotes = JSON.stringify({
       ...existingNotes,
       hourly_wage: wageNum,
+      invited_at: new Date().toISOString(),
     });
 
     if (existingEmployee) {
@@ -95,8 +97,6 @@ export async function POST(request: Request) {
     // 4. Generate the invite link
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const actionLink = `${appUrl}/employee/onboarding?invite_id=${employeeId}`;
-
-    console.log('--- NEW ACTION LINK ---', actionLink);
 
     // 5. Send Email via React Email
     const { success, error: emailError } = await sendEmail({

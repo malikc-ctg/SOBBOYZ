@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Waves } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { safeRedirectPath } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Suspense } from 'react';
 
@@ -26,7 +27,7 @@ function AdminLoginContent() {
       const supabase = createClient();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
-      const redirect = searchParams.get('redirect') ?? '/sobadmin';
+      const redirect = safeRedirectPath(searchParams.get('redirect'), '/sobadmin');
       window.location.href = redirect;
     } catch (err: unknown) {
       console.error('Login error:', err);

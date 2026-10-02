@@ -1,7 +1,11 @@
+import { requireRole } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { reconcilePurchaseToZone } from '@/lib/supply-reconciliation';
 
 export async function POST(req: NextRequest) {
+  const auth = await requireRole(['admin']);
+  if (auth instanceof NextResponse) return auth;
+
   try {
     const body = await req.json();
     const {

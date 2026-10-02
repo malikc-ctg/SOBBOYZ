@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { createServiceClient } from '@/lib/supabase/server';
+import { isInviteExpired } from '@/lib/employee-invites';
+import { createClient, createServiceClient } from '@/lib/supabase/server';
 
 export async function POST(request: Request) {
   try {
@@ -43,8 +44,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'This invite has already been accepted or is no longer valid.' }, { status: 400 });
     }
 
-    // 2. Create or update Auth User
+    if (isInviteExpired(employee.notes)) {
+      return NextResponse.json({ error: 'This invite has expired. Ask an admin to send a new one.' }, { status: 410 });
+    }
+
+    // 2. Create the Auth User
     let authUserId: string;
+    let linkedExistingAccount = false;
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email: employee.email,
       password: password,
@@ -56,29 +62,37 @@ export async function POST(request: Request) {
     });
 
     if (authError) {
-      // If user already exists in auth, find and update them
-      const { data: { users } } = await supabase.auth.admin.listUsers();
-      const existingAuth = users.find(u => u.email?.toLowerCase() === employee.email.toLowerCase());
-      if (existingAuth) {
-        authUserId = existingAuth.id;
-        await supabase.auth.admin.updateUserById(authUserId, {
-          password: password,
-          user_metadata: { full_name: fullName, phone: phone }
-        });
-      } else {
-        throw new Error(`Failed to create account: ${authError.message}`);
+      // An account already exists for this email. Never change its password from an
+      // invite link: the person must be signed in to that account to link it.
+      const sessionClient = await createClient();
+      const { data: { user: sessionUser } } = await sessionClient.auth.getUser();
+      if (!sessionUser || sessionUser.email?.toLowerCase() !== String(employee.email).toLowerCase()) {
+        return NextResponse.json(
+          { error: 'An account with this email already exists. Sign in to that account first, then open your invite link again.' },
+          { status: 409 }
+        );
       }
+      authUserId = sessionUser.id;
+      linkedExistingAccount = true;
     } else {
       authUserId = authData.user.id;
     }
 
     // 3. Ensure Profile Exists
+    // Never downgrade an elevated role (e.g. admin) through onboarding
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', authUserId)
+      .maybeSingle();
+    const keepRole = existingProfile?.role && !['customer', 'employee'].includes(existingProfile.role);
+
     const { error: profileError } = await supabase
       .from('profiles')
       .upsert({ 
         id: authUserId, 
         email: employee.email,
-        role: 'employee', 
+        role: keepRole ? existingProfile.role : 'employee', 
         full_name: fullName, 
         phone: phone 
       }, { onConflict: 'id' });
@@ -131,7 +145,7 @@ export async function POST(request: Request) {
       await supabase.from('contractor_zones').insert(zoneInserts);
     }
 
-    return NextResponse.json({ success: true, email: employee.email });
+    return NextResponse.json({ success: true, email: employee.email, linkedExistingAccount });
 
   } catch (err: any) {
     console.error('Onboard error:', err);
