@@ -43,6 +43,10 @@ export async function GET(request: NextRequest) {
         notes: p.notes || '',
         rep_name: p.rep_name || 'Malik',
         callback_time: p.callback_time,
+        source: p.source || 'manual',
+        ai_summary: p.ai_summary || null,
+        recording_url: p.recording_url || null,
+        quo_call_id: p.quo_call_id || null,
       };
     });
 

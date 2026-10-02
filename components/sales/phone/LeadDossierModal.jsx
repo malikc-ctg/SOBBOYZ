@@ -400,11 +400,34 @@ export default function LeadDossierModal({
                                 {log.duration_seconds}s
                               </span>
                             )}
+                            {log.source === 'quo_webhook' && (
+                              <span className="px-1.5 py-0.5 rounded bg-emerald-950/60 text-emerald-400 font-mono text-[9px] border border-emerald-800/40">
+                                Quo VoIP
+                              </span>
+                            )}
                           </div>
                           {log.notes && (
                             <p className="text-slate-300 text-[11px] italic">
                               "{log.notes}"
                             </p>
+                          )}
+                          {log.ai_summary && (
+                            <div className="mt-1 p-2 rounded bg-slate-950/70 border border-blue-900/30 text-[11px] text-blue-200">
+                              <span className="font-semibold text-blue-400 block text-[10px] uppercase">Quo Sona AI Summary</span>
+                              {log.ai_summary}
+                            </div>
+                          )}
+                          {log.recording_url && (
+                            <div className="mt-1">
+                              <a
+                                href={log.recording_url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-[11px] text-blue-400 hover:text-blue-300 underline font-mono flex items-center gap-1"
+                              >
+                                Listen to Call Recording
+                              </a>
+                            </div>
                           )}
                           <div className="text-[10px] text-slate-400 flex items-center gap-2">
                             <span>Rep: {log.rep_name || 'Malik'}</span>
