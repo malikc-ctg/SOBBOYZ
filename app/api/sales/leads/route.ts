@@ -19,6 +19,42 @@ export async function GET(request: NextRequest) {
       console.error('[API /api/sales/leads] B2B Leads query error:', leadsError);
     }
 
+    // Fetch all phone call events to compute exact contact history and company-wide touchpoints
+    const { data: callEvents } = await supabase
+      .from('events')
+      .select('*')
+      .eq('type', 'PHONE_CALL')
+      .order('created_at', { ascending: false });
+
+    const parsedCalls = (callEvents || []).map((e: any) => {
+      let p = e.payload;
+      if (typeof p === 'string') {
+        try { p = JSON.parse(p); } catch { p = {}; }
+      }
+      return {
+        event_id: e.event_id || e.id,
+        created_at: e.created_at || p.timestamp,
+        contact_id: p.contact_id ? String(p.contact_id).replace(/^lead_/, '') : null,
+        contact_name: p.contact_name,
+        company_name: p.company_name,
+        phone_number: p.phone_number,
+        outcome_type: p.outcome_type,
+        duration_seconds: p.duration_seconds || 0,
+        notes: p.notes || '',
+        rep_name: p.rep_name || 'Malik',
+        callback_time: p.callback_time,
+      };
+    });
+
+    const normalizeComp = (name: string) => {
+      if (!name) return '';
+      return name
+        .toLowerCase()
+        .replace(/\b(inc|incorporated|ltd|limited|corp|corporation|group|llc|gsc|co)\b/gi, '')
+        .replace(/[^a-z0-9]/g, '')
+        .trim();
+    };
+
     // Format into B2B tele-sales contacts with rich hierarchy & contact intelligence
     let b2bQueue = (leads || []).map((l: any) => {
       let intel: any = {};
@@ -32,15 +68,30 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      const primaryPhone = l.customer_phone || intel.work_direct_phone || intel.mobile_phone || intel.corporate_phone || '';
+      const leadCompany = l.company_name || 'Commercial Prospect';
+      const normCompany = normalizeComp(leadCompany);
+
+      // Direct calls made to this specific contact
+      const directCalls = parsedCalls.filter((c: any) => 
+        (c.contact_id && c.contact_id === String(l.id)) ||
+        (primaryPhone && c.phone_number && c.phone_number.replace(/[^0-9]/g, '') === primaryPhone.replace(/[^0-9]/g, ''))
+      );
+
+      // All calls made to ANY colleague at this firm
+      const companyCalls = parsedCalls.filter((c: any) => 
+        c.company_name && normalizeComp(c.company_name) === normCompany
+      );
+
       return {
         id: l.id,
         contact_id: `lead_${l.id}`,
         type: 'B2B_LEAD',
         source: l.source || 'contact_import',
         name: l.customer_name || '',
-        company: l.company_name || 'Commercial Prospect',
+        company: leadCompany,
         position: l.contact_title || '',
-        phone: l.customer_phone || intel.work_direct_phone || intel.mobile_phone || intel.corporate_phone || '',
+        phone: primaryPhone,
         email: l.customer_email || '',
         city: l.city || 'GTA',
         service_type: l.service_type || 'post_construction_clean',
@@ -50,6 +101,16 @@ export async function GET(request: NextRequest) {
         preferred_date: l.preferred_date || null,
         created_at: l.created_at,
         priority: 'HIGH',
+        // Outreach & Call History Intelligence
+        times_contacted: directCalls.length,
+        last_contacted_at: directCalls[0]?.created_at || null,
+        last_outcome: directCalls[0]?.outcome_type || null,
+        last_notes: directCalls[0]?.notes || null,
+        call_logs: directCalls,
+        company_times_contacted: companyCalls.length,
+        company_last_contacted_at: companyCalls[0]?.created_at || null,
+        company_last_contacted_name: companyCalls[0]?.contact_name || null,
+        company_last_outcome: companyCalls[0]?.outcome_type || null,
         // Rich intelligence fields
         seniority: intel.seniority || 'Manager',
         departments: intel.departments || '',

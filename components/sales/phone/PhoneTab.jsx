@@ -35,11 +35,15 @@ import {
   Layers,
   Award,
   Globe,
-  DollarSign
+  DollarSign,
+  FileText,
+  Clock,
+  Info
 } from 'lucide-react';
 import MiroScriptEmbed, { DEFAULT_MIRO_URL } from './MiroScriptEmbed';
 import LeadImporterModal from './LeadImporterModal';
 import WalkthroughModal from './WalkthroughModal';
+import LeadDossierModal from './LeadDossierModal';
 import './phoneStyles.css';
 
 /**
@@ -53,6 +57,30 @@ function normalizeCompanyName(name) {
     .replace(/[\s,\.\-]+/g, ' ')
     .replace(/\b(inc|ltd|corporation|corp|limited|group|llc|design build)\b/gi, '')
     .trim();
+}
+
+/**
+ * Format relative timestamps (e.g. 5m ago, 2h ago, Yesterday)
+ */
+function formatDateRelative(dateStr) {
+  if (!dateStr) return 'Never';
+  try {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now - d;
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+    if (diffMins < 2) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays === 1) return 'Yesterday';
+    if (diffDays < 7) return `${diffDays}d ago`;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch {
+    return 'Recently';
+  }
 }
 
 /**
@@ -105,6 +133,8 @@ export default function PhoneTab({ user, repName, isActive }) {
   const [showWalkthroughModal, setShowWalkthroughModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [showDossierModal, setShowDossierModal] = useState(false);
+  const [dossierModalContact, setDossierModalContact] = useState(null);
 
   // Data states
   const [contacts, setContacts] = useState([]);
@@ -239,19 +269,43 @@ export default function PhoneTab({ user, repName, isActive }) {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   }
 
-  // Double-Click Queue Inline Edit Trigger
+  // Double-Click Queue Card Trigger: Opens Full Lead Card & Real Info Dossier!
   function handleQueueCardDoubleClick(contact, e) {
-    e.stopPropagation();
-    setInlineEditingLeadId(contact.id);
-    setInlineFormData({
-      name: contact.name || '',
-      company: contact.company || '',
-      position: contact.position || '',
-      phone: contact.phone || '',
-      email: contact.email || '',
-      city: contact.city || '',
-      status: contact.status || 'new'
-    });
+    if (e && e.stopPropagation) e.stopPropagation();
+    setSelectedContact(contact);
+    setDossierModalContact(contact);
+    setShowDossierModal(true);
+  }
+
+  // Update contact from inside LeadDossierModal
+  async function handleSaveContactFromModal(contactId, updatedFields) {
+    try {
+      await updateLeadContact(contactId, {
+        customer_name: updatedFields.name,
+        company_name: updatedFields.company,
+        contact_title: updatedFields.position,
+        customer_phone: updatedFields.phone,
+        customer_email: updatedFields.email,
+        city: updatedFields.city,
+        notes: updatedFields.notes,
+        quoted_price: updatedFields.estimated_value
+      });
+
+      const updated = {
+        ...contacts.find(c => c.id === contactId),
+        ...updatedFields
+      };
+
+      setContacts(prev => prev.map(c => c.id === contactId ? updated : c));
+      if (selectedContact?.id === contactId) {
+        setSelectedContact(updated);
+      }
+      if (dossierModalContact?.id === contactId) {
+        setDossierModalContact(updated);
+      }
+    } catch (err) {
+      console.error('[PhoneTab] Save contact from modal failed:', err);
+    }
   }
 
   async function handleSaveQueueInlineEdit(contactId) {
@@ -725,19 +779,34 @@ export default function PhoneTab({ user, repName, isActive }) {
                       onClick={() => setSelectedContact(c)}
                       onDoubleClick={(e) => handleQueueCardDoubleClick(c, e)}
                     >
-                      {/* Top Header: Contact Name Prominent */}
+                      {/* Top Header: Contact Name Prominent + View Card Trigger */}
                       <div className="phone-lead-top">
                         <div className="phone-lead-name">
-                          <span className="truncate max-w-[210px]">{c.name || 'Decision Maker'}</span>
+                          <span className="truncate max-w-[190px]">{c.name || 'Decision Maker'}</span>
                           {isLiveCalling && (
                             <span style={{ color: '#10b981', fontSize: '10px', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                               <span className="phone-timer-dot" /> LIVE
                             </span>
                           )}
                         </div>
-                        <span className="phone-lead-type-badge badge-commercial">
-                          {c.city || 'GTA'}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedContact(c);
+                              setDossierModalContact(c);
+                              setShowDossierModal(true);
+                            }}
+                            className="p-1 text-slate-400 hover:text-blue-400 hover:bg-slate-800 rounded transition"
+                            title="Double-click or click to view full real info card"
+                          >
+                            <FileText size={12} />
+                          </button>
+                          <span className="phone-lead-type-badge badge-commercial">
+                            {c.city || 'GTA'}
+                          </span>
+                        </div>
                       </div>
 
                       {/* Prominent Position */}
@@ -751,15 +820,62 @@ export default function PhoneTab({ user, repName, isActive }) {
                         <span className="truncate">{c.company || 'Unknown Company'}</span>
                       </div>
 
-                      {/* Company Hierarchy Intelligence Tag */}
+                      {/* Company Colleagues Roster: WHO ARE THEY? */}
                       {sameCompanyContacts.length > 0 && (
-                        <div className="flex items-center gap-1 text-[10px] text-amber-300/90 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 my-1 truncate">
-                          <Users size={10} className="shrink-0" />
-                          <span className="truncate">
-                            {cSuperiors.length > 0 
-                              ? `Reports to ${cSuperiors[0].name} (${cSuperiors[0].position || 'Manager'})`
-                              : `${sameCompanyContacts.length} colleagues at ${c.company}`}
+                        <div className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 my-1.5 space-y-1">
+                          <div className="text-[10px] font-bold text-amber-300 flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <Users size={11} className="text-amber-400 shrink-0" />
+                              <span>{sameCompanyContacts.length} Colleagues at {c.company}:</span>
+                            </span>
+                            {cSuperiors.length > 0 && (
+                              <span className="text-[9px] text-amber-300 bg-amber-950/80 px-1 rounded border border-amber-700/50">
+                                Reports to {cSuperiors[0].name}
+                              </span>
+                            )}
+                          </div>
+                          <div className="space-y-0.5">
+                            {sameCompanyContacts.slice(0, 3).map(col => (
+                              <div key={col.id} className="text-[10.5px] text-slate-300 flex items-center justify-between gap-1">
+                                <span className="font-semibold text-slate-200 truncate">{col.name}</span>
+                                <span className="text-slate-400 text-[10px] truncate max-w-[130px]">
+                                  ({col.position || 'Team'})
+                                </span>
+                              </div>
+                            ))}
+                            {sameCompanyContacts.length > 3 && (
+                              <div className="text-[9.5px] text-blue-400 font-semibold">
+                                + {sameCompanyContacts.length - 3} more colleagues (double-click card)
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Outreach & Contact History: HOW MANY TIMES CONTACTED & WHEN */}
+                      <div className="flex items-center justify-between text-[11px] my-1 pt-1.5 border-t border-slate-800/60">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Clock size={11} className="text-blue-400 shrink-0" />
+                          <span className={c.times_contacted > 0 ? "text-blue-300 font-bold" : "text-slate-400 font-medium"}>
+                            {c.times_contacted > 0 ? `Contacted ${c.times_contacted}x` : '0 Dials (Untouched)'}
                           </span>
+                          {c.last_contacted_at && (
+                            <span className="text-slate-400 font-mono truncate">• {formatDateRelative(c.last_contacted_at)}</span>
+                          )}
+                        </div>
+                        {c.last_outcome ? (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-blue-950 text-blue-300 border border-blue-800 shrink-0">
+                            {c.last_outcome}
+                          </span>
+                        ) : (
+                          <span className="text-[9px] font-bold text-slate-400 uppercase shrink-0">New</span>
+                        )}
+                      </div>
+
+                      {/* Company Touchpoint Warning if Colleague was Contacted */}
+                      {c.company_times_contacted > 0 && c.times_contacted === 0 && (
+                        <div className="text-[9.5px] text-amber-300/90 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20 my-1 truncate">
+                          Company called {formatDateRelative(c.company_last_contacted_at)} ({c.company_last_outcome || 'Outreach logged'})
                         </div>
                       )}
 
@@ -1058,7 +1174,19 @@ export default function PhoneTab({ user, repName, isActive }) {
                           )}
                         </div>
 
-                        <div className="phone-dossier-actions shrink-0">
+                        <div className="phone-dossier-actions shrink-0 flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="phone-text-btn"
+                            style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.3)' }}
+                            onClick={() => {
+                              setDossierModalContact(selectedContact);
+                              setShowDossierModal(true);
+                            }}
+                            title="View comprehensive dossier with all colleagues, direct lines & call history"
+                          >
+                            <FileText size={13} style={{ marginRight: 6 }} /> Real Info Card
+                          </button>
                           <button
                             className="phone-call-btn"
                             onClick={() => startCall(selectedContact)}
@@ -1073,6 +1201,28 @@ export default function PhoneTab({ user, repName, isActive }) {
                               <MessageSquare size={13} style={{ marginRight: 6 }} /> SMS
                             </a>
                           )}
+                        </div>
+                      </div>
+
+                      {/* Full-Width Outreach & Contact History Metrics Strip */}
+                      <div className="grid grid-cols-3 gap-2.5 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs">
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Times Contacted</span>
+                          <span className="text-sm font-black text-white mt-0.5 block">
+                            {selectedContact.times_contacted || (selectedContact.call_logs || []).length || 0} dials
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Last Contacted</span>
+                          <span className="text-xs font-bold text-blue-300 mt-0.5 block truncate">
+                            {formatDateRelative(selectedContact.last_contacted_at)}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Company Outreach</span>
+                          <span className="text-xs font-bold text-amber-300 mt-0.5 block truncate">
+                            {selectedContact.company_times_contacted || 0} calls at firm
+                          </span>
                         </div>
                       </div>
 
@@ -1609,6 +1759,23 @@ export default function PhoneTab({ user, repName, isActive }) {
           </div>
         </div>
       )}
+
+      {/* Comprehensive Lead Intel & Colleague Dossier Modal */}
+      <LeadDossierModal
+        isOpen={showDossierModal}
+        contact={dossierModalContact || selectedContact}
+        allContacts={contacts}
+        onClose={() => setShowDossierModal(false)}
+        onSelectContact={(c) => {
+          setSelectedContact(c);
+          setDossierModalContact(c);
+        }}
+        onStartCall={(c, phone) => {
+          setSelectedContact(c);
+          startCall(c, phone);
+        }}
+        onSaveContact={handleSaveContactFromModal}
+      />
 
     </div>
   );
