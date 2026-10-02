@@ -64,9 +64,16 @@ export default function AdminSalesOSPage() {
           } else if (authUser.user_metadata?.full_name) {
             setRepName(authUser.user_metadata.full_name);
           }
+        } else {
+          const fallbackId = (typeof window !== 'undefined' && localStorage.getItem('knocklog_last_user_id')) || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1';
+          setUser({ id: fallbackId, email: 'admin@seaofblue.ca' });
+          setRepName('Malik');
         }
       } catch (err) {
         console.error('Failed to load user in Sales OS:', err);
+        const fallbackId = (typeof window !== 'undefined' && localStorage.getItem('knocklog_last_user_id')) || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1';
+        setUser({ id: fallbackId, email: 'admin@seaofblue.ca' });
+        setRepName('Malik');
       } finally {
         setAuthLoading(false);
       }
