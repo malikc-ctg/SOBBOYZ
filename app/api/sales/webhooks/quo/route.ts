@@ -122,19 +122,25 @@ export async function POST(request: NextRequest) {
       }, { status: 200 });
     }
 
-    // 2. Handle call.summary.completed (Sona AI Call Summary)
-    if (eventType === 'call.summary.completed' || eventType === 'call.recording.completed') {
-      const summaryText = eventData.summary || eventData.transcript || '';
+    // 2. Handle call.summary.completed, call.transcript.completed, and call.recording.completed
+    if (
+      eventType === 'call.summary.completed' || 
+      eventType === 'call.transcript.completed' || 
+      eventType === 'call.recording.completed'
+    ) {
+      const summaryText = eventData.summary || '';
+      const transcriptText = eventData.transcript || eventData.text || '';
       const recordingUrl = eventData.recordingUrl || eventData.url || '';
       const quoCallId = eventData.callId || eventData.id;
 
-      if (quoCallId && (summaryText || recordingUrl)) {
+      if (quoCallId && (summaryText || transcriptText || recordingUrl)) {
         // Find the event logged for this call
         const { data: existingEvents } = await supabase
           .from('events')
           .select('*')
           .eq('type', 'PHONE_CALL')
-          .limit(20);
+          .order('created_at', { ascending: false })
+          .limit(30);
 
         const targetEvent = (existingEvents || []).find((e: any) => {
           const p = typeof e.payload === 'string' ? JSON.parse(e.payload) : e.payload;
@@ -144,8 +150,14 @@ export async function POST(request: NextRequest) {
         if (targetEvent) {
           const p = typeof targetEvent.payload === 'string' ? JSON.parse(targetEvent.payload) : targetEvent.payload;
           if (summaryText) p.ai_summary = summaryText;
+          if (transcriptText) p.transcript = transcriptText;
           if (recordingUrl) p.recording_url = recordingUrl;
-          p.notes = `${p.notes} | AI Summary: ${summaryText}`;
+          
+          if (summaryText) {
+            p.notes = `${p.notes} | AI Summary: ${summaryText}`;
+          } else if (transcriptText && !p.notes.includes('Transcript:')) {
+            p.notes = `${p.notes} | Transcript: ${transcriptText.slice(0, 300)}...`;
+          }
 
           await supabase
             .from('events')
@@ -155,6 +167,82 @@ export async function POST(request: NextRequest) {
       }
 
       return NextResponse.json({ success: true, processed: true }, { status: 200 });
+    }
+
+    // 3. Handle message.received & message.delivered (SMS sync)
+    if (eventType === 'message.received' || eventType === 'message.delivered') {
+      const msg = eventData;
+      const isIncoming = eventType === 'message.received' || (msg.direction || '').toLowerCase() === 'incoming';
+      const rawTargetPhone = isIncoming ? msg.from : (Array.isArray(msg.to) ? msg.to[0] : msg.to);
+      const cleanTarget = cleanPhone(rawTargetPhone);
+      const messageBody = msg.body || msg.text || '';
+      const createdAt = msg.createdAt || new Date().toISOString();
+
+      // Look up matching lead in Supabase across all active leads
+      const { data: allLeads } = await supabase
+        .from('leads')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const matchedLead = (allLeads || []).find((l: any) => {
+        if (cleanPhone(l.customer_phone) === cleanTarget) return true;
+        if (l.notes) {
+          try {
+            if (l.notes.startsWith('{') && l.notes.endsWith('}')) {
+              const intel = JSON.parse(l.notes);
+              if (cleanPhone(intel.work_direct_phone) === cleanTarget) return true;
+              if (cleanPhone(intel.mobile_phone) === cleanTarget) return true;
+              if (cleanPhone(intel.corporate_phone) === cleanTarget) return true;
+              if (cleanPhone(intel.other_phone) === cleanTarget) return true;
+            }
+          } catch {}
+        }
+        return false;
+      });
+
+      const eventId = crypto.randomUUID();
+      const smsPayload = {
+        event_id: eventId,
+        source: 'quo_webhook',
+        quo_message_id: msg.id,
+        direction: isIncoming ? 'inbound' : 'outbound',
+        phone_number: rawTargetPhone,
+        outcome_type: isIncoming ? 'SMS_INBOUND' : 'SMS_OUTBOUND',
+        duration_seconds: 0,
+        contact_id: matchedLead ? matchedLead.id : null,
+        contact_name: matchedLead ? matchedLead.customer_name : 'Quo Contact',
+        company_name: matchedLead ? matchedLead.company_name : 'Unknown Firm',
+        notes: `[Quo SMS ${isIncoming ? 'Received' : 'Sent'}] "${messageBody}"`,
+        rep_name: 'Quo SMS Sync',
+        timestamp: createdAt,
+      };
+
+      await supabase.from('events').insert({
+        event_id: eventId,
+        rep_id: '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+        type: 'PHONE_CALL',
+        payload: smsPayload,
+        created_at: createdAt,
+      });
+
+      if (matchedLead && matchedLead.status === 'new') {
+        await supabase
+          .from('leads')
+          .update({ status: 'contacted', updated_at: createdAt })
+          .eq('id', matchedLead.id);
+      }
+
+      return NextResponse.json({
+        success: true,
+        matched: !!matchedLead,
+        lead_id: matchedLead?.id || null,
+        sms: smsPayload
+      }, { status: 200 });
+    }
+
+    // 4. Handle call.ringing & status pings
+    if (eventType === 'call.ringing') {
+      return NextResponse.json({ success: true, ringing: true }, { status: 200 });
     }
 
     return NextResponse.json({ success: true, ignored: eventType }, { status: 200 });
