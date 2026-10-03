@@ -357,7 +357,66 @@ export async function POST(request: NextRequest) {
       }, { status: 200 });
     }
 
-    // 4. Handle call.ringing & status pings
+    // 4. Handle contact.updated & contact.created (Quo Contact Book Sync)
+    if (eventType === 'contact.updated' || eventType === 'contact.created') {
+      const contactObj = eventData;
+      const contactName = (
+        contactObj.name ||
+        `${contactObj.firstName || ''} ${contactObj.lastName || ''}`.trim()
+      );
+      const companyName = contactObj.company || contactObj.organization || 'Commercial Prospect';
+      const email = contactObj.email || (Array.isArray(contactObj.emails) ? contactObj.emails[0]?.value || contactObj.emails[0] : null);
+
+      const phones: string[] = [];
+      if (contactObj.phone) phones.push(contactObj.phone);
+      if (contactObj.phoneNumber) phones.push(contactObj.phoneNumber);
+      if (Array.isArray(contactObj.phoneNumbers)) {
+        contactObj.phoneNumbers.forEach((p: any) => {
+          if (typeof p === 'string') phones.push(p);
+          else if (p?.value) phones.push(p.value);
+        });
+      }
+
+      if (contactName && phones.length > 0) {
+        const primaryPhone = phones[0];
+        const cleanTarget = cleanPhone(primaryPhone);
+
+        const { data: allLeads } = await supabase
+          .from('leads')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        const matchedLead = (allLeads || []).find((l: any) => cleanPhone(l.customer_phone) === cleanTarget);
+
+        if (matchedLead) {
+          await supabase
+            .from('leads')
+            .update({
+              customer_name: contactName,
+              company_name: companyName !== 'Commercial Prospect' ? companyName : matchedLead.company_name,
+              customer_email: email || matchedLead.customer_email,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', matchedLead.id);
+        } else {
+          await supabase
+            .from('leads')
+            .insert({
+              customer_name: contactName,
+              company_name: companyName,
+              customer_phone: primaryPhone,
+              customer_email: email,
+              source: 'quo_telephony',
+              status: 'new',
+              service_type: 'post_construction_clean'
+            });
+        }
+      }
+
+      return NextResponse.json({ success: true, processed: true }, { status: 200 });
+    }
+
+    // 5. Handle call.ringing & status pings
     if (eventType === 'call.ringing') {
       return NextResponse.json({ success: true, ringing: true }, { status: 200 });
     }
