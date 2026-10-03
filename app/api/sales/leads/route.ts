@@ -45,6 +45,7 @@ export async function GET(request: NextRequest) {
         callback_time: p.callback_time,
         source: p.source || 'manual',
         ai_summary: p.ai_summary || null,
+        transcript: p.transcript || null,
         recording_url: p.recording_url || null,
         quo_call_id: p.quo_call_id || null,
       };

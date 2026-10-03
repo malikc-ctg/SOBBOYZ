@@ -15,9 +15,65 @@ function cleanPhone(raw: string) {
 }
 
 /**
+ * Extracts and formats AI summary bullets into clean readable text
+ */
+function formatSummary(raw: any): string[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map(item => (typeof item === 'string' ? item : JSON.stringify(item)));
+  }
+  if (typeof raw === 'string') {
+    return raw
+      .split('\n')
+      .map(s => s.trim().replace(/^[-•*]\s*/, ''))
+      .filter(Boolean);
+  }
+  return [String(raw)];
+}
+
+/**
+ * Formats transcript dialogue turns or raw text into full speaker dialogue
+ */
+function formatTranscript(raw: any): string {
+  if (!raw) return '';
+  if (typeof raw === 'string') return raw;
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item: any) => {
+        if (typeof item === 'string') return item;
+        const speaker = item.speaker || item.name || item.role || 'Speaker';
+        const text = item.text || item.content || item.transcript || '';
+        return `[${speaker}]: "${text}"`;
+      })
+      .join('\n');
+  }
+  return JSON.stringify(raw);
+}
+
+/**
+ * Robustly inspects any contact name sent by Quo / OpenPhone
+ */
+function extractQuoContactName(call: any, eventData: any, body: any): string | null {
+  const candidates = [
+    call?.contact?.name,
+    call?.contact?.firstName ? `${call.contact.firstName} ${call.contact.lastName || ''}`.trim() : null,
+    call?.fromName,
+    call?.toName,
+    call?.caller?.name,
+    call?.externalParty?.name,
+    call?.participantName,
+    eventData?.contact?.name,
+    eventData?.contact?.firstName ? `${eventData.contact.firstName} ${eventData.contact.lastName || ''}`.trim() : null,
+    body?.data?.context?.contact?.name,
+    body?.data?.context?.contactName
+  ];
+  return candidates.find(c => c && typeof c === 'string' && c.trim().length > 0) || null;
+}
+
+/**
  * POST /api/sales/webhooks/quo
  * Real-time Webhook Receiver for Quo (formerly OpenPhone)
- * Automatically syncs completed calls, durations, outcomes, and AI call summaries directly into Sea of Blue
+ * Synchronizes calls, transcripts, Sona AI summaries, durations, and SMS messages directly into Sea of Blue
  */
 export async function POST(request: NextRequest) {
   try {
@@ -31,23 +87,38 @@ export async function POST(request: NextRequest) {
     if (eventType === 'call.completed' || body.object === 'call') {
       const call = eventData;
       const direction = (call.direction || 'outbound').toLowerCase();
-      // If outbound, we dialed 'to'. If inbound, prospect called 'from'.
       const rawTargetPhone = direction === 'outbound' ? (call.to || call.destination) : (call.from || call.source);
       const cleanTarget = cleanPhone(rawTargetPhone);
-      const durationSeconds = Number(call.duration || 0);
       const status = call.status || 'completed';
       const startedAt = call.startedAt || call.created_at || new Date().toISOString();
-      const endedAt = call.endedAt || new Date().toISOString();
+      const endedAt = call.completedAt || call.endedAt || new Date().toISOString();
+      const answeredAt = call.answeredAt || null;
 
-      // Determine initial outcome classification based on telephony status and talk time
-      let outcomeType = 'CONVO';
-      if (status === 'missed' || status === 'abandoned' || durationSeconds === 0) {
-        outcomeType = 'NO_ANSWER';
-      } else if (durationSeconds < 35) {
-        outcomeType = 'VOICEMAIL';
-      } else if (durationSeconds >= 120) {
-        outcomeType = 'CONVO'; // Highly engaged decision maker call
+      // Extract duration from all possible Quo fields and fallback to timestamp differences
+      let durationSeconds = Number(call.duration || call.durationSeconds || call.talkTime || 0);
+      if (durationSeconds === 0 && answeredAt && endedAt) {
+        const diff = Math.round((new Date(endedAt).getTime() - new Date(answeredAt).getTime()) / 1000);
+        if (diff > 0) durationSeconds = diff;
       }
+      if (durationSeconds === 0 && startedAt && endedAt && status === 'completed') {
+        const diff = Math.round((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000);
+        if (diff > 0) durationSeconds = diff;
+      }
+
+      // Determine outcome classification
+      let outcomeType = 'CONVO';
+      if (status === 'missed' || status === 'abandoned' || status === 'declined') {
+        outcomeType = 'NO_ANSWER';
+      } else if (durationSeconds === 0 && !answeredAt && status !== 'completed') {
+        outcomeType = 'NO_ANSWER';
+      } else if (durationSeconds > 0 && durationSeconds < 25) {
+        outcomeType = 'VOICEMAIL';
+      } else {
+        outcomeType = 'CONVO'; // Answered conversation
+      }
+
+      // Extract name from Quo payload if provided
+      const quoContactName = extractQuoContactName(call, eventData, body);
 
       // Look up matching lead in Supabase across all active leads
       const { data: allLeads } = await supabase
@@ -55,8 +126,7 @@ export async function POST(request: NextRequest) {
         .select('*')
         .order('created_at', { ascending: false });
 
-      // Fuzzy match against phone numbers (customer_phone, direct desk, mobile, HQ)
-      const matchedLead = (allLeads || []).find((l: any) => {
+      let matchedLead = (allLeads || []).find((l: any) => {
         if (cleanPhone(l.customer_phone) === cleanTarget) return true;
         if (l.notes) {
           try {
@@ -72,7 +142,36 @@ export async function POST(request: NextRequest) {
         return false;
       });
 
+      // If contact not found in leads, automatically create lead in CRM so it's fully tracked
+      if (!matchedLead && cleanTarget) {
+        const leadName = quoContactName || (direction === 'inbound' ? 'Inbound Quo Caller' : 'Outbound Quo Contact');
+        const { data: newLead } = await supabase
+          .from('leads')
+          .insert({
+            customer_name: leadName,
+            customer_phone: rawTargetPhone,
+            company_name: call.contact?.company || 'Commercial Prospect',
+            source: 'quo_telephony',
+            status: 'contacted',
+            notes: `Auto-created from Quo ${direction.toUpperCase()} call`,
+            service_type: 'post_construction_clean'
+          })
+          .select()
+          .single();
+
+        if (newLead) matchedLead = newLead;
+      } else if (matchedLead && quoContactName && (!matchedLead.customer_name || matchedLead.customer_name.startsWith('Quo Contact') || matchedLead.customer_name.startsWith('Inbound'))) {
+        await supabase
+          .from('leads')
+          .update({ customer_name: quoContactName, updated_at: endedAt })
+          .eq('id', matchedLead.id);
+        matchedLead.customer_name = quoContactName;
+      }
+
       const eventId = crypto.randomUUID();
+      const contactDisplayName = matchedLead?.customer_name || quoContactName || 'Quo Contact';
+      const companyDisplayName = matchedLead?.company_name || call.contact?.company || 'Commercial Prospect';
+
       const callPayload = {
         event_id: eventId,
         source: 'quo_webhook',
@@ -82,8 +181,8 @@ export async function POST(request: NextRequest) {
         duration_seconds: durationSeconds,
         outcome_type: outcomeType,
         contact_id: matchedLead ? matchedLead.id : null,
-        contact_name: matchedLead ? matchedLead.customer_name : 'Quo Contact',
-        company_name: matchedLead ? matchedLead.company_name : 'Unknown Firm',
+        contact_name: contactDisplayName,
+        company_name: companyDisplayName,
         notes: `[Auto-Logged from Quo] ${direction.toUpperCase()} call (${durationSeconds}s). Status: ${status}`,
         rep_name: 'Quo VoIP Sync',
         timestamp: endedAt,
@@ -128,13 +227,15 @@ export async function POST(request: NextRequest) {
       eventType === 'call.transcript.completed' || 
       eventType === 'call.recording.completed'
     ) {
-      const summaryText = eventData.summary || '';
-      const transcriptText = eventData.transcript || eventData.text || '';
-      const recordingUrl = eventData.recordingUrl || eventData.url || '';
-      const quoCallId = eventData.callId || eventData.id;
+      const summaryRaw = eventData.summary || null;
+      const summaryBullets = formatSummary(summaryRaw);
+      const transcriptRaw = eventData.transcript || eventData.dialogue || eventData.text || null;
+      const fullTranscript = formatTranscript(transcriptRaw);
+      const recordingUrl = eventData.recordingUrl || eventData.url || null;
+      const quoCallId = eventData.callId || eventData.id || body.data?.callId || body.callId;
 
-      if (quoCallId && (summaryText || transcriptText || recordingUrl)) {
-        // Find the event logged for this call
+      if (quoCallId && (summaryBullets.length > 0 || fullTranscript || recordingUrl)) {
+        // Find existing event for this call ID
         const { data: existingEvents } = await supabase
           .from('events')
           .select('*')
@@ -149,15 +250,32 @@ export async function POST(request: NextRequest) {
 
         if (targetEvent) {
           const p = typeof targetEvent.payload === 'string' ? JSON.parse(targetEvent.payload) : targetEvent.payload;
-          if (summaryText) p.ai_summary = summaryText;
-          if (transcriptText) p.transcript = transcriptText;
-          if (recordingUrl) p.recording_url = recordingUrl;
           
-          if (summaryText) {
-            p.notes = `${p.notes} | AI Summary: ${summaryText}`;
-          } else if (transcriptText && !p.notes.includes('Transcript:')) {
-            p.notes = `${p.notes} | Transcript: ${transcriptText.slice(0, 300)}...`;
+          if (summaryBullets.length > 0) {
+            p.ai_summary = summaryBullets;
           }
+          if (fullTranscript) {
+            p.transcript = fullTranscript;
+          }
+          if (recordingUrl) {
+            p.recording_url = recordingUrl;
+          }
+
+          // If duration was 0, calculate or estimate talk time
+          let duration = Number(eventData.duration || eventData.durationSeconds || p.duration_seconds || 0);
+          if (duration === 0 && eventData.endedAt && eventData.startedAt) {
+            const diff = Math.round((new Date(eventData.endedAt).getTime() - new Date(eventData.startedAt).getTime()) / 1000);
+            if (diff > 0) duration = diff;
+          }
+          if (duration === 0 && (summaryBullets.length > 0 || fullTranscript)) {
+            duration = 60; // Connected call default
+          }
+          p.duration_seconds = duration;
+          p.outcome_type = 'CONVO'; // Conversation confirmed by AI summary/transcript
+
+          // Format notes with clean summary bullets
+          const summaryStr = summaryBullets.length > 0 ? summaryBullets.join('. ') : '';
+          p.notes = `[Auto-Logged from Quo] ${p.direction?.toUpperCase() || 'COMPLETED'} call (${p.duration_seconds}s). Status: completed${summaryStr ? ` | AI Summary: ${summaryStr}` : ''}`;
 
           await supabase
             .from('events')
@@ -178,7 +296,6 @@ export async function POST(request: NextRequest) {
       const messageBody = msg.body || msg.text || '';
       const createdAt = msg.createdAt || new Date().toISOString();
 
-      // Look up matching lead in Supabase across all active leads
       const { data: allLeads } = await supabase
         .from('leads')
         .select('*')
@@ -211,7 +328,7 @@ export async function POST(request: NextRequest) {
         duration_seconds: 0,
         contact_id: matchedLead ? matchedLead.id : null,
         contact_name: matchedLead ? matchedLead.customer_name : 'Quo Contact',
-        company_name: matchedLead ? matchedLead.company_name : 'Unknown Firm',
+        company_name: matchedLead ? matchedLead.company_name : 'Commercial Prospect',
         notes: `[Quo SMS ${isIncoming ? 'Received' : 'Sent'}] "${messageBody}"`,
         rep_name: 'Quo SMS Sync',
         timestamp: createdAt,

@@ -60,6 +60,7 @@ export async function GET(request: NextRequest) {
         notes: payload.notes || '',
         source: payload.source || 'manual',
         ai_summary: payload.ai_summary || null,
+        transcript: payload.transcript || null,
         recording_url: payload.recording_url || null,
         quo_call_id: payload.quo_call_id || null,
         timestamp: payload.timestamp || e.created_at,

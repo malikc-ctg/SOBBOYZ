@@ -412,10 +412,28 @@ export default function LeadDossierModal({
                             </p>
                           )}
                           {log.ai_summary && (
-                            <div className="mt-1 p-2 rounded bg-slate-950/70 border border-blue-900/30 text-[11px] text-blue-200">
-                              <span className="font-semibold text-blue-400 block text-[10px] uppercase">Quo Sona AI Summary</span>
-                              {log.ai_summary}
+                            <div className="mt-1 p-2 rounded bg-slate-950/70 border border-blue-900/30 text-[11px] text-blue-200 space-y-1">
+                              <span className="font-semibold text-blue-400 block text-[10px] uppercase tracking-wider">Quo Sona AI Summary</span>
+                              {Array.isArray(log.ai_summary) ? (
+                                <ul className="list-disc pl-3.5 space-y-0.5">
+                                  {log.ai_summary.map((b, i) => (
+                                    <li key={i}>{b}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                <div>{log.ai_summary}</div>
+                              )}
                             </div>
+                          )}
+                          {log.transcript && (
+                            <details className="mt-1 p-2 rounded bg-slate-950/90 border border-slate-800 text-[11px] text-slate-300">
+                              <summary className="cursor-pointer font-bold text-slate-400 hover:text-slate-200">
+                                View Full Call Transcript
+                              </summary>
+                              <div className="mt-1.5 p-2 max-h-48 overflow-y-auto font-mono text-[10px] whitespace-pre-wrap text-slate-200 bg-slate-900/90 rounded border border-slate-800/80">
+                                {log.transcript}
+                              </div>
+                            </details>
                           )}
                           {log.recording_url && (
                             <div className="mt-1">

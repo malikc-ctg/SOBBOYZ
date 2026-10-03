@@ -1534,12 +1534,29 @@ export default function PhoneTab({ user, repName, isActive }) {
                           </td>
                           <td>{formatDuration(call.duration_seconds || 0)}</td>
                           <td style={{ fontSize: '11px', color: '#94a3b8' }}>
-                            <div>{call.notes || '—'}</div>
                             {call.ai_summary && (
-                              <div className="mt-1 p-1.5 rounded bg-slate-900 border border-blue-900/40 text-[10px] text-blue-200">
-                                <span className="font-bold text-blue-400 block uppercase text-[9px]">Sona AI Summary:</span>
-                                {call.ai_summary}
+                              <div className="mt-1 p-2 rounded bg-slate-900 border border-blue-900/40 text-[10px] text-blue-200 space-y-1">
+                                <span className="font-bold text-blue-400 block uppercase text-[9px] tracking-wider">Sona AI Summary</span>
+                                {Array.isArray(call.ai_summary) ? (
+                                  <ul className="list-disc pl-3.5 space-y-0.5">
+                                    {call.ai_summary.map((b, i) => (
+                                      <li key={i}>{b}</li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  <div>{call.ai_summary}</div>
+                                )}
                               </div>
+                            )}
+                            {call.transcript && (
+                              <details className="mt-1.5 p-1.5 rounded bg-slate-950/80 border border-slate-800 text-[10px] text-slate-300">
+                                <summary className="cursor-pointer font-bold text-slate-400 hover:text-slate-200">
+                                  View Full Call Transcript
+                                </summary>
+                                <div className="mt-1.5 p-2 max-h-40 overflow-y-auto font-mono text-[10px] whitespace-pre-wrap text-slate-200 bg-slate-900/90 rounded border border-slate-800/80">
+                                  {call.transcript}
+                                </div>
+                              </details>
                             )}
                           </td>
                         </tr>
