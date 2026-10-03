@@ -58,6 +58,11 @@ export async function GET(request: NextRequest) {
         outcome_type: payload.outcome_type,
         duration_seconds: payload.duration_seconds || 0,
         notes: payload.notes || '',
+        source: payload.source || 'manual',
+        ai_summary: payload.ai_summary || null,
+        recording_url: payload.recording_url || null,
+        quo_call_id: payload.quo_call_id || null,
+        timestamp: payload.timestamp || e.created_at,
         callback_time: payload.callback_time,
         sale_details: payload.sale_details,
       };

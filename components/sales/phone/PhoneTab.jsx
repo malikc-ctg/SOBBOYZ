@@ -1514,10 +1514,17 @@ export default function PhoneTab({ user, repName, isActive }) {
                     </thead>
                     <tbody>
                       {callStats.todayCalls.map((call, idx) => (
-                        <tr key={idx}>
-                          <td>{new Date(call.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                        <tr key={call.event_id || idx}>
+                          <td>{new Date(call.timestamp || call.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
                           <td>
-                            <strong>{call.contact_name || 'Prospect'}</strong>
+                            <div className="flex items-center gap-1.5">
+                              <strong>{call.contact_name || 'Prospect'}</strong>
+                              {call.source === 'quo_webhook' && (
+                                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 font-mono text-[9px] border border-emerald-800/40">
+                                  Quo VoIP
+                                </span>
+                              )}
+                            </div>
                             <div style={{ fontSize: '11px', color: '#88a2c0' }}>{call.phone_number}</div>
                           </td>
                           <td>
@@ -1526,7 +1533,15 @@ export default function PhoneTab({ user, repName, isActive }) {
                             </span>
                           </td>
                           <td>{formatDuration(call.duration_seconds || 0)}</td>
-                          <td style={{ fontSize: '11px', color: '#94a3b8' }}>{call.notes || '—'}</td>
+                          <td style={{ fontSize: '11px', color: '#94a3b8' }}>
+                            <div>{call.notes || '—'}</div>
+                            {call.ai_summary && (
+                              <div className="mt-1 p-1.5 rounded bg-slate-900 border border-blue-900/40 text-[10px] text-blue-200">
+                                <span className="font-bold text-blue-400 block uppercase text-[9px]">Sona AI Summary:</span>
+                                {call.ai_summary}
+                              </div>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
