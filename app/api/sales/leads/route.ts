@@ -104,6 +104,13 @@ export async function GET(request: NextRequest) {
         sector = 'post_construction';
       }
 
+      let cleanNotes = '';
+      if (typeof intel === 'object' && Object.keys(intel).length > 0) {
+        cleanNotes = intel.notes || intel.rep_notes || '';
+      } else if (typeof l.notes === 'string') {
+        cleanNotes = l.notes;
+      }
+
       return {
         id: l.id,
         contact_id: `lead_${l.id}`,
@@ -119,7 +126,9 @@ export async function GET(request: NextRequest) {
         sector: sector,
         estimated_value: l.quoted_price ? Number(l.quoted_price) : 2500,
         status: l.status || 'new', // new, contacted, walkthrough_booked, quoted, won, lost
-        notes: typeof intel === 'object' && Object.keys(intel).length > 0 ? (l.notes.length > 500 ? '' : l.notes) : l.notes || '',
+        notes: cleanNotes || '',
+        transcript: intel.transcript || null,
+        ai_summary: intel.ai_summary || null,
         preferred_date: l.preferred_date || null,
         created_at: l.created_at,
         priority: 'HIGH',
@@ -206,7 +215,21 @@ export async function PATCH(request: NextRequest) {
     const updatePayload: any = { updated_at: new Date().toISOString() };
     
     if (status !== undefined) updatePayload.status = status;
-    if (notes !== undefined) updatePayload.notes = notes;
+    if (notes !== undefined) {
+      const { data: existingLead } = await supabase.from('leads').select('notes').eq('id', rawId).maybeSingle();
+      if (existingLead?.notes && existingLead.notes.startsWith('{') && existingLead.notes.endsWith('}')) {
+        try {
+          const parsed = JSON.parse(existingLead.notes);
+          parsed.notes = notes;
+          parsed.rep_notes = notes;
+          updatePayload.notes = JSON.stringify(parsed);
+        } catch {
+          updatePayload.notes = notes;
+        }
+      } else {
+        updatePayload.notes = notes;
+      }
+    }
     if (callback_time !== undefined) updatePayload.preferred_date = callback_time;
     if (customer_name !== undefined) updatePayload.customer_name = customer_name;
     if (company_name !== undefined) updatePayload.company_name = company_name;

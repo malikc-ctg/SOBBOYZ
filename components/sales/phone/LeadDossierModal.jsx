@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Phone,
@@ -29,8 +29,12 @@ import {
   PhoneIncoming,
   AlertTriangle,
   ChevronDown,
+  ChevronUp,
   Trash2,
-  XCircle
+  XCircle,
+  Headphones,
+  MessageSquare,
+  Sparkles
 } from 'lucide-react';
 import { CALL_OUTCOMES } from '@/lib/sales/phoneService';
 
@@ -253,6 +257,32 @@ export default function LeadDossierModal({
   const [editValue, setEditValue] = useState(contact.estimated_value || '2500');
   const [editNotes, setEditNotes] = useState(contact.notes || '');
 
+  // Live Rep Notes & Intel State
+  const [liveNoteText, setLiveNoteText] = useState(contact.notes || '');
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
+  const [isEditingLiveNote, setIsEditingLiveNote] = useState(false);
+
+  // Call Transcripts & AI Summaries State
+  const [expandedTranscripts, setExpandedTranscripts] = useState({});
+  const [copiedTranscriptId, setCopiedTranscriptId] = useState(null);
+
+  // Synchronize state when selected contact updates
+  useEffect(() => {
+    setLiveNoteText(contact.notes || '');
+    setEditNotes(contact.notes || '');
+    setEditName(contact.name || '');
+    setEditTitle(contact.position || '');
+    setEditCompany(contact.company || '');
+    setEditPhone(contact.phone || '');
+    setEditDirect(contact.work_direct_phone || '');
+    setEditMobile(contact.mobile_phone || '');
+    setEditEmail(contact.email || '');
+    setEditCity(contact.city || '');
+    setEditValue(contact.estimated_value || '2500');
+    setIsEditingLiveNote(false);
+  }, [contact.id, contact.notes]);
+
   // Calculate Company Colleagues & Hierarchy
   const normComp = normalizeCompanyName(contact.company);
   const colleagues = allContacts.filter(c => c.id !== contact.id && normalizeCompanyName(c.company) === normComp);
@@ -266,6 +296,118 @@ export default function LeadDossierModal({
   const companyCallLogs = colleagues.flatMap(c => (c.call_logs || []).map(l => ({ ...l, colleagueName: c.name, colleaguePosition: c.position })));
   const directCallLogs = contact.call_logs || [];
   const allRelatedLogs = [...directCallLogs, ...companyCallLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+
+  // Comprehensive Transcripts & Sona AI Aggregation
+  const transcriptsList = [];
+
+  // 1. Direct contact transcript from lead intel / Quo VoIP Sona AI
+  if (contact.transcript || contact.ai_summary) {
+    transcriptsList.push({
+      id: `lead-intel-${contact.id}`,
+      contactName: contact.name || 'Decision Maker',
+      contactPosition: contact.position || 'Contact',
+      date: contact.last_contacted_at || contact.created_at,
+      summary: contact.ai_summary,
+      transcript: contact.transcript,
+      outcome: contact.last_outcome || 'Outreach Call',
+      source: 'Quo VoIP & Sona AI',
+      isColleague: false
+    });
+  }
+
+  // 2. Direct call logs for this contact
+  directCallLogs.forEach((log, idx) => {
+    if (log.transcript || log.ai_summary) {
+      const isDup = transcriptsList.some(t => t.transcript && t.transcript === log.transcript);
+      if (!isDup) {
+        transcriptsList.push({
+          id: log.event_id || `direct-log-${idx}`,
+          contactName: contact.name,
+          contactPosition: contact.position,
+          date: log.created_at,
+          summary: log.ai_summary,
+          transcript: log.transcript,
+          recordingUrl: log.recording_url,
+          duration: log.duration_seconds,
+          outcome: log.outcome_type || 'Call',
+          source: log.source === 'quo_webhook' ? 'Quo VoIP Recording' : 'Call Log',
+          isColleague: false
+        });
+      }
+    }
+  });
+
+  // 3. Colleague call logs for this company
+  companyCallLogs.forEach((log, idx) => {
+    if (log.transcript || log.ai_summary) {
+      const isDup = transcriptsList.some(t => t.transcript && t.transcript === log.transcript);
+      if (!isDup) {
+        transcriptsList.push({
+          id: log.event_id || `colleague-log-${idx}`,
+          contactName: log.colleagueName || 'Colleague',
+          contactPosition: log.colleaguePosition || 'Team',
+          date: log.created_at,
+          summary: log.ai_summary,
+          transcript: log.transcript,
+          recordingUrl: log.recording_url,
+          duration: log.duration_seconds,
+          outcome: log.outcome_type || 'Colleague Outreach',
+          source: `Company Colleague: ${log.colleagueName || 'Team'}`,
+          isColleague: true
+        });
+      }
+    }
+  });
+
+  async function handleQuickSaveNote() {
+    setIsSavingNote(true);
+    try {
+      if (onSaveContact) {
+        await onSaveContact(contact.id, {
+          name: contact.name,
+          company: contact.company,
+          position: contact.position,
+          phone: contact.phone,
+          work_direct_phone: contact.work_direct_phone,
+          mobile_phone: contact.mobile_phone,
+          email: contact.email,
+          city: contact.city,
+          estimated_value: contact.estimated_value,
+          notes: liveNoteText,
+        });
+      }
+      setEditNotes(liveNoteText);
+      setNoteSavedFeedback(true);
+      setTimeout(() => setNoteSavedFeedback(false), 2500);
+      setIsEditingLiveNote(false);
+    } catch (err) {
+      console.error('[LeadDossierModal] Failed to save note:', err);
+    } finally {
+      setIsSavingNote(false);
+    }
+  }
+
+  function handleCopyTranscript(text, id) {
+    if (!text) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+      } else {
+        fallbackCopy(text);
+      }
+    } catch {
+      fallbackCopy(text);
+    }
+    setCopiedTranscriptId(id);
+    setTimeout(() => setCopiedTranscriptId(null), 2000);
+  }
+
+  function toggleTranscriptExpand(id) {
+    setExpandedTranscripts(prev => ({
+      ...prev,
+      [id]: !prev[id]
+    }));
+  }
 
   async function handleSave() {
     if (onSaveContact) {
@@ -844,7 +986,326 @@ export default function LeadDossierModal({
             </div>
           </div>
 
-          {/* SECTION 3: Colleagues at this Company ("Who are they?") */}
+          {/* SECTION: Rep Notes & Strategy Intel */}
+          <div className="space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <FileText size={14} className="text-blue-400" />
+                Rep Notes & Strategy Intel
+              </span>
+              <div className="flex items-center gap-2">
+                {noteSavedFeedback && (
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 animate-in fade-in">
+                    <Check size={12} /> Note Saved
+                  </span>
+                )}
+                {!isEditingLiveNote ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditingLiveNote(true)}
+                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition"
+                  >
+                    <Edit3 size={12} />
+                    <span>{liveNoteText ? 'Edit Note' : 'Add Note'}</span>
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLiveNoteText(contact.notes || '');
+                        setIsEditingLiveNote(false);
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingNote}
+                      onClick={handleQuickSaveNote}
+                      className="px-3 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1 transition disabled:opacity-50"
+                    >
+                      <Save size={12} />
+                      <span>{isSavingNote ? 'Saving...' : 'Save Note'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {isEditingLiveNote ? (
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-blue-600/50 space-y-2.5">
+                <textarea
+                  rows={4}
+                  value={liveNoteText}
+                  onChange={e => setLiveNoteText(e.target.value)}
+                  onKeyDown={e => {
+                    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+                      e.preventDefault();
+                      handleQuickSaveNote();
+                    }
+                  }}
+                  placeholder="Enter strategic intel: site notes, gatekeeper names, superintendent shift hours, preferred callback times, pricing feedback..."
+                  className="w-full p-3 rounded-lg bg-slate-950 border border-slate-700/80 text-slate-100 text-xs placeholder:text-slate-500 focus:outline-none focus:border-blue-500 leading-relaxed resize-y font-sans"
+                  autoFocus
+                />
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <span className="font-mono text-[10px]">Press Cmd+Enter (or Ctrl+Enter) to save</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isSavingNote}
+                      onClick={handleQuickSaveNote}
+                      className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold flex items-center gap-1.5 text-xs shadow-md shadow-blue-950/50 transition disabled:opacity-50"
+                    >
+                      {isSavingNote ? (
+                        <span>Saving...</span>
+                      ) : (
+                        <>
+                          <Save size={13} />
+                          <span>Save Note</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : liveNoteText ? (
+              <div
+                onClick={() => setIsEditingLiveNote(true)}
+                className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-700 cursor-pointer transition group"
+                title="Click to edit or append rep notes"
+              >
+                <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-wrap font-sans">
+                  {liveNoteText}
+                </p>
+                <div className="mt-2.5 pt-2 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-slate-400">
+                  <span>Rep Notes on File</span>
+                  <span className="text-blue-400 group-hover:underline font-semibold flex items-center gap-1">
+                    <Edit3 size={11} /> Edit Note
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => setIsEditingLiveNote(true)}
+                className="p-4 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 hover:border-blue-700/60 flex items-center justify-between gap-3 cursor-pointer transition group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 group-hover:text-blue-400 transition">
+                    <Edit3 size={15} />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-300 group-hover:text-white transition">No Rep Notes Recorded</div>
+                    <div className="text-[11px] text-slate-400">Click to add gatekeeper names, superintendent shifts, or site access instructions.</div>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingLiveNote(true);
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-blue-950 hover:bg-blue-900 border border-blue-800 text-blue-300 text-xs font-bold transition shrink-0"
+                >
+                  + Add Note
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION: Call Transcripts & Sona AI Summaries */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Headphones size={14} className="text-blue-400" />
+                Call Transcripts & Sona AI Summaries
+              </span>
+              <span className="text-[11px] text-slate-400 font-mono">
+                {transcriptsList.length > 0 ? `${transcriptsList.length} recording${transcriptsList.length > 1 ? 's' : ''} available` : '0 transcripts'}
+              </span>
+            </div>
+
+            {transcriptsList.length > 0 ? (
+              <div className="space-y-3">
+                {transcriptsList.map((item, tIdx) => {
+                  const isExpanded = !!expandedTranscripts[item.id];
+                  const hasLongTranscript = item.transcript && item.transcript.length > 400;
+
+                  return (
+                    <div
+                      key={item.id || tIdx}
+                      className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-3"
+                    >
+                      {/* Top Bar for this Transcript Entry */}
+                      <div className="flex items-center justify-between gap-2 flex-wrap pb-2 border-b border-slate-800/80 text-xs">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-white">
+                            {item.isColleague ? `Colleague: ${item.contactName}` : item.contactName}
+                          </span>
+                          <span className="px-2 py-0.5 rounded bg-blue-950 border border-blue-800/60 text-blue-300 text-[10px] font-mono">
+                            {item.outcome}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {item.source}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 font-mono text-[11px] text-slate-400">
+                          {item.duration > 0 && <span>{item.duration}s</span>}
+                          <span>{formatDateRelative(item.date)}</span>
+                        </div>
+                      </div>
+
+                      {/* Sona AI Executive Summary Box (if present) */}
+                      {item.summary && (
+                        <div className="p-3.5 rounded-xl bg-gradient-to-r from-blue-950/40 via-slate-900/90 to-cyan-950/30 border border-cyan-500/30 space-y-1.5">
+                          <div className="flex items-center gap-1.5 text-cyan-300 text-xs font-bold uppercase tracking-wider">
+                            <Sparkles size={13} className="text-cyan-400" />
+                            <span>Sona AI Executive Summary</span>
+                          </div>
+                          {Array.isArray(item.summary) ? (
+                            <ul className="list-disc pl-4 space-y-1 text-xs text-slate-200 leading-relaxed font-sans">
+                              {item.summary.map((pt, i) => (
+                                <li key={i}>{pt}</li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="text-xs text-slate-200 leading-relaxed font-sans">
+                              {item.summary}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Full Transcript Box (if present) */}
+                      {item.transcript && (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-slate-400 font-semibold flex items-center gap-1.5">
+                              <MessageSquare size={13} className="text-slate-400" />
+                              <span>Word-for-Word Call Dialogue</span>
+                            </span>
+
+                            <div className="flex items-center gap-2">
+                              {item.recordingUrl && (
+                                <a
+                                  href={item.recordingUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-[11px] text-blue-400 hover:text-blue-300 underline font-mono flex items-center gap-1"
+                                >
+                                  <Headphones size={11} />
+                                  <span>Audio Recording</span>
+                                </a>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleCopyTranscript(item.transcript, item.id)}
+                                className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] font-semibold flex items-center gap-1 transition"
+                                title="Copy full transcript"
+                              >
+                                {copiedTranscriptId === item.id ? (
+                                  <>
+                                    <Check size={11} className="text-emerald-400" />
+                                    <span className="text-emerald-400">Copied!</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy size={11} />
+                                    <span>Copy Transcript</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div
+                            className={`p-3 rounded-xl bg-slate-950/90 border border-slate-800 font-mono text-[11px] text-slate-300 leading-relaxed overflow-y-auto space-y-1 ${
+                              hasLongTranscript && !isExpanded ? 'max-h-52' : 'max-h-96'
+                            }`}
+                          >
+                            {item.transcript.split('\n').map((line, lIdx) => {
+                              const trimmed = line.trim();
+                              if (!trimmed) return <div key={lIdx} className="h-1" />;
+
+                              // Check if line matches timestamp pattern like "00:01 - (905) 830-6026: Hello"
+                              const match = trimmed.match(/^(\d{2}:\d{2})\s*-\s*([^:]+):\s*(.*)$/);
+                              if (match) {
+                                const time = match[1];
+                                const speaker = match[2];
+                                const text = match[3];
+                                const isInternalRep = speaker.toLowerCase().includes('sea of blue') || speaker.toLowerCase().includes('malik') || speaker.toLowerCase().includes('ryan');
+
+                                return (
+                                  <div key={lIdx} className="flex items-start gap-2 py-0.5">
+                                    <span className="text-[10px] text-slate-500 font-mono shrink-0 select-none pt-0.5">
+                                      {time}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <span className={`font-semibold mr-1.5 ${isInternalRep ? 'text-blue-400' : 'text-emerald-400'}`}>
+                                        {speaker}:
+                                      </span>
+                                      <span className="text-slate-200 font-sans text-xs">
+                                        {text}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              }
+
+                              return (
+                                <div key={lIdx} className="text-slate-200 font-sans text-xs py-0.5">
+                                  {trimmed}
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {hasLongTranscript && (
+                            <div className="flex justify-end pt-1">
+                              <button
+                                type="button"
+                                onClick={() => toggleTranscriptExpand(item.id)}
+                                className="text-xs text-blue-400 hover:text-blue-300 font-semibold flex items-center gap-1 transition"
+                              >
+                                {isExpanded ? (
+                                  <>
+                                    <ChevronUp size={13} />
+                                    <span>Show Less</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <ChevronDown size={13} />
+                                    <span>Show Full Transcript ({item.transcript.split('\n').length} lines)</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center space-y-2">
+                <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mx-auto">
+                  <Headphones size={16} />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-slate-300">No Call Transcripts Yet</div>
+                  <div className="text-[11px] text-slate-400 max-w-md mx-auto mt-0.5 leading-relaxed">
+                    Word-for-word audio transcripts and Sona AI executive summaries will automatically appear here once outreach calls are completed via Quo VoIP or logged with conversation notes.
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 5: Colleagues at this Company ("Who are they?") */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
