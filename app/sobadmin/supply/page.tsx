@@ -109,7 +109,6 @@ export interface StandardCaddyItem {
   name: string;
   category: 'chemical' | 'cleanser' | 'cloth' | 'ppe' | 'tool' | 'equipment';
   quantity: string;
-  icon: string;
   role: string;
 }
 
@@ -122,42 +121,36 @@ const STANDARD_CADDY_ITEMS: StandardCaddyItem[] = [
     name: 'APC (All Purpose Cleaner)',
     quantity: '2 Bottles (32oz)',
     category: 'chemical',
-    icon: '🧴',
     role: 'Countertops, tabletops, appliances, high-touch disinfection (2 bottles for 1–2 cleaners)',
   },
   {
     name: 'Degreaser',
     quantity: '1 Bottle (32oz)',
     category: 'chemical',
-    icon: '🍳',
     role: 'Stovetops, range hoods, baked grease, backsplashes, heavy kitchen build-up',
   },
   {
     name: 'Floor Cleaner',
     quantity: '1 Bottle',
     category: 'chemical',
-    icon: '✨',
     role: 'Neutral pH solution for hardwood, tile, and laminate floor care',
   },
   {
     name: 'Stainless Steel Cleaner',
     quantity: '1 Bottle / Can',
     category: 'chemical',
-    icon: '🛡️',
     role: 'Refrigerators, ovens, dishwashers, range hoods streak-free shine',
   },
   {
     name: 'STT (Shower Tub Tile Cleaner)',
     quantity: '1 Bottle (32oz)',
     category: 'chemical',
-    icon: '🚿',
     role: 'Soap scum, limescale, bathroom tile walls, tubs, glass showers',
   },
   {
     name: 'Bar Keepers Friend',
     quantity: '1 Can / Bottle',
     category: 'cleanser',
-    icon: '🌟',
     role: 'Stainless sinks, stubborn burnt pots, glass cooktops, porcelain tubs',
   },
   // Cloths, Tools & Floor Care
@@ -165,49 +158,42 @@ const STANDARD_CADDY_ITEMS: StandardCaddyItem[] = [
     name: 'Microfiber Cloths',
     quantity: '1 Bundle (15–20 Cloths)',
     category: 'cloth',
-    icon: '🧽',
     role: 'Color-coded: Blue (Glass/Mirrors), Yellow (Dust/General), Red (Bathrooms)',
   },
   {
     name: 'Nitrile Gloves',
     quantity: '1 Box / Pouch',
     category: 'ppe',
-    icon: '🧤',
     role: 'Tear-resistant nitrile skin & bio protection for 1–2 cleaners',
   },
   {
     name: 'Mop & Mop Bucket',
     quantity: '1 Bucket + 1 Flat Mop',
     category: 'tool',
-    icon: '🪣',
     role: 'Floor washing with wringer bucket and clean microfiber mop pads',
   },
   {
     name: 'Extendable Duster',
     quantity: '1 Duster',
     category: 'tool',
-    icon: '🪶',
     role: 'Ceiling fans, high crown moulding, window blinds, corners',
   },
   {
     name: 'Broom & Dustpan',
     quantity: '1 Set',
     category: 'tool',
-    icon: '🧹',
     role: 'Dry floor sweeping & quick debris collection before mopping',
   },
   {
     name: 'RIDGID Wet/Dry Shop Vac',
     quantity: '1 Unit',
     category: 'equipment',
-    icon: '⚡',
     role: 'Heavy-duty HEPA vacuuming on floors, rugs, baseboards and construction dust',
   },
   {
     name: 'Contractor Trash Bags (55 Gal)',
     quantity: 'Roll (5–10 Bags)',
     category: 'ppe',
-    icon: '🗑️',
     role: 'Waste removal, debris haul-out, and heavy bin relining',
   },
 ];
@@ -710,7 +696,7 @@ export default function SupplyPage() {
                               : 'bg-purple-50 text-purple-700 border-purple-200'
                           }`}
                         >
-                          {caddy.crewType === 'solo' ? '👤 1-Person Solo' : '👥 2-Person Duo Team'}
+                          {caddy.crewType === 'solo' ? 'Solo (1 Person)' : 'Duo Team (2 People)'}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground font-mono">
                           Out at {caddy.dispatchedAt}
@@ -785,7 +771,7 @@ export default function SupplyPage() {
               {/* Highlight Banner */}
               <div className="p-4 bg-muted/30 border-b text-xs flex items-start sm:items-center justify-between gap-3">
                 <div className="flex items-center gap-2.5">
-                  <span className="text-xl">🧺</span>
+                  <Package className="h-5 w-5 text-primary shrink-0" />
                   <div>
                     <span className="font-bold text-foreground">1 Standard Caddy = Complete Service: </span>
                     <span className="text-muted-foreground">
@@ -808,26 +794,23 @@ export default function SupplyPage() {
                   {STANDARD_CADDY_ITEMS.map((item, idx) => (
                     <TableRow key={idx} className="text-xs hover:bg-muted/10">
                       <TableCell>
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-base">{item.icon}</span>
-                          <div>
-                            <p className="font-bold text-foreground text-sm leading-tight">
-                              {item.name}
-                            </p>
-                            <Badge variant="outline" className="text-[10px] capitalize mt-0.5">
-                              {item.category === 'chemical'
-                                ? 'Spray Bottle'
-                                : item.category === 'cleanser'
-                                ? 'Specialty Cleanser'
-                                : item.category === 'cloth'
-                                ? 'Cloths & Towels'
-                                : item.category === 'ppe'
-                                ? 'PPE & Waste'
-                                : item.category === 'tool'
-                                ? 'Cleaning Tool'
-                                : 'Machinery'}
-                            </Badge>
-                          </div>
+                        <div>
+                          <p className="font-bold text-foreground text-sm leading-tight">
+                            {item.name}
+                          </p>
+                          <Badge variant="outline" className="text-[10px] capitalize mt-0.5">
+                            {item.category === 'chemical'
+                              ? 'Spray Bottle'
+                              : item.category === 'cleanser'
+                              ? 'Specialty Cleanser'
+                              : item.category === 'cloth'
+                              ? 'Cloths & Towels'
+                              : item.category === 'ppe'
+                              ? 'PPE & Waste'
+                              : item.category === 'tool'
+                              ? 'Cleaning Tool'
+                              : 'Machinery'}
+                          </Badge>
                         </div>
                       </TableCell>
 
@@ -1324,24 +1307,26 @@ export default function SupplyPage() {
               <button
                 type="button"
                 onClick={() => setCrewType('solo')}
-                className={`py-1.5 text-xs font-semibold rounded-md transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
                   crewType === 'solo'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                👤 Solo Cleaner (1 Person)
+                <User className="h-3.5 w-3.5" />
+                Solo Cleaner (1 Person)
               </button>
               <button
                 type="button"
                 onClick={() => setCrewType('duo')}
-                className={`py-1.5 text-xs font-semibold rounded-md transition-all ${
+                className={`flex items-center justify-center gap-1.5 py-1.5 text-xs font-semibold rounded-md transition-all ${
                   crewType === 'duo'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                👥 Duo Team (2 People)
+                <Users className="h-3.5 w-3.5" />
+                Duo Team (2 People)
               </button>
             </div>
 
@@ -1408,10 +1393,10 @@ export default function SupplyPage() {
             {/* Standardized Checklist Summary */}
             <div className="p-3 rounded-lg bg-muted/40 border space-y-1.5 text-[11px] text-muted-foreground">
               <p className="font-semibold text-foreground">Included in this Caddy:</p>
-              <p>✓ 2x APC, 1x Degreaser, 1x Floor Cleaner, 1x Stainless Steel, 1x STT</p>
-              <p>✓ 1x Bar Keepers Friend cleanser</p>
-              <p>✓ Microfiber cloths bundle, Nitrile gloves & Contractor bags</p>
-              <p>✓ Mop & bucket, Duster, Broom & dustpan, RIDGID Shop Vac</p>
+              <p className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-600" /> 2x APC, 1x Degreaser, 1x Floor Cleaner, 1x Stainless Steel, 1x STT</p>
+              <p className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-600" /> 1x Bar Keepers Friend cleanser</p>
+              <p className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-600" /> Microfiber cloths bundle, Nitrile gloves & Contractor bags</p>
+              <p className="flex items-center gap-1.5"><Check className="h-3 w-3 text-emerald-600" /> Mop & bucket, Duster, Broom & dustpan, RIDGID Shop Vac</p>
             </div>
 
             <DialogFooter className="pt-2">
