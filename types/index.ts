@@ -916,6 +916,33 @@ export interface PriceQuote {
 
 // ---------- Finance / P&L ----------
 
+export type AdSpendChannel = 'lsa' | 'meta' | 'google_ads' | 'tiktok' | 'flyers' | 'other';
+
+export const AD_SPEND_CHANNEL_LABELS: Record<AdSpendChannel, string> = {
+  lsa: 'Google Local Services Ads (LSA)',
+  meta: 'Meta (Facebook & Instagram)',
+  google_ads: 'Google Search & Display Ads',
+  tiktok: 'TikTok Ads',
+  flyers: 'Flyers & Direct Mail',
+  other: 'Other Marketing',
+};
+
+export interface AdSpendLog {
+  id?: string;
+  zone_id?: string | null;
+  channel: AdSpendChannel;
+  week_start_date: string;
+  week_end_date: string;
+  amount: number;
+  impressions?: number;
+  clicks?: number;
+  conversions?: number;
+  notes?: string | null;
+  created_at?: string;
+  created_by?: string | null;
+  zone?: Zone;
+}
+
 export interface ZoneMonthlyPnl {
   zone_id: string;
   month: string;
@@ -923,10 +950,35 @@ export interface ZoneMonthlyPnl {
   gross_revenue: number;
   total_employee_payouts: number;
   gross_profit: number;
+  total_ad_spend?: number;
+  net_profit?: number;
+  roas?: number;
+  cac?: number;
   avg_ticket: number;
   recurring_jobs: number;
   one_time_jobs: number;
   // joined
+  zone?: Zone;
+}
+
+export interface WeeklyPnl {
+  zone_id: string | null;
+  week_start_date: string;
+  week_end_date: string;
+  jobs_completed: number;
+  gross_revenue: number;
+  total_employee_payouts: number;
+  gross_profit: number;
+  total_ad_spend: number;
+  net_profit: number;
+  gross_margin_pct: number;
+  net_margin_pct: number;
+  roas: number;
+  avg_ticket: number;
+  recurring_jobs: number;
+  one_time_jobs: number;
+  new_customers_count: number;
+  cac: number;
   zone?: Zone;
 }
 

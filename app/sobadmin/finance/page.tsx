@@ -12,9 +12,11 @@ import { InvoicingSuite } from '@/components/admin/finance/InvoicingSuite';
 import { SubscriptionSuite } from '@/components/admin/finance/SubscriptionSuite';
 import { UnitEconomicsSuite } from '@/components/admin/finance/UnitEconomicsSuite';
 import { ComplianceSuite } from '@/components/admin/finance/ComplianceSuite';
+import { AdSpendSuite } from '@/components/admin/finance/AdSpendSuite';
 
 const FINANCE_TABS = [
   { id: 'overview', label: 'Overview & QBO' },
+  { id: 'ad_spend', label: 'Weekly Ad Spend & P&L' },
   { id: 'payroll', label: 'Cleaner Payroll' },
   { id: 'invoicing', label: 'Invoicing & A/R' },
   { id: 'subscriptions', label: 'MRR & Subscriptions' },
@@ -505,6 +507,9 @@ export default function FinancePage() {
           </div>
         </div>
       )}
+
+      {/* Weekly Ad Spend & Marketing P&L Suite */}
+      {tab === 'ad_spend' && <AdSpendSuite />}
 
       {/* Cleaner Payroll Suite */}
       {tab === 'payroll' && <PayrollSuite />}
