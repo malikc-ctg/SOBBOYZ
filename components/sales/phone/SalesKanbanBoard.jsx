@@ -67,7 +67,27 @@ export default function SalesKanbanBoard({
   const [draggedContactId, setDraggedContactId] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [copiedNameId, setCopiedNameId] = useState(null);
   const [openSectorMenuId, setOpenSectorMenuId] = useState(null);
+
+  // Copy contact name helper
+  const handleCopyName = (e, contactId, name) => {
+    e.stopPropagation();
+    if (!name) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(name).catch(() => {
+          fallbackCopyText(name);
+        });
+      } else {
+        fallbackCopyText(name);
+      }
+    } catch {
+      fallbackCopyText(name);
+    }
+    setCopiedNameId(contactId);
+    setTimeout(() => setCopiedNameId(null), 1500);
+  };
 
   // Copy phone number helper
   const handleCopyPhone = (e, contactId, phone) => {
@@ -323,13 +343,28 @@ export default function SalesKanbanBoard({
                           {/* Top: Name, Position, Company & City */}
                           <div className="flex items-start justify-between gap-2.5">
                             <div className="min-w-0">
-                              <div className="font-bold text-[15px] text-white group-hover:text-blue-300 transition truncate tracking-tight">
-                                {contact.name || 'Unnamed Contact'}
+                              <div
+                                onClick={e => handleCopyName(e, contact.id, contact.name)}
+                                className="inline-flex items-center gap-1.5 cursor-pointer group/name py-0.5 rounded transition max-w-full"
+                                title="Click to copy name"
+                              >
+                                <span className="font-bold text-[15px] text-white group-hover/name:text-blue-300 transition truncate tracking-tight select-text">
+                                  {contact.name || 'Unnamed Contact'}
+                                </span>
+                                {copiedNameId === contact.id ? (
+                                  <span className="inline-flex items-center gap-1 text-emerald-400 text-[10px] font-sans font-bold bg-emerald-950/90 px-1.5 py-0.5 rounded border border-emerald-800/80 animate-in fade-in shrink-0">
+                                    <Check size={11} /> Copied!
+                                  </span>
+                                ) : (
+                                  <span className="opacity-0 group-hover:opacity-100 group-hover/name:opacity-100 text-slate-400 hover:text-white p-0.5 transition shrink-0" title="Copy name">
+                                    <Copy size={11} />
+                                  </span>
+                                )}
                               </div>
                               <div className="text-xs text-slate-400 flex items-center gap-1.5 truncate mt-0.5">
-                                <span className="font-semibold text-slate-300">{contact.position || 'Project Lead'}</span>
+                                <span className="font-semibold text-slate-300 select-text">{contact.position || 'Project Lead'}</span>
                                 <span className="text-slate-600">•</span>
-                                <span className="truncate text-slate-400">{contact.company || 'Commercial Prospect'}</span>
+                                <span className="truncate text-slate-400 select-text">{contact.company || 'Commercial Prospect'}</span>
                               </div>
                             </div>
 

@@ -187,6 +187,7 @@ export default function LeadDossierModal({
 
   const [isEditing, setIsEditing] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedName, setCopiedName] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [openOutcomeDropdown, setOpenOutcomeDropdown] = useState(false);
@@ -243,6 +244,21 @@ export default function LeadDossierModal({
       document.execCommand('copy');
       document.body.removeChild(el);
     } catch {}
+  }
+
+  function handleCopyName(name) {
+    if (!name) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(name).catch(() => fallbackCopy(name));
+      } else {
+        fallbackCopy(name);
+      }
+    } catch {
+      fallbackCopy(name);
+    }
+    setCopiedName(true);
+    setTimeout(() => setCopiedName(false), 2000);
   }
 
   // Form state for editing
@@ -450,9 +466,24 @@ export default function LeadDossierModal({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2.5 flex-wrap">
-                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight truncate">
-                  {contact.name || 'Decision Maker'}
-                </h2>
+                <div
+                  onClick={() => handleCopyName(contact.name)}
+                  className="cursor-pointer group/modalname inline-flex items-center gap-2"
+                  title="Click to copy contact name"
+                >
+                  <h2 className="text-xl sm:text-2xl font-extrabold text-white group-hover/modalname:text-blue-300 tracking-tight truncate transition">
+                    {contact.name || 'Decision Maker'}
+                  </h2>
+                  {copiedName ? (
+                    <span className="text-xs font-bold text-emerald-400 flex items-center gap-1 bg-emerald-950/90 px-2 py-0.5 rounded-full border border-emerald-800/80 shrink-0 animate-in fade-in">
+                      <Check size={12} /> Copied!
+                    </span>
+                  ) : (
+                    <span className="opacity-0 group-hover/modalname:opacity-100 text-slate-400 hover:text-white p-0.5 transition shrink-0">
+                      <Copy size={13} />
+                    </span>
+                  )}
+                </div>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300">
                   {getSeniorityLabel(currentRank, contact.position)}
                 </span>
