@@ -22,6 +22,7 @@ export const SECTORS = [
 
 export const STAGES = [
   { key: 'new', label: 'New Leads', color: '#64748b', bg: 'bg-slate-900/60', border: 'border-slate-800' },
+  { key: 'no_answer', label: 'No Answer', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-900/40' },
   { key: 'contacted', label: 'Contacted / In Progress', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-900/40' },
   { key: 'walkthrough_booked', label: 'Walkthrough Booked', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-900/40' },
   { key: 'quoted', label: 'Quote Sent', color: '#06b6d4', bg: 'bg-cyan-950/20', border: 'border-cyan-900/40' },
@@ -263,7 +264,12 @@ export default function SalesKanbanBoard({
         <div className="flex gap-5 overflow-x-auto pb-8 pt-2 items-start min-h-[550px] no-scrollbar scrollbar-none">
           {STAGES.map(col => {
             const colKey = col.key;
-            const colLeads = filteredContacts.filter(c => (c.status || 'new') === colKey);
+            const colLeads = filteredContacts.filter(c => {
+              const s = (c.status || 'new').toLowerCase();
+              if (colKey === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable';
+              if (colKey === 'contacted') return s === 'contacted' || s === 'convo';
+              return s === colKey;
+            });
             const isDragTarget = dragOverColumn === colKey;
 
             return (

@@ -371,7 +371,7 @@ export default function PhoneTab({ user, repName, isActive }) {
         phoneNumber: contact?.phone || '',
         city: contact?.city || 'GTA',
         callType: 'OUTBOUND',
-        outcomeType: newStatus === 'won' ? 'JOB_WON' : newStatus === 'quoted' ? 'INFO_SENT' : 'CONVO',
+        outcomeType: newStatus === 'won' ? 'JOB_WON' : newStatus === 'quoted' ? 'INFO_SENT' : newStatus === 'no_answer' ? 'NO_ANSWER' : 'CONVO',
         durationSeconds: 15,
         notes: `Pipeline status moved to ${newStatus}`,
         repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
@@ -427,9 +427,11 @@ export default function PhoneTab({ user, repName, isActive }) {
 
     if (outcomeType === 'NO_ANSWER') {
       duration = 0;
+      newStatus = 'no_answer';
       notes = 'Outbound call: No Answer / Rang out';
     } else if (outcomeType === 'VOICEMAIL') {
       duration = 25;
+      newStatus = 'no_answer';
       notes = 'Outbound call: Left capabilities voicemail';
     } else if (outcomeType === 'CONVO') {
       duration = 60;
@@ -1112,7 +1114,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                         <span className="text-[10px] text-slate-400">{getSeniorityLabel(cRank, c.position)}</span>
                         <span className="phone-lead-val">${c.estimated_value || '2,500'}</span>
                         <span className="uppercase text-[10px] font-bold text-slate-400">
-                          {c.status === 'walkthrough_booked' ? 'Walkthrough' : c.status || 'New'}
+                          {c.status === 'walkthrough_booked' ? 'Walkthrough' : c.status === 'no_answer' ? 'No Answer' : c.status || 'New'}
                         </span>
                       </div>
                     </div>
