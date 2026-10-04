@@ -88,6 +88,22 @@ export async function GET(request: NextRequest) {
         c.company_name && normalizeComp(c.company_name) === normCompany
       );
 
+      const rawSector = (l.service_type || intel.industry || intel.sector || '').toLowerCase();
+      let sector = 'post_construction';
+      if (rawSector.includes('office') || rawSector.includes('corporate') || rawSector.includes('financial')) {
+        sector = 'commercial_office';
+      } else if (rawSector.includes('property') || rawSector.includes('real estate') || rawSector.includes('residential') || rawSector.includes('hoa') || rawSector.includes('landlord')) {
+        sector = 'property_management';
+      } else if (rawSector.includes('industrial') || rawSector.includes('warehouse') || rawSector.includes('logistics') || rawSector.includes('plant') || rawSector.includes('manufacturing')) {
+        sector = 'industrial_warehouse';
+      } else if (rawSector.includes('medical') || rawSector.includes('health') || rawSector.includes('clinic') || rawSector.includes('dental')) {
+        sector = 'medical_healthcare';
+      } else if (rawSector.includes('retail') || rawSector.includes('hospitality') || rawSector.includes('restaurant') || rawSector.includes('hotel')) {
+        sector = 'retail_hospitality';
+      } else {
+        sector = 'post_construction';
+      }
+
       return {
         id: l.id,
         contact_id: `lead_${l.id}`,
@@ -100,6 +116,7 @@ export async function GET(request: NextRequest) {
         email: l.customer_email || '',
         city: l.city || 'GTA',
         service_type: l.service_type || 'post_construction_clean',
+        sector: sector,
         estimated_value: l.quoted_price ? Number(l.quoted_price) : 2500,
         status: l.status || 'new', // new, contacted, walkthrough_booked, quoted, won, lost
         notes: typeof intel === 'object' && Object.keys(intel).length > 0 ? (l.notes.length > 500 ? '' : l.notes) : l.notes || '',
@@ -178,7 +195,7 @@ export async function PATCH(request: NextRequest) {
     const { 
       lead_id, status, notes, callback_time,
       customer_name, company_name, contact_title, 
-      customer_phone, customer_email, city, service_type, quoted_price
+      customer_phone, customer_email, city, service_type, sector, quoted_price
     } = body;
 
     if (!lead_id) {
@@ -197,6 +214,7 @@ export async function PATCH(request: NextRequest) {
     if (customer_phone !== undefined) updatePayload.customer_phone = customer_phone;
     if (customer_email !== undefined) updatePayload.customer_email = customer_email;
     if (city !== undefined) updatePayload.city = city;
+    if (sector !== undefined) updatePayload.service_type = sector;
     if (service_type !== undefined) updatePayload.service_type = service_type;
     if (quoted_price !== undefined) updatePayload.quoted_price = quoted_price ? parseFloat(quoted_price) : null;
 

@@ -38,12 +38,14 @@ import {
   DollarSign,
   FileText,
   Clock,
-  Info
+  Info,
+  KanbanSquare
 } from 'lucide-react';
 import MiroScriptEmbed, { DEFAULT_MIRO_URL } from './MiroScriptEmbed';
 import LeadImporterModal from './LeadImporterModal';
 import WalkthroughModal from './WalkthroughModal';
 import LeadDossierModal from './LeadDossierModal';
+import SalesKanbanBoard from './SalesKanbanBoard';
 import './phoneStyles.css';
 
 /**
@@ -341,6 +343,111 @@ export default function PhoneTab({ user, repName, isActive }) {
     }
   }
 
+  // Kanban Handlers (Supports 1-click status updates, sector reassignments, and disposition logging)
+  async function handleKanbanUpdateStatus(contactId, newStatus) {
+    try {
+      await updateLeadStatus(contactId, newStatus);
+      setContacts(prev => prev.map(c => c.id === contactId ? { ...c, status: newStatus } : c));
+      if (selectedContact?.id === contactId) {
+        setSelectedContact(prev => ({ ...prev, status: newStatus }));
+      }
+      refreshStats();
+    } catch (err) {
+      console.error('[PhoneTab] Kanban status update failed:', err);
+    }
+  }
+
+  async function handleKanbanUpdateSector(contactId, newSector) {
+    try {
+      await updateLeadContact(contactId, { sector: newSector, service_type: newSector });
+      setContacts(prev => prev.map(c => c.id === contactId ? { ...c, sector: newSector, service_type: newSector } : c));
+      if (selectedContact?.id === contactId) {
+        setSelectedContact(prev => ({ ...prev, sector: newSector, service_type: newSector }));
+      }
+    } catch (err) {
+      console.error('[PhoneTab] Kanban sector update failed:', err);
+    }
+  }
+
+  async function handleKanbanOneClickOutcome(contact, outcomeType) {
+    if (!contact) return;
+    
+    let newStatus = contact.status;
+    let duration = 0;
+    let notes = `One-click disposition: ${outcomeType}`;
+
+    if (outcomeType === 'NO_ANSWER') {
+      duration = 0;
+      notes = 'Outbound call: No Answer / Rang out';
+    } else if (outcomeType === 'VOICEMAIL') {
+      duration = 25;
+      notes = 'Outbound call: Left capabilities voicemail';
+    } else if (outcomeType === 'CONVO') {
+      duration = 60;
+      newStatus = 'contacted';
+      notes = 'Connected with prospect / In discussion';
+    } else if (outcomeType === 'WALKTHROUGH') {
+      newStatus = 'walkthrough_booked';
+      notes = 'Jobsite walkthrough requested';
+    } else if (outcomeType === 'SEND_QUOTE') {
+      newStatus = 'quoted';
+      notes = 'Pricing spec sheet / quote requested';
+    } else if (outcomeType === 'NOT_INTERESTED') {
+      newStatus = 'lost';
+      notes = 'Prospect declined / not interested';
+    } else if (outcomeType === 'CALLBACK') {
+      newStatus = 'contacted';
+      notes = 'Callback scheduled';
+    }
+
+    try {
+      // 1. Update lead status in state & DB
+      await updateLeadContact(contact.id, { status: newStatus });
+
+      // 2. Log call event
+      await logCallEvent({
+        contactId: contact.id,
+        contactName: contact.name,
+        phoneNumber: contact.phone,
+        city: contact.city,
+        callType: 'OUTBOUND',
+        outcomeType: outcomeType,
+        durationSeconds: duration,
+        notes: notes,
+        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+        repName: repName || 'Malik',
+      });
+
+      // 3. Update local state
+      setContacts(prev => prev.map(c => {
+        if (c.id === contact.id) {
+          return {
+            ...c,
+            status: newStatus,
+            times_contacted: (c.times_contacted || 0) + 1,
+            last_outcome: outcomeType,
+            last_contacted_at: new Date().toISOString()
+          };
+        }
+        return c;
+      }));
+
+      if (selectedContact?.id === contact.id) {
+        setSelectedContact(prev => ({
+          ...prev,
+          status: newStatus,
+          times_contacted: (prev.times_contacted || 0) + 1,
+          last_outcome: outcomeType,
+          last_contacted_at: new Date().toISOString()
+        }));
+      }
+
+      refreshStats();
+    } catch (err) {
+      console.error('[PhoneTab] One-click outcome error:', err);
+    }
+  }
+
   // Dossier Quick Edit Save
   async function handleSaveDossier() {
     if (!selectedContact?.id) return;
@@ -555,10 +662,11 @@ export default function PhoneTab({ user, repName, isActive }) {
 
   return (
     <div className="phone-workspace-root font-sans">
-      <div className="phone-grid-layout">
+      <div className={`phone-grid-layout ${subView === 'kanban' ? 'full-width' : ''}`}>
         
-        {/* LEFT COLUMN: Calling Queue & Leads List */}
-        <div className="phone-panel">
+        {/* LEFT COLUMN: Calling Queue & Leads List (Hidden in full Kanban view) */}
+        {subView !== 'kanban' && (
+          <div className="phone-panel">
           <div className="phone-panel-header">
             <div className="phone-panel-title">
               <Building2 className="w-4 h-4 text-blue-400" />
@@ -912,8 +1020,9 @@ export default function PhoneTab({ user, repName, isActive }) {
             )}
           </div>
         </div>
+        )}
 
-        {/* RIGHT COLUMN: Active Calling Cockpit & Miro Mind Map */}
+        {/* RIGHT COLUMN: Active Calling Cockpit, Kanban Board & Miro Mind Map */}
         <div className="phone-panel">
           
           {/* Top Panel Header: Stats + Navigation */}
@@ -939,13 +1048,21 @@ export default function PhoneTab({ user, repName, isActive }) {
             </div>
 
             {/* Sub-view Nav Pills */}
-            <div className="phone-subtabs" style={{ gridTemplateColumns: '1fr 1fr 1fr' }}>
+            <div className="phone-subtabs" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
               <button
                 className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
                 onClick={() => setSubView('queue')}
                 title="Active Dialing Console & Dossier"
               >
                 <span>Console</span>
+              </button>
+              <button
+                className={`phone-subtab-btn ${subView === 'kanban' ? 'active' : ''}`}
+                onClick={() => setSubView('kanban')}
+                title="Visual Pipeline & Sector Kanban Board"
+              >
+                <KanbanSquare size={13} className="text-blue-400" />
+                <span>Kanban Board</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'miro' ? 'active' : ''}`}
@@ -1564,6 +1681,28 @@ export default function PhoneTab({ user, repName, isActive }) {
                     </tbody>
                   </table>
                 )}
+              </div>
+            )}
+
+            {/* VIEW 4: VISUAL KANBAN PIPELINE & SECTOR BOARD */}
+            {subView === 'kanban' && (
+              <div className="p-2 sm:p-4">
+                <SalesKanbanBoard
+                  contacts={contacts}
+                  onUpdateStatus={handleKanbanUpdateStatus}
+                  onUpdateSector={handleKanbanUpdateSector}
+                  onOneClickOutcome={handleKanbanOneClickOutcome}
+                  onOpenDossier={contact => {
+                    setSelectedContact(contact);
+                    setDossierModalContact(contact);
+                    setShowDossierModal(true);
+                  }}
+                  onOpenWalkthrough={contact => {
+                    setSelectedContact(contact);
+                    setShowWalkthroughModal(true);
+                  }}
+                  user={user}
+                />
               </div>
             )}
           </div>

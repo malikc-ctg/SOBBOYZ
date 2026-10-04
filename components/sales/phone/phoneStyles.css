@@ -857,3 +857,9 @@
   padding: 30px 20px;
   box-sizing: border-box;
 }
+
+/* Full width layout for Kanban Board */
+.phone-grid-layout.full-width {
+  grid-template-columns: 1fr;
+}
+
