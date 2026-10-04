@@ -23,9 +23,100 @@ import {
   Shield,
   Layers,
   FileText,
-  Copy
+  Copy,
+  PhoneOff,
+  Voicemail,
+  PhoneIncoming,
+  AlertTriangle,
+  ChevronDown,
+  Trash2,
+  XCircle
 } from 'lucide-react';
 import { CALL_OUTCOMES } from '@/lib/sales/phoneService';
+
+const OUTCOME_OPTIONS = [
+  {
+    key: 'NO_ANSWER',
+    label: 'No Answer',
+    subtext: '+1 Dial',
+    badge: 'No Ans',
+    icon: PhoneOff,
+    color: 'text-slate-300 hover:text-white hover:bg-slate-800/80',
+    iconColor: 'text-slate-400'
+  },
+  {
+    key: 'VOICEMAIL',
+    label: 'Left Voicemail',
+    subtext: '+1 Dial',
+    badge: 'VM',
+    icon: Voicemail,
+    color: 'text-purple-300 hover:text-white hover:bg-purple-950/60',
+    iconColor: 'text-purple-400'
+  },
+  {
+    key: 'CONVO',
+    label: 'Pick Up / Connected',
+    subtext: '+1 Dial, +1 Pick Up',
+    badge: 'Pick Up',
+    icon: PhoneIncoming,
+    color: 'text-emerald-300 hover:text-white hover:bg-emerald-950/60',
+    iconColor: 'text-emerald-400'
+  },
+  {
+    key: 'INFO_SENT',
+    label: 'Info Sent / Spec Sheet',
+    subtext: '+1 Dial, +1 Info Sent',
+    badge: 'Info Sent',
+    icon: FileText,
+    color: 'text-blue-300 hover:text-white hover:bg-blue-950/60',
+    iconColor: 'text-blue-400'
+  },
+  {
+    key: 'WALKTHROUGH',
+    label: 'Book Site Walkthrough',
+    subtext: 'Primary Goal (+1 Dial)',
+    badge: 'Walkthrough',
+    icon: Calendar,
+    color: 'text-indigo-300 hover:text-white hover:bg-indigo-950/60',
+    iconColor: 'text-indigo-400'
+  },
+  {
+    key: 'JOB_WON',
+    label: 'Job Won / Closed ($)',
+    subtext: '+1 Dial, +1 Job Won',
+    badge: 'Won',
+    icon: CheckCircle2,
+    color: 'text-teal-300 hover:text-white hover:bg-teal-950/60',
+    iconColor: 'text-teal-400'
+  },
+  {
+    key: 'CALLBACK',
+    label: 'Schedule Callback',
+    subtext: '+1 Dial',
+    badge: 'Callback',
+    icon: Clock,
+    color: 'text-amber-300 hover:text-white hover:bg-amber-950/60',
+    iconColor: 'text-amber-400'
+  },
+  {
+    key: 'NOT_INTERESTED',
+    label: 'Not Interested',
+    subtext: '+1 Dial',
+    badge: 'Lost',
+    icon: XCircle,
+    color: 'text-rose-300 hover:text-white hover:bg-rose-950/60',
+    iconColor: 'text-rose-400'
+  },
+  {
+    key: 'OUT_OF_SERVICE',
+    label: 'Out of Service (OOS)',
+    subtext: 'Office check & database delete',
+    badge: 'OOS',
+    icon: AlertTriangle,
+    color: 'text-rose-400 hover:text-rose-200 hover:bg-rose-950/80 border-t border-slate-800',
+    iconColor: 'text-rose-400'
+  }
+];
 
 function normalizeCompanyName(name) {
   if (!name) return '';
@@ -83,7 +174,10 @@ export default function LeadDossierModal({
   onClose,
   onSelectContact,
   onStartCall,
-  onSaveContact
+  onSaveContact,
+  onUpdateOutcome,
+  onDeleteLead,
+  onOpenWalkthrough
 }) {
   if (!isOpen || !contact) return null;
 
@@ -91,6 +185,32 @@ export default function LeadDossierModal({
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedKey, setCopiedKey] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [openOutcomeDropdown, setOpenOutcomeDropdown] = useState(false);
+  const [openFooterDropdown, setOpenFooterDropdown] = useState(false);
+  const [showOosConfirm, setShowOosConfirm] = useState(false);
+  const [isDeletingLead, setIsDeletingLead] = useState(false);
+  const [outcomeFeedback, setOutcomeFeedback] = useState(null);
+
+  async function handleSelectOutcome(outcomeKey, outcomeLabel) {
+    setOpenOutcomeDropdown(false);
+    setOpenFooterDropdown(false);
+
+    if (outcomeKey === 'OUT_OF_SERVICE') {
+      setShowOosConfirm(true);
+      return;
+    }
+
+    if (outcomeKey === 'WALKTHROUGH' && onOpenWalkthrough) {
+      onOpenWalkthrough(contact);
+      return;
+    }
+
+    if (onUpdateOutcome) {
+      await onUpdateOutcome(contact, outcomeKey);
+      setOutcomeFeedback(`Logged: ${outcomeLabel} (+1 Dial)`);
+      setTimeout(() => setOutcomeFeedback(null), 3500);
+    }
+  }
 
   function handleCopyNumber(num, key) {
     if (!num) return;
@@ -202,6 +322,11 @@ export default function LeadDossierModal({
                     <Check size={13} /> Updated
                   </span>
                 )}
+                {outcomeFeedback && (
+                  <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-800 animate-in fade-in">
+                    <Check size={13} /> {outcomeFeedback}
+                  </span>
+                )}
               </div>
               <div className="flex items-center gap-2 text-xs sm:text-sm text-blue-400 font-semibold mt-0.5 truncate">
                 <span>{contact.position || 'Project Lead'}</span>
@@ -221,6 +346,65 @@ export default function LeadDossierModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {/* CALL OUTCOME DROPDOWN */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenOutcomeDropdown(!openOutcomeDropdown)}
+                className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition"
+                title="Log Call Outcome (Universal Dial Rule applies)"
+              >
+                <PhoneIncoming size={13} />
+                <span>Log Outcome</span>
+                <ChevronDown size={12} className={`transition-transform duration-200 ${openOutcomeDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {openOutcomeDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setOpenOutcomeDropdown(false)}
+                  />
+                  <div
+                    className="absolute right-0 top-full mt-2 w-72 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl p-1.5 z-50 space-y-0.5 text-xs animate-in fade-in slide-in-from-top-1 duration-150"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="text-[10px] font-bold text-slate-400 px-2.5 py-1.5 uppercase tracking-wider flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1">
+                      <span>Select Call Outcome</span>
+                      <span className="text-[9px] text-emerald-400 font-mono">+1 Dial Rule</span>
+                    </div>
+
+                    <div className="max-h-[360px] overflow-y-auto space-y-0.5 pr-0.5">
+                      {OUTCOME_OPTIONS.map(opt => {
+                        const Icon = opt.icon;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => handleSelectOutcome(opt.key, opt.label)}
+                            className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${opt.color}`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-6 h-6 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-center shrink-0">
+                                <Icon size={13} className={opt.iconColor} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-white text-[12px] truncate">{opt.label}</div>
+                                <div className="text-[10px] text-slate-400 truncate">{opt.subtext}</div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono shrink-0 ml-1">
+                              {opt.badge}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={() => setIsEditing(!isEditing)}
@@ -869,11 +1053,77 @@ export default function LeadDossierModal({
 
         {/* Footer Actions Bar */}
         <div className="px-6 py-3.5 border-t border-blue-900/30 bg-[#001733]/90 flex items-center justify-between gap-3">
-          <div className="text-xs text-slate-400 font-mono">
-            Lead ID: <span className="text-slate-300">#{contact.id}</span>
+          <div className="flex items-center gap-3">
+            <div className="text-xs text-slate-400 font-mono">
+              Lead ID: <span className="text-slate-300">#{contact.id}</span>
+            </div>
+            {outcomeFeedback && (
+              <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-950/80 border border-emerald-800 animate-in fade-in">
+                <Check size={12} /> {outcomeFeedback}
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2.5">
+            {/* CALL OUTCOME DROPDOWN IN FOOTER */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setOpenFooterDropdown(!openFooterDropdown)}
+                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition"
+                title="Log Call Outcome"
+              >
+                <PhoneIncoming size={13} />
+                <span>Log Outcome</span>
+                <ChevronDown size={12} className={`transition-transform duration-200 ${openFooterDropdown ? 'rotate-180' : ''}`} />
+              </button>
+
+              {openFooterDropdown && (
+                <>
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setOpenFooterDropdown(false)}
+                  />
+                  <div
+                    className="absolute right-0 bottom-full mb-2 w-72 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl p-1.5 z-50 space-y-0.5 text-xs animate-in fade-in slide-in-from-bottom-1 duration-150"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    <div className="text-[10px] font-bold text-slate-400 px-2.5 py-1.5 uppercase tracking-wider flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1">
+                      <span>Record Call Outcome</span>
+                      <span className="text-[9px] text-emerald-400 font-mono">+1 Dial Rule</span>
+                    </div>
+
+                    <div className="max-h-[340px] overflow-y-auto space-y-0.5 pr-0.5">
+                      {OUTCOME_OPTIONS.map(opt => {
+                        const Icon = opt.icon;
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => handleSelectOutcome(opt.key, opt.label)}
+                            className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${opt.color}`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-6 h-6 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-center shrink-0">
+                                <Icon size={13} className={opt.iconColor} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-white text-[12px] truncate">{opt.label}</div>
+                                <div className="text-[10px] text-slate-400 truncate">{opt.subtext}</div>
+                              </div>
+                            </div>
+                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono shrink-0 ml-1">
+                              {opt.badge}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+
             <button
               type="button"
               onClick={onClose}
@@ -912,6 +1162,94 @@ export default function LeadDossierModal({
         </div>
 
       </div>
+
+      {/* OUT OF SERVICE VERIFICATION & DELETION MODAL */}
+      {showOosConfirm && (
+        <div
+          className="fixed inset-0 z-[70] bg-black/85 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowOosConfirm(false)}
+        >
+          <div
+            className="bg-slate-900 border border-rose-900/60 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4 text-slate-100"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-950 border border-rose-800/80 flex items-center justify-center shrink-0">
+                <AlertTriangle className="text-rose-400" size={20} />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold font-mono tracking-wider uppercase text-rose-400 bg-rose-950/60 border border-rose-900/60 px-2 py-0.5 rounded">
+                  Out of Service Verification
+                </span>
+                <h3 className="text-base font-bold text-white mt-1">
+                  Have you called the office main line?
+                </h3>
+              </div>
+            </div>
+
+            {/* Details */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
+              <div className="text-slate-300">
+                Direct contact line <span className="font-mono text-rose-300 font-semibold">{contact.phone || contact.work_direct_phone || 'N/A'}</span> for <strong className="text-white">{contact.name}</strong> at <strong className="text-white">{contact.company}</strong> is reported out of service.
+              </div>
+              
+              {/* Office Switchboard / HQ line if available */}
+              {(contact.company_phone || contact.work_direct_phone || contact.phone) && (
+                <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
+                  <span className="text-slate-400">Office Main Line / HQ:</span>
+                  <div className="flex items-center gap-1.5 font-mono text-blue-400 font-bold">
+                    <span>{contact.company_phone || contact.work_direct_phone || 'Call Reception'}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopyNumber(contact.company_phone || contact.phone, 'oos_hq')}
+                      className="text-slate-400 hover:text-white p-1 rounded"
+                      title="Copy phone"
+                    >
+                      {copiedKey === 'oos_hq' ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-400 leading-relaxed">
+              If you have already called the office main line and this lead is completely unusable, clicking <strong className="text-rose-300">Yes</strong> will permanently delete this lead from the database.
+            </p>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowOosConfirm(false)}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition"
+              >
+                No, Call Office First
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingLead}
+                onClick={async () => {
+                  setIsDeletingLead(true);
+                  try {
+                    if (onDeleteLead) {
+                      await onDeleteLead(contact.id);
+                    }
+                    setShowOosConfirm(false);
+                    onClose();
+                  } finally {
+                    setIsDeletingLead(false);
+                  }
+                }}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-lg shadow-rose-950/50 disabled:opacity-50"
+              >
+                <Trash2 size={13} />
+                <span>{isDeletingLead ? 'Deleting...' : 'Yes, Delete Lead'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

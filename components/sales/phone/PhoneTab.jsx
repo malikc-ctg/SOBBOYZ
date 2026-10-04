@@ -496,6 +496,16 @@ export default function PhoneTab({ user, repName, isActive }) {
         }));
       }
 
+      if (dossierModalContact?.id === contact.id) {
+        setDossierModalContact(prev => ({
+          ...prev,
+          status: newStatus,
+          times_contacted: (prev.times_contacted || 0) + 1,
+          last_outcome: outcomeType,
+          last_contacted_at: new Date().toISOString()
+        }));
+      }
+
       refreshStats();
     } catch (err) {
       console.error('[PhoneTab] One-click outcome error:', err);
@@ -533,6 +543,7 @@ export default function PhoneTab({ user, repName, isActive }) {
       // Remove from state immediately
       setContacts(prev => prev.filter(c => c.id !== contactId));
       if (selectedContact?.id === contactId) setSelectedContact(null);
+      if (dossierModalContact?.id === contactId) setDossierModalContact(null);
       refreshStats();
     } catch (err) {
       console.error('[PhoneTab] Delete lead failed:', err);
@@ -2054,6 +2065,13 @@ export default function PhoneTab({ user, repName, isActive }) {
           startCall(c, phone);
         }}
         onSaveContact={handleSaveContactFromModal}
+        onUpdateOutcome={handleKanbanOneClickOutcome}
+        onDeleteLead={handleKanbanDeleteLead}
+        onOpenWalkthrough={(c) => {
+          setSelectedContact(c);
+          setShowDossierModal(false);
+          setShowWalkthroughModal(true);
+        }}
       />
 
     </div>

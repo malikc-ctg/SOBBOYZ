@@ -3,22 +3,10 @@ import {
   Layers,
   Building2,
   Search,
-  PhoneOff,
-  Voicemail,
-  PhoneIncoming,
-  Calendar,
-  FileText,
-  CheckCircle2,
-  XCircle,
-  Clock,
-  MoreHorizontal,
   ChevronDown,
   User,
   Copy,
   Check,
-  Briefcase,
-  AlertTriangle,
-  Trash2,
   Plus,
   Upload
 } from 'lucide-react';
@@ -79,9 +67,6 @@ export default function SalesKanbanBoard({
   const [dragOverColumn, setDragOverColumn] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [openSectorMenuId, setOpenSectorMenuId] = useState(null);
-  const [openMoreActionsId, setOpenMoreActionsId] = useState(null);
-  const [oosConfirmContact, setOosConfirmContact] = useState(null);
-  const [isDeletingLead, setIsDeletingLead] = useState(false);
 
   // Copy phone number helper
   const handleCopyPhone = (e, contactId, phone) => {
@@ -439,163 +424,6 @@ export default function SalesKanbanBoard({
                               {formatDateRelative(contact.last_contacted_at)}
                             </span>
                           </div>
-
-                          {/* ONE-CLICK OUTCOME DISPOSITION BUTTONS (Universal Dial Rule applies) */}
-                          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
-                            {/* 1-Click No Answer */}
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                if (onOneClickOutcome) onOneClickOutcome(contact, 'NO_ANSWER');
-                              }}
-                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1 transition"
-                              title="Log No Answer (Bumps Dials and No Answer)"
-                            >
-                              <PhoneOff size={11} className="text-slate-400" />
-                              <span>No Ans</span>
-                            </button>
-
-                            {/* 1-Click Voicemail */}
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                if (onOneClickOutcome) onOneClickOutcome(contact, 'VOICEMAIL');
-                              }}
-                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-purple-300 hover:text-white border border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1 transition"
-                              title="Log Left Voicemail"
-                            >
-                              <Voicemail size={11} className="text-purple-400" />
-                              <span>VM</span>
-                            </button>
-
-                            {/* 1-Click Pick Up / Connected */}
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                if (onOneClickOutcome) onOneClickOutcome(contact, 'CONVO');
-                              }}
-                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 hover:text-emerald-100 border border-emerald-800/60 text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm"
-                              title="Mark Connected / In Discussion (Bumps Dials & Pick Ups)"
-                            >
-                              <PhoneIncoming size={11} className="text-emerald-400" />
-                              <span>Pick Up</span>
-                            </button>
-
-                            {/* 1-Click Info Sent */}
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                if (onOneClickOutcome) onOneClickOutcome(contact, 'INFO_SENT');
-                              }}
-                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 hover:text-blue-100 border border-blue-800/60 text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm"
-                              title="Log Capabilities Info / Quote Sent (Bumps Dials & Info Sent)"
-                            >
-                              <FileText size={11} className="text-blue-400" />
-                              <span>Info Sent</span>
-                            </button>
-
-                            {/* 1-Click Out of Service (OOS) - Prompts Office Check & Deletion */}
-                            <button
-                              type="button"
-                              onClick={e => {
-                                e.stopPropagation();
-                                setOosConfirmContact(contact);
-                              }}
-                              className="py-1.5 px-2 rounded-lg bg-rose-950/40 hover:bg-rose-900/70 text-rose-300 hover:text-rose-100 border border-rose-900/50 text-[10px] font-bold flex items-center justify-center gap-1 transition"
-                              title="Out of service / Dead line"
-                            >
-                              <AlertTriangle size={11} className="text-rose-400" />
-                              <span>OOS</span>
-                            </button>
-
-                            {/* More Options Dropdown */}
-                            <div className="relative">
-                              <button
-                                type="button"
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  setOpenMoreActionsId(openMoreActionsId === contact.id ? null : contact.id);
-                                  setOpenSectorMenuId(null);
-                                }}
-                                className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
-                                title="More actions"
-                              >
-                                <MoreHorizontal size={12} />
-                              </button>
-
-                              {openMoreActionsId === contact.id && (
-                                <div
-                                  className="absolute right-0 bottom-full mb-1 w-48 rounded-xl bg-slate-900 border border-slate-700 shadow-2xl p-1 z-50 space-y-0.5"
-                                  onClick={e => e.stopPropagation()}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (onOpenWalkthrough) {
-                                        onOpenWalkthrough(contact);
-                                      } else if (onOneClickOutcome) {
-                                        onOneClickOutcome(contact, 'WALKTHROUGH');
-                                      }
-                                      setOpenMoreActionsId(null);
-                                    }}
-                                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold text-blue-300 hover:bg-slate-800 flex items-center gap-2"
-                                  >
-                                    <Calendar size={12} className="text-blue-400" />
-                                    <span>Book Walkthrough</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (onOneClickOutcome) onOneClickOutcome(contact, 'JOB_WON');
-                                      setOpenMoreActionsId(null);
-                                    }}
-                                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold text-emerald-300 hover:bg-emerald-950/60 flex items-center gap-2"
-                                  >
-                                    <CheckCircle2 size={12} className="text-emerald-400" />
-                                    <span>Job Won</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (onOneClickOutcome) onOneClickOutcome(contact, 'CALLBACK');
-                                      setOpenMoreActionsId(null);
-                                    }}
-                                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold text-slate-300 hover:bg-slate-800 flex items-center gap-2"
-                                  >
-                                    <Clock size={12} className="text-amber-400" />
-                                    <span>Schedule Callback</span>
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (onOneClickOutcome) onOneClickOutcome(contact, 'NOT_INTERESTED');
-                                      setOpenMoreActionsId(null);
-                                    }}
-                                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-semibold text-rose-300 hover:bg-rose-950/60 flex items-center gap-2"
-                                  >
-                                    <XCircle size={12} className="text-rose-400" />
-                                    <span>Not Interested</span>
-                                  </button>
-                                  <div className="border-t border-slate-800 my-1" />
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      if (onOpenDossier) onOpenDossier(contact);
-                                      setOpenMoreActionsId(null);
-                                    }}
-                                    className="w-full text-left px-2 py-1.5 rounded-lg text-xs font-bold text-blue-400 hover:bg-slate-800 flex items-center gap-2"
-                                  >
-                                    <User size={12} />
-                                    <span>Open Full Dossier</span>
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          </div>
                         </div>
                       );
                     })
@@ -607,92 +435,6 @@ export default function SalesKanbanBoard({
         </div>
       )}
 
-      {/* OUT OF SERVICE VERIFICATION & DELETION MODAL */}
-      {oosConfirmContact && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setOosConfirmContact(null)}
-        >
-          <div
-            className="bg-slate-900 border border-rose-900/60 rounded-2xl w-full max-w-md overflow-hidden shadow-2xl p-6 space-y-4"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Header */}
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-rose-950 border border-rose-800/80 flex items-center justify-center shrink-0">
-                <AlertTriangle className="text-rose-400" size={20} />
-              </div>
-              <div>
-                <span className="text-[10px] font-bold font-mono tracking-wider uppercase text-rose-400 bg-rose-950/60 border border-rose-900/60 px-2 py-0.5 rounded">
-                  Out of Service Verification
-                </span>
-                <h3 className="text-base font-bold text-white mt-1">
-                  Have you called the office main line?
-                </h3>
-              </div>
-            </div>
-
-            {/* Details */}
-            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3.5 space-y-2 text-xs">
-              <div className="text-slate-300">
-                Direct contact line <span className="font-mono text-rose-300 font-semibold">{oosConfirmContact.phone || 'N/A'}</span> for <strong className="text-white">{oosConfirmContact.name}</strong> at <strong className="text-white">{oosConfirmContact.company}</strong> is reported out of service.
-              </div>
-              
-              {/* Office Switchboard / HQ line if available */}
-              {(oosConfirmContact.company_phone || oosConfirmContact.work_direct_phone || oosConfirmContact.phone) && (
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                  <span className="text-slate-400">Office Main Line / HQ:</span>
-                  <div className="flex items-center gap-1.5 font-mono text-blue-400 font-bold">
-                    <span>{oosConfirmContact.company_phone || oosConfirmContact.work_direct_phone || 'Call Reception'}</span>
-                    <button
-                      type="button"
-                      onClick={e => handleCopyPhone(e, oosConfirmContact.id, oosConfirmContact.company_phone || oosConfirmContact.phone)}
-                      className="text-slate-400 hover:text-white p-1 rounded"
-                      title="Copy phone"
-                    >
-                      {copiedId === oosConfirmContact.id ? <Check size={12} className="text-emerald-400" /> : <Copy size={12} />}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              If you have already called the office main line and this lead is completely unusable, clicking <strong className="text-rose-300">Yes</strong> will permanently delete this lead from the database.
-            </p>
-
-            {/* Action Buttons */}
-            <div className="flex items-center gap-3 pt-2">
-              <button
-                type="button"
-                onClick={() => setOosConfirmContact(null)}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition"
-              >
-                No, Call Office First
-              </button>
-              <button
-                type="button"
-                disabled={isDeletingLead}
-                onClick={async () => {
-                  setIsDeletingLead(true);
-                  try {
-                    if (onDeleteLead) {
-                      await onDeleteLead(oosConfirmContact.id);
-                    }
-                  } finally {
-                    setIsDeletingLead(false);
-                    setOosConfirmContact(null);
-                  }
-                }}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 transition shadow-lg shadow-rose-950/50 disabled:opacity-50"
-              >
-                <Trash2 size={13} />
-                <span>{isDeletingLead ? 'Deleting...' : 'Yes, Delete Lead'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
