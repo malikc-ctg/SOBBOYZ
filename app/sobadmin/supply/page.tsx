@@ -25,6 +25,7 @@ import {
   ClipboardCheck,
   ArrowRight,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -96,7 +97,7 @@ export interface Employee {
 
 export interface ActiveCaddy {
   id: string;
-  type: 'solo' | 'duo';
+  crewType: 'solo' | 'duo';
   cleanerName: string;
   partnerName?: string;
   label: string;
@@ -104,106 +105,110 @@ export interface ActiveCaddy {
   notes?: string;
 }
 
-export interface CaddyBlueprintItem {
+export interface StandardCaddyItem {
   name: string;
-  category: 'chemical' | 'cloth' | 'ppe' | 'tool' | 'equipment';
-  soloQty: string;
-  duoQty: string;
+  category: 'chemical' | 'cleanser' | 'cloth' | 'ppe' | 'tool' | 'equipment';
+  quantity: string;
   icon: string;
-  purpose: string;
+  role: string;
 }
 
 // ============================================================================
-// Standard Caddy Blueprint (Solo vs Duo)
+// The Standard Sea of Blue Caddy (Serves 1–2 People Full Service)
 // ============================================================================
-const CADDY_CHECKLIST: CaddyBlueprintItem[] = [
+const STANDARD_CADDY_ITEMS: StandardCaddyItem[] = [
+  // Chemicals & Cleansers
   {
-    name: 'All-Purpose Surface Disinfectant',
+    name: 'APC (All Purpose Cleaner)',
+    quantity: '2 Bottles (32oz)',
     category: 'chemical',
-    soloQty: '1 Bottle (32oz)',
-    duoQty: '2 Bottles (32oz)',
     icon: '🧴',
-    purpose: 'Countertops, tabletops, appliances, high-touch areas',
+    role: 'Countertops, tabletops, appliances, high-touch disinfection (2 bottles for 1–2 cleaners)',
   },
   {
-    name: 'Streak-Free Glass & Mirror Polish',
+    name: 'Degreaser',
+    quantity: '1 Bottle (32oz)',
     category: 'chemical',
-    soloQty: '1 Bottle (32oz)',
-    duoQty: '2 Bottles (32oz)',
-    icon: '✨',
-    purpose: 'Mirrors, windows, glass shower panels, chrome fixtures',
-  },
-  {
-    name: 'Heavy-Duty Kitchen Degreaser',
-    category: 'chemical',
-    soloQty: '1 Bottle (32oz)',
-    duoQty: '2 Bottles (32oz)',
     icon: '🍳',
-    purpose: 'Stovetops, range hoods, baked-on grease, backsplashes',
+    role: 'Stovetops, range hoods, baked grease, backsplashes, heavy kitchen build-up',
   },
   {
-    name: 'Shower, Tub & Tile Acid Descaler',
+    name: 'Floor Cleaner',
+    quantity: '1 Bottle',
     category: 'chemical',
-    soloQty: '1 Bottle (32oz)',
-    duoQty: '2 Bottles (32oz)',
+    icon: '✨',
+    role: 'Neutral pH solution for hardwood, tile, and laminate floor care',
+  },
+  {
+    name: 'Stainless Steel Cleaner',
+    quantity: '1 Bottle / Can',
+    category: 'chemical',
+    icon: '🛡️',
+    role: 'Refrigerators, ovens, dishwashers, range hoods streak-free shine',
+  },
+  {
+    name: 'STT (Shower Tub Tile Cleaner)',
+    quantity: '1 Bottle (32oz)',
+    category: 'chemical',
     icon: '🚿',
-    purpose: 'Soap scum, hard water scale, grout lines, tile walls',
+    role: 'Soap scum, limescale, bathroom tile walls, tubs, glass showers',
   },
   {
-    name: 'Color-Coded Microfiber Cloths',
+    name: 'Bar Keepers Friend',
+    quantity: '1 Can / Bottle',
+    category: 'cleanser',
+    icon: '🌟',
+    role: 'Stainless sinks, stubborn burnt pots, glass cooktops, porcelain tubs',
+  },
+  // Cloths, Tools & Floor Care
+  {
+    name: 'Microfiber Cloths',
+    quantity: '1 Bundle (15–20 Cloths)',
     category: 'cloth',
-    soloQty: '12–15 Towels',
-    duoQty: '25–30 Towels',
     icon: '🧽',
-    purpose: 'Blue (Glass), Yellow (Dusting/General), Red (Bathrooms)',
+    role: 'Color-coded: Blue (Glass/Mirrors), Yellow (Dust/General), Red (Bathrooms)',
   },
   {
-    name: 'Non-Scratch Sponges & Detail Scrubber',
-    category: 'cloth',
-    soloQty: '2 Sponges + 1 Brush',
-    duoQty: '4 Sponges + 2 Brushes',
-    icon: '🪥',
-    purpose: 'Grout lines, corners, sink edges, tight crevices',
-  },
-  {
-    name: 'Nitrile Gloves (Powder-Free)',
+    name: 'Nitrile Gloves',
+    quantity: '1 Box / Pouch',
     category: 'ppe',
-    soloQty: '1 Box / Pouch',
-    duoQty: '2 Boxes / Pouches',
     icon: '🧤',
-    purpose: 'Chemical protection and hygiene safety',
+    role: 'Tear-resistant nitrile skin & bio protection for 1–2 cleaners',
   },
   {
-    name: 'Heavy Duty Contractor Trash Bags (55 Gal)',
-    category: 'ppe',
-    soloQty: 'Roll (3–5 Bags)',
-    duoQty: 'Roll (6–10 Bags)',
-    icon: '🗑️',
-    purpose: 'Waste removal and bin relining',
-  },
-  {
-    name: 'Extendable Microfiber Duster Kit',
+    name: 'Mop & Mop Bucket',
+    quantity: '1 Bucket + 1 Flat Mop',
     category: 'tool',
-    soloQty: '1 Duster',
-    duoQty: '2 Dusters',
+    icon: '🪣',
+    role: 'Floor washing with wringer bucket and clean microfiber mop pads',
+  },
+  {
+    name: 'Extendable Duster',
+    quantity: '1 Duster',
+    category: 'tool',
     icon: '🪶',
-    purpose: 'Ceiling fans, high crown moulding, window blinds',
+    role: 'Ceiling fans, high crown moulding, window blinds, corners',
   },
   {
-    name: 'Microfiber Flat Flip Mop',
+    name: 'Broom & Dustpan',
+    quantity: '1 Set',
     category: 'tool',
-    soloQty: '1 Mop + 2 Pads',
-    duoQty: '1–2 Mops + 4 Pads',
     icon: '🧹',
-    purpose: 'Hardwood, tile, and laminate floor care',
+    role: 'Dry floor sweeping & quick debris collection before mopping',
   },
   {
-    name: 'RIDGID Wet/Dry Shop Vacuum (HEPA)',
+    name: 'RIDGID Wet/Dry Shop Vac',
+    quantity: '1 Unit',
     category: 'equipment',
-    soloQty: '1 Unit',
-    duoQty: '1 Unit (Shared)',
     icon: '⚡',
-    purpose: 'Full house vacuuming, edge crevice, and debris extraction',
+    role: 'Heavy-duty HEPA vacuuming on floors, rugs, baseboards and construction dust',
+  },
+  {
+    name: 'Contractor Trash Bags (55 Gal)',
+    quantity: 'Roll (5–10 Bags)',
+    category: 'ppe',
+    icon: '🗑️',
+    role: 'Waste removal, debris haul-out, and heavy bin relining',
   },
 ];
 
@@ -214,17 +219,15 @@ export default function SupplyPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Active Main Navigation: Caddies first!
-  const [activeTab, setActiveTab] = useState<'caddies' | 'supply_list' | 'store_run'>('caddies');
+  // Active Main Navigation
+  const [activeTab, setActiveTab] = useState<'caddy_standard' | 'supply_list' | 'store_run'>('caddy_standard');
 
-  // Caddy Prep Mode
-  const [caddyMode, setCaddyMode] = useState<'solo' | 'duo'>('solo');
-
-  // Active Dispatched Caddies (persisted locally)
+  // Active Dispatched Caddies in Field (persisted in localStorage)
   const [activeCaddies, setActiveCaddies] = useState<ActiveCaddy[]>([]);
 
-  // Dispatch Caddy Form Modal
+  // Dispatch Caddy Dialog State
   const [dispatchOpen, setDispatchOpen] = useState(false);
+  const [crewType, setCrewType] = useState<'solo' | 'duo'>('solo');
   const [selectedCleaner1, setSelectedCleaner1] = useState('');
   const [selectedCleaner2, setSelectedCleaner2] = useState('');
   const [caddyLabel, setCaddyLabel] = useState('Caddy #1');
@@ -232,7 +235,7 @@ export default function SupplyPage() {
 
   // Search & Filtering for Supply List
   const [search, setSearch] = useState('');
-  const [supplyCategoryFilter, setSupplyCategoryFilter] = useState<'all' | 'chemical' | 'consumable' | 'ppe' | 'tool'>('all');
+  const [supplyCategoryFilter, setSupplyCategoryFilter] = useState<'all' | 'chemical' | 'cloth' | 'ppe' | 'tool'>('all');
 
   // Inline Count Editing State
   const [editingQtyId, setEditingQtyId] = useState<string | null>(null);
@@ -266,7 +269,7 @@ export default function SupplyPage() {
   // Load Saved Caddies from LocalStorage
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('sob_active_caddies');
+      const saved = localStorage.getItem('sob_active_caddies_v2');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) setActiveCaddies(parsed);
@@ -276,11 +279,10 @@ export default function SupplyPage() {
     }
   }, []);
 
-  // Save Caddies to LocalStorage
   const saveActiveCaddies = (updated: ActiveCaddy[]) => {
     setActiveCaddies(updated);
     try {
-      localStorage.setItem('sob_active_caddies', JSON.stringify(updated));
+      localStorage.setItem('sob_active_caddies_v2', JSON.stringify(updated));
     } catch {
       // ignore
     }
@@ -302,7 +304,6 @@ export default function SupplyPage() {
 
       setInventory(Array.isArray(invData) ? invData : []);
       if (Array.isArray(empData)) {
-        // filter active cleaners
         setEmployees(empData.filter((e) => e.status !== 'deleted'));
       }
     } catch (err) {
@@ -396,16 +397,17 @@ export default function SupplyPage() {
     }
   }
 
-  // Filtered Inventory List
+  // Filtered Inventory List for Central Stash
   const filteredInventory = useMemo(() => {
     const q = search.toLowerCase().trim();
     return inventory.filter((row) => {
       const item = row.item || {};
       const cat = (item.category || 'consumable').toLowerCase();
+      const name = (item.name || '').toLowerCase();
 
       const matchSearch =
         !q ||
-        item.name?.toLowerCase().includes(q) ||
+        name.includes(q) ||
         item.home_depot_sku?.toLowerCase().includes(q) ||
         item.amazon_asin?.toLowerCase().includes(q);
 
@@ -413,12 +415,12 @@ export default function SupplyPage() {
         supplyCategoryFilter === 'all'
           ? true
           : supplyCategoryFilter === 'chemical'
-          ? cat === 'chemical'
-          : supplyCategoryFilter === 'consumable'
-          ? cat === 'consumable' && !item.name.toLowerCase().includes('glove') && !item.name.toLowerCase().includes('bag')
+          ? cat === 'chemical' || name.includes('cleaner') || name.includes('degreaser') || name.includes('disinfectant') || name.includes('barkeeper') || name.includes('polish')
+          : supplyCategoryFilter === 'cloth'
+          ? (cat === 'consumable' && (name.includes('cloth') || name.includes('towel') || name.includes('sponge') || name.includes('scrub')))
           : supplyCategoryFilter === 'ppe'
-          ? cat === 'ppe' || item.name.toLowerCase().includes('glove') || item.name.toLowerCase().includes('bag')
-          : cat === 'tool' || cat === 'equipment';
+          ? (cat === 'ppe' || name.includes('glove') || name.includes('bag') || name.includes('mask'))
+          : cat === 'tool' || cat === 'equipment' || name.includes('mop') || name.includes('bucket') || name.includes('duster') || name.includes('broom') || name.includes('vac');
 
       return matchSearch && matchCategory;
     });
@@ -522,8 +524,8 @@ export default function SupplyPage() {
       toast.error('Please select a cleaner');
       return;
     }
-    if (caddyMode === 'duo' && !selectedCleaner2) {
-      toast.error('Please select both cleaners for a duo team');
+    if (crewType === 'duo' && !selectedCleaner2) {
+      toast.error('Please select partner cleaner for the duo team');
       return;
     }
 
@@ -532,19 +534,17 @@ export default function SupplyPage() {
 
     const newCaddy: ActiveCaddy = {
       id: `caddy-${Date.now()}`,
-      type: caddyMode,
-      cleanerName: cleaner1?.full_name || 'Assigned Cleaner',
-      partnerName: caddyMode === 'duo' ? cleaner2?.full_name : undefined,
-      label: caddyLabel.trim() || (caddyMode === 'solo' ? 'Solo Caddy' : 'Duo Kit'),
+      crewType,
+      cleanerName: cleaner1?.full_name || 'Cleaner',
+      partnerName: crewType === 'duo' ? cleaner2?.full_name : undefined,
+      label: caddyLabel.trim() || 'Standard Caddy',
       dispatchedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       notes: caddyNotes.trim() || undefined,
     };
 
     saveActiveCaddies([newCaddy, ...activeCaddies]);
     toast.success(
-      `${caddyMode === 'solo' ? 'Solo Caddy' : 'Duo Kit'} dispatched with ${cleaner1?.full_name}${
-        cleaner2 ? ` & ${cleaner2.full_name}` : ''
-      }!`
+      `${caddyLabel} dispatched with ${cleaner1?.full_name}${cleaner2 ? ` & ${cleaner2.full_name}` : ''}!`
     );
     setDispatchOpen(false);
     setSelectedCleaner1('');
@@ -596,7 +596,7 @@ export default function SupplyPage() {
             Supply & Caddy Operations
           </h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Pack standard cleaning caddies for solo cleaners or duos, track active kits, and manage refill stock.
+            Standard 1–2 person cleaning caddies, active field dispatches, and central refill stash.
           </p>
         </div>
 
@@ -614,25 +614,28 @@ export default function SupplyPage() {
 
           <Button
             size="sm"
-            onClick={() => setDispatchOpen(true)}
-            className="h-9 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground"
+            onClick={() => {
+              setCaddyLabel(`Caddy #${activeCaddies.length + 1}`);
+              setDispatchOpen(true);
+            }}
+            className="h-9 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-xs"
           >
             <ClipboardCheck className="h-4 w-4 mr-1.5" />
-            Pack & Dispatch Caddy
+            Dispatch Caddy to Job
           </Button>
         </div>
       </div>
 
-      {/* Top 3 High-Clarity Operational Tabs */}
+      {/* Main Operational Tabs */}
       <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-6">
         <div className="bg-muted/40 p-1 rounded-xl border">
           <TabsList className="grid grid-cols-3 h-auto gap-1 bg-transparent p-0">
             <TabsTrigger
-              value="caddies"
+              value="caddy_standard"
               className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs py-2.5 font-semibold"
             >
-              <Users className="h-4 w-4 mr-2 text-primary" />
-              Caddies (Solo & Duo)
+              <Boxes className="h-4 w-4 mr-2 text-primary" />
+              The Standard Caddy
               {activeCaddies.length > 0 && (
                 <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] bg-primary/10 text-primary font-bold">
                   {activeCaddies.length} Out
@@ -645,7 +648,7 @@ export default function SupplyPage() {
               className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs py-2.5 font-semibold"
             >
               <Boxes className="h-4 w-4 mr-2 text-blue-600" />
-              Our Supply Stash
+              Central Refill Stash
               <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] bg-muted text-muted-foreground font-mono">
                 {inventory.length}
               </span>
@@ -671,10 +674,10 @@ export default function SupplyPage() {
         </div>
 
         {/* ========================================================================= */}
-        {/* TAB 1: CADDIES (SOLO VS DUO OPERATIONS)                                   */}
+        {/* TAB 1: THE STANDARD CADDY (1 CADDY SERVES 1-2 CLEANERS)                   */}
         {/* ========================================================================= */}
-        <TabsContent value="caddies" className="space-y-6 m-0">
-          {/* Active Caddies in the Field */}
+        <TabsContent value="caddy_standard" className="space-y-6 m-0">
+          {/* Active Dispatched Caddies in Field */}
           {activeCaddies.length > 0 && (
             <Card className="border-blue-200 bg-blue-50/20 shadow-xs">
               <CardHeader className="pb-3">
@@ -685,7 +688,7 @@ export default function SupplyPage() {
                       Active Caddies Out on Jobs ({activeCaddies.length})
                     </CardTitle>
                     <CardDescription className="text-xs text-blue-800/80">
-                      Cleaners currently carrying a stocked caddy in the field
+                      Currently dispatched with your cleaning crew in the field
                     </CardDescription>
                   </div>
                 </div>
@@ -702,25 +705,25 @@ export default function SupplyPage() {
                         <Badge
                           variant="outline"
                           className={`text-[10px] font-semibold ${
-                            caddy.type === 'solo'
+                            caddy.crewType === 'solo'
                               ? 'bg-blue-50 text-blue-700 border-blue-200'
                               : 'bg-purple-50 text-purple-700 border-purple-200'
                           }`}
                         >
-                          {caddy.type === 'solo' ? '👤 1-Person Solo' : '👥 2-Person Duo'}
+                          {caddy.crewType === 'solo' ? '👤 1-Person Solo' : '👥 2-Person Duo Team'}
                         </Badge>
                         <span className="text-[10px] text-muted-foreground font-mono">
-                          Out since {caddy.dispatchedAt}
+                          Out at {caddy.dispatchedAt}
                         </span>
                       </div>
 
                       <div>
                         <p className="font-bold text-sm text-foreground">{caddy.label}</p>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                          {caddy.type === 'solo' ? (
+                          {caddy.crewType === 'solo' ? (
                             <span>Cleaner: <strong>{caddy.cleanerName}</strong></span>
                           ) : (
-                            <span>Duo: <strong>{caddy.cleanerName}</strong> & <strong>{caddy.partnerName}</strong></span>
+                            <span>Crew: <strong>{caddy.cleanerName}</strong> & <strong>{caddy.partnerName}</strong></span>
                           )}
                         </p>
                         {caddy.notes && (
@@ -746,136 +749,99 @@ export default function SupplyPage() {
             </Card>
           )}
 
-          {/* Caddy Setup / Blueprint Toggle Card */}
+          {/* Standard Caddy Specification & Packing Card */}
           <Card className="shadow-sm">
             <CardHeader className="pb-4 border-b">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <CardTitle className="text-base font-bold flex items-center gap-2">
-                    <Boxes className="h-5 w-5 text-primary" />
-                    Standard Caddy Checklist: Solo vs Duo
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Choose 1 Person or Duo below to see the exact items packed into that caddy setup.
+                  <div className="flex items-center gap-2">
+                    <CardTitle className="text-base font-bold text-foreground">
+                      The Standard Sea of Blue Cleaning Caddy
+                    </CardTitle>
+                    <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 text-xs font-semibold">
+                      Full Service for 1–2 People
+                    </Badge>
+                  </div>
+                  <CardDescription className="text-xs mt-1">
+                    Every caddy carries the exact same standardized equipment and chemical loadout. 1 caddy fully equips 1 solo cleaner or a 2-person duo team.
                   </CardDescription>
-                </div>
-
-                {/* Solo vs Duo Mode Switcher */}
-                <div className="flex items-center gap-1.5 p-1 bg-muted rounded-xl self-start sm:self-auto border">
-                  <button
-                    onClick={() => setCaddyMode('solo')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      caddyMode === 'solo'
-                        ? 'bg-background text-foreground shadow-xs'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <User className="h-3.5 w-3.5 text-blue-600" />
-                    Solo Caddy (1 Person)
-                  </button>
-
-                  <button
-                    onClick={() => setCaddyMode('duo')}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      caddyMode === 'duo'
-                        ? 'bg-background text-foreground shadow-xs'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    <Users className="h-3.5 w-3.5 text-purple-600" />
-                    Duo Kit (2 People)
-                  </button>
-                </div>
-              </div>
-            </CardHeader>
-
-            <CardContent className="p-0">
-              {/* Highlight Banner */}
-              <div
-                className={`p-4 border-b text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-                  caddyMode === 'solo' ? 'bg-blue-50/40 text-blue-900' : 'bg-purple-50/40 text-purple-900'
-                }`}
-              >
-                <div>
-                  <p className="font-bold text-sm">
-                    {caddyMode === 'solo' ? '👤 1-Person Solo Cleaner Caddy' : '👥 2-Person Duo Team Kit'}
-                  </p>
-                  <p className="text-xs opacity-90 mt-0.5">
-                    {caddyMode === 'solo'
-                      ? 'Single primary caddy with the 4 core spray bottles, 12–15 towels, gloves, duster, mop & vacuum.'
-                      : 'Dual chemical sets (so both cleaners can work separate rooms without sharing bottles), 25–30 towels, 2x gloves, and shared vacuum/mop.'}
-                  </p>
                 </div>
 
                 <Button
                   size="sm"
                   onClick={() => {
-                    setCaddyLabel(caddyMode === 'solo' ? 'Solo Caddy' : 'Duo Kit');
+                    setCaddyLabel(`Caddy #${activeCaddies.length + 1}`);
                     setDispatchOpen(true);
                   }}
-                  className={`h-8 text-xs font-semibold shrink-0 ${
-                    caddyMode === 'solo' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'
-                  }`}
+                  className="h-8 text-xs font-semibold shrink-0"
                 >
-                  Pack This {caddyMode === 'solo' ? 'Solo Caddy' : 'Duo Kit'}
+                  <ClipboardCheck className="h-3.5 w-3.5 mr-1.5" />
+                  Dispatch Caddy
                 </Button>
               </div>
+            </CardHeader>
 
-              {/* Blueprint Checklist Table */}
+            <CardContent className="p-0">
+              {/* Highlight Banner */}
+              <div className="p-4 bg-muted/30 border-b text-xs flex items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <span className="text-xl">🧺</span>
+                  <div>
+                    <span className="font-bold text-foreground">1 Standard Caddy = Complete Service: </span>
+                    <span className="text-muted-foreground">
+                      2x APC bottles (so both people have plenty), Degreaser, Floor cleaner, Stainless steel, STT descaler, Bar Keepers Friend, plus cloths, gloves, mop & bucket, duster, broom, and vacuum.
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Standard Caddy Checklist Table */}
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/30 text-xs">
-                    <TableHead className="w-[340px]">Caddy Item</TableHead>
-                    <TableHead className="w-[180px]">Quantity to Pack</TableHead>
-                    <TableHead>What It&apos;s Used For</TableHead>
+                    <TableHead className="w-[300px]">Caddy Item</TableHead>
+                    <TableHead className="w-[180px]">Quantity Packed</TableHead>
+                    <TableHead>Service Purpose</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {CADDY_CHECKLIST.map((item, idx) => {
-                    const qty = caddyMode === 'solo' ? item.soloQty : item.duoQty;
-
-                    return (
-                      <TableRow key={idx} className="text-xs hover:bg-muted/10">
-                        <TableCell>
-                          <div className="flex items-center gap-2.5">
-                            <span className="text-base">{item.icon}</span>
-                            <div>
-                              <p className="font-bold text-foreground text-sm leading-tight">
-                                {item.name}
-                              </p>
-                              <Badge variant="outline" className="text-[10px] capitalize mt-0.5">
-                                {item.category === 'chemical'
-                                  ? 'Core Spray Bottle'
-                                  : item.category === 'cloth'
-                                  ? 'Wipes & Scrub'
-                                  : item.category === 'ppe'
-                                  ? 'PPE & Waste'
-                                  : item.category === 'tool'
-                                  ? 'Hand Tool'
-                                  : 'Floor Care'}
-                              </Badge>
-                            </div>
+                  {STANDARD_CADDY_ITEMS.map((item, idx) => (
+                    <TableRow key={idx} className="text-xs hover:bg-muted/10">
+                      <TableCell>
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-base">{item.icon}</span>
+                          <div>
+                            <p className="font-bold text-foreground text-sm leading-tight">
+                              {item.name}
+                            </p>
+                            <Badge variant="outline" className="text-[10px] capitalize mt-0.5">
+                              {item.category === 'chemical'
+                                ? 'Spray Bottle'
+                                : item.category === 'cleanser'
+                                ? 'Specialty Cleanser'
+                                : item.category === 'cloth'
+                                ? 'Cloths & Towels'
+                                : item.category === 'ppe'
+                                ? 'PPE & Waste'
+                                : item.category === 'tool'
+                                ? 'Cleaning Tool'
+                                : 'Machinery'}
+                            </Badge>
                           </div>
-                        </TableCell>
+                        </div>
+                      </TableCell>
 
-                        <TableCell>
-                          <span
-                            className={`font-bold px-2 py-1 rounded-md text-xs inline-block ${
-                              caddyMode === 'solo'
-                                ? 'bg-blue-100 text-blue-900'
-                                : 'bg-purple-100 text-purple-900'
-                            }`}
-                          >
-                            {qty}
-                          </span>
-                        </TableCell>
+                      <TableCell>
+                        <span className="font-bold px-2.5 py-1 rounded-md text-xs inline-block bg-primary/10 text-primary">
+                          {item.quantity}
+                        </span>
+                      </TableCell>
 
-                        <TableCell className="text-muted-foreground text-xs">
-                          {item.purpose}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
+                      <TableCell className="text-muted-foreground text-xs">
+                        {item.role}
+                      </TableCell>
+                    </TableRow>
+                  ))}
                 </TableBody>
               </Table>
             </CardContent>
@@ -883,18 +849,17 @@ export default function SupplyPage() {
         </TabsContent>
 
         {/* ========================================================================= */}
-        {/* TAB 2: OUR SUPPLY STASH (THE REFILL INVENTORY)                           */}
+        {/* TAB 2: CENTRAL REFILL STASH (THE SUPPLY LIST)                             */}
         {/* ========================================================================= */}
         <TabsContent value="supply_list" className="space-y-4 m-0">
-          {/* Header Description & Add Button */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <h3 className="text-base font-bold text-foreground flex items-center gap-2">
                 <Boxes className="h-4 w-4 text-primary" />
-                Central Refill Stash
+                Central Refill Stash (Our Supply List)
               </h3>
               <p className="text-xs text-muted-foreground">
-                The bulk jugs, towel bundles, and boxes you keep on your shelves to refill the Solo and Duo caddies.
+                The bulk jugs, towel bundles, boxes, and machines on your shelves used to restock the caddies.
               </p>
             </div>
 
@@ -914,10 +879,10 @@ export default function SupplyPage() {
               {(
                 [
                   { id: 'all', label: 'All Supplies' },
-                  { id: 'chemical', label: 'Solutions & Refills' },
-                  { id: 'consumable', label: 'Microfiber & Towels' },
+                  { id: 'chemical', label: 'Chemicals & Cleansers' },
+                  { id: 'cloth', label: 'Cloths & Towels' },
                   { id: 'ppe', label: 'Gloves & Trash Bags' },
-                  { id: 'tool', label: 'Machinery & Tools' },
+                  { id: 'tool', label: 'Mops, Vacuums & Tools' },
                 ] as const
               ).map((cat) => (
                 <button
@@ -1342,47 +1307,47 @@ export default function SupplyPage() {
       </Tabs>
 
       {/* ========================================================================= */}
-      {/* DIALOG: PACK & DISPATCH CADDY                                             */}
+      {/* DIALOG: DISPATCH STANDARD CADDY TO JOB                                    */}
       {/* ========================================================================= */}
       <Dialog open={dispatchOpen} onOpenChange={setDispatchOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Pack & Dispatch Caddy</DialogTitle>
+            <DialogTitle>Dispatch Caddy to Job</DialogTitle>
             <DialogDescription className="text-xs">
-              Assign a Solo (1 Person) or Duo (2 People) caddy kit to your cleaners heading out on jobs.
+              Every caddy has the same standardized loadout to perform a full service for 1 person or a duo team.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleDispatchCaddy} className="space-y-4 pt-2 text-xs">
-            {/* Mode selection inside modal */}
+            {/* Crew size selection */}
             <div className="grid grid-cols-2 gap-2 p-1 bg-muted rounded-lg border">
               <button
                 type="button"
-                onClick={() => setCaddyMode('solo')}
+                onClick={() => setCrewType('solo')}
                 className={`py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  caddyMode === 'solo'
+                  crewType === 'solo'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                👤 Solo Caddy (1 Person)
+                👤 Solo Cleaner (1 Person)
               </button>
               <button
                 type="button"
-                onClick={() => setCaddyMode('duo')}
+                onClick={() => setCrewType('duo')}
                 className={`py-1.5 text-xs font-semibold rounded-md transition-all ${
-                  caddyMode === 'duo'
+                  crewType === 'duo'
                     ? 'bg-background text-foreground shadow-xs'
                     : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
-                👥 Duo Kit (2 People)
+                👥 Duo Team (2 People)
               </button>
             </div>
 
             <div>
               <Label htmlFor="cleaner-1">
-                {caddyMode === 'solo' ? 'Assigned Cleaner *' : 'Cleaner 1 (Lead) *'}
+                {crewType === 'solo' ? 'Assigned Cleaner *' : 'Cleaner 1 (Lead) *'}
               </Label>
               <Select value={selectedCleaner1} onValueChange={setSelectedCleaner1}>
                 <SelectTrigger id="cleaner-1" className="mt-1 text-xs">
@@ -1398,7 +1363,7 @@ export default function SupplyPage() {
               </Select>
             </div>
 
-            {caddyMode === 'duo' && (
+            {crewType === 'duo' && (
               <div>
                 <Label htmlFor="cleaner-2">Cleaner 2 (Partner) *</Label>
                 <Select value={selectedCleaner2} onValueChange={setSelectedCleaner2}>
@@ -1419,34 +1384,34 @@ export default function SupplyPage() {
             )}
 
             <div>
-              <Label htmlFor="caddy-label">Caddy Identifier / Tag</Label>
+              <Label htmlFor="caddy-label">Caddy Tag / ID</Label>
               <Input
                 id="caddy-label"
                 value={caddyLabel}
                 onChange={(e) => setCaddyLabel(e.target.value)}
-                placeholder="e.g. Caddy #1, Blue Caddy, Van 1"
+                placeholder="e.g. Caddy #1, Caddy #2, Van Blue"
                 className="mt-1 text-xs"
               />
             </div>
 
             <div>
-              <Label htmlFor="caddy-notes">Job / Shift Notes (Optional)</Label>
+              <Label htmlFor="caddy-notes">Job Notes (Optional)</Label>
               <Input
                 id="caddy-notes"
                 value={caddyNotes}
                 onChange={(e) => setCaddyNotes(e.target.value)}
-                placeholder="e.g. 2-bedroom deep clean, morning shift"
+                placeholder="e.g. Move-out clean, 3 bedrooms"
                 className="mt-1 text-xs"
               />
             </div>
 
-            {/* Quick Confirmation */}
+            {/* Standardized Checklist Summary */}
             <div className="p-3 rounded-lg bg-muted/40 border space-y-1.5 text-[11px] text-muted-foreground">
-              <p className="font-semibold text-foreground">Packing Confirmation:</p>
-              <p>✓ {caddyMode === 'solo' ? '4 Core Spray Bottles' : '8 Spray Bottles (Dual Caddies)'}</p>
-              <p>✓ {caddyMode === 'solo' ? '12–15 Towels + Sponges' : '25–30 Towels + Sponges'}</p>
-              <p>✓ Contractor bags, gloves & extendable duster</p>
-              <p>✓ RIDGID Shop Vac & Flip Mop</p>
+              <p className="font-semibold text-foreground">Included in this Caddy:</p>
+              <p>✓ 2x APC, 1x Degreaser, 1x Floor Cleaner, 1x Stainless Steel, 1x STT</p>
+              <p>✓ 1x Bar Keepers Friend cleanser</p>
+              <p>✓ Microfiber cloths bundle, Nitrile gloves & Contractor bags</p>
+              <p>✓ Mop & bucket, Duster, Broom & dustpan, RIDGID Shop Vac</p>
             </div>
 
             <DialogFooter className="pt-2">
@@ -1560,7 +1525,7 @@ export default function SupplyPage() {
                     <SelectValue placeholder="Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="chemical">Solutions & Cleaners</SelectItem>
+                    <SelectItem value="chemical">Chemicals & Cleaners</SelectItem>
                     <SelectItem value="consumable">Microfiber & Towels</SelectItem>
                     <SelectItem value="ppe">Gloves & Trash Bags</SelectItem>
                     <SelectItem value="tool">Tools & Equipment</SelectItem>
