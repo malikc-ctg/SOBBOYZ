@@ -73,9 +73,7 @@ export default function SalesKanbanBoard({
   onOpenImporter,
   user
 }) {
-  const [groupBy, setGroupBy] = useState('stage'); // 'stage' | 'sector'
   const [activeSectorFilter, setActiveSectorFilter] = useState('all');
-  const [activeStageFilter, setActiveStageFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [draggedContactId, setDraggedContactId] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
@@ -89,12 +87,36 @@ export default function SalesKanbanBoard({
   const handleCopyPhone = (e, contactId, phone) => {
     e.stopPropagation();
     if (!phone) return;
-    navigator.clipboard.writeText(phone);
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(phone).catch(() => {
+          fallbackCopyText(phone);
+        });
+      } else {
+        fallbackCopyText(phone);
+      }
+    } catch {
+      fallbackCopyText(phone);
+    }
     setCopiedId(contactId);
     setTimeout(() => setCopiedId(null), 1500);
   };
 
-  // Filter contacts by search query and active filter tabs
+  const fallbackCopyText = (text) => {
+    try {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.setAttribute('readonly', '');
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    } catch {}
+  };
+
+  // Filter contacts by search query and active sector filter
   const filteredContacts = useMemo(() => {
     return contacts.filter(c => {
       // Search matching
@@ -110,36 +132,21 @@ export default function SalesKanbanBoard({
         }
       }
 
-      // If grouped by stage, filter by sector
-      if (groupBy === 'stage' && activeSectorFilter !== 'all') {
+      // Filter by sector tab
+      if (activeSectorFilter !== 'all') {
         const contactSector = c.sector || 'post_construction';
         if (contactSector !== activeSectorFilter) return false;
       }
 
-      // If grouped by sector, filter by stage
-      if (groupBy === 'sector' && activeStageFilter !== 'all') {
-        const contactStage = c.status || 'new';
-        if (contactStage !== activeStageFilter) return false;
-      }
-
       return true;
     });
-  }, [contacts, searchQuery, groupBy, activeSectorFilter, activeStageFilter]);
+  }, [contacts, searchQuery, activeSectorFilter]);
 
   // Sector Counts
   const sectorCounts = useMemo(() => {
     const counts = { all: contacts.length };
     SECTORS.forEach(s => {
       counts[s.key] = contacts.filter(c => (c.sector || 'post_construction') === s.key).length;
-    });
-    return counts;
-  }, [contacts]);
-
-  // Stage Counts
-  const stageCounts = useMemo(() => {
-    const counts = { all: contacts.length };
-    STAGES.forEach(s => {
-      counts[s.key] = contacts.filter(c => (c.status || 'new') === s.key).length;
     });
     return counts;
   }, [contacts]);
@@ -169,57 +176,23 @@ export default function SalesKanbanBoard({
     const contactId = e.dataTransfer.getData('text/plain') || draggedContactId;
     if (!contactId) return;
 
-    if (groupBy === 'stage') {
-      if (onUpdateStatus) {
-        onUpdateStatus(contactId, targetColKey);
-      }
-    } else {
-      if (onUpdateSector) {
-        onUpdateSector(contactId, targetColKey);
-      }
+    if (onUpdateStatus) {
+      onUpdateStatus(contactId, targetColKey);
     }
     setDraggedContactId(null);
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
       {/* CONTROLS HEADER */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-          {/* Group By Toggle Switch */}
-          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shrink-0">
-            <button
-              type="button"
-              onClick={() => setGroupBy('stage')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
-                groupBy === 'stage'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Layers size={13} />
-              <span>Group by Stage</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setGroupBy('sector')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
-                groupBy === 'sector'
-                  ? 'bg-blue-600 text-white shadow'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <Building2 size={13} />
-              <span>Group by Sector</span>
-            </button>
-          </div>
-
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3.5">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Search bar */}
-          <div className="relative flex-1 max-w-md">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="relative flex-1 max-w-lg">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
               placeholder="Search by name, company, position, phone, city..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
@@ -227,84 +200,51 @@ export default function SalesKanbanBoard({
           </div>
 
           {/* Quick Metrics & Import Action */}
-          <div className="flex items-center gap-3 text-xs text-slate-400 font-mono">
+          <div className="flex items-center gap-3.5 text-xs text-slate-400 font-mono shrink-0 justify-end">
             <div>
-              <span className="text-white font-bold">{filteredContacts.length}</span> leads shown
+              <span className="text-white font-bold text-sm">{filteredContacts.length}</span> leads shown
             </div>
             {onOpenImporter && (
               <button
                 type="button"
                 onClick={onOpenImporter}
-                className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-bold transition flex items-center gap-1 shadow-sm"
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
               >
-                <Plus size={12} />
+                <Plus size={13} />
                 <span>Import Leads</span>
               </button>
             )}
           </div>
         </div>
 
-        {/* Dynamic Filter Pills (Scrollbars hidden completely) */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs no-scrollbar scrollbar-none">
-          {groupBy === 'stage' ? (
-            <>
-              <button
-                type="button"
-                onClick={() => setActiveSectorFilter('all')}
-                className={`px-3 py-1 rounded-lg font-bold shrink-0 transition ${
-                  activeSectorFilter === 'all'
-                    ? 'bg-blue-900/60 text-blue-200 border border-blue-700'
-                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-                }`}
-              >
-                All Sectors ({sectorCounts.all || 0})
-              </button>
-              {SECTORS.map(sec => (
-                <button
-                  key={sec.key}
-                  type="button"
-                  onClick={() => setActiveSectorFilter(sec.key)}
-                  className={`px-3 py-1 rounded-lg font-bold shrink-0 transition flex items-center gap-1.5 ${
-                    activeSectorFilter === sec.key
-                      ? 'bg-blue-900/60 text-blue-200 border border-blue-700'
-                      : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-                  }`}
-                >
-                  <span>{sec.label}</span>
-                  <span className="text-[10px] opacity-75 font-mono">({sectorCounts[sec.key] || 0})</span>
-                </button>
-              ))}
-            </>
-          ) : (
-            <>
-              <button
-                type="button"
-                onClick={() => setActiveStageFilter('all')}
-                className={`px-3 py-1 rounded-lg font-bold shrink-0 transition ${
-                  activeStageFilter === 'all'
-                    ? 'bg-blue-900/60 text-blue-200 border border-blue-700'
-                    : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-                }`}
-              >
-                All Stages ({stageCounts.all || 0})
-              </button>
-              {STAGES.map(stg => (
-                <button
-                  key={stg.key}
-                  type="button"
-                  onClick={() => setActiveStageFilter(stg.key)}
-                  className={`px-3 py-1 rounded-lg font-bold shrink-0 transition flex items-center gap-1.5 ${
-                    activeStageFilter === stg.key
-                      ? 'bg-blue-900/60 text-blue-200 border border-blue-700'
-                      : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-                  }`}
-                >
-                  <span>{stg.label}</span>
-                  <span className="text-[10px] opacity-75 font-mono">({stageCounts[stg.key] || 0})</span>
-                </button>
-              ))}
-            </>
-          )}
+        {/* Dynamic Sector Filter Tabs */}
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar scrollbar-none">
+          <button
+            type="button"
+            onClick={() => setActiveSectorFilter('all')}
+            className={`px-3 py-1.5 rounded-lg font-bold shrink-0 transition ${
+              activeSectorFilter === 'all'
+                ? 'bg-blue-900/60 text-blue-200 border border-blue-700 shadow-sm'
+                : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+            }`}
+          >
+            All Sectors ({sectorCounts.all || 0})
+          </button>
+          {SECTORS.map(sec => (
+            <button
+              key={sec.key}
+              type="button"
+              onClick={() => setActiveSectorFilter(sec.key)}
+              className={`px-3 py-1.5 rounded-lg font-bold shrink-0 transition flex items-center gap-1.5 ${
+                activeSectorFilter === sec.key
+                  ? 'bg-blue-900/60 text-blue-200 border border-blue-700 shadow-sm'
+                  : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+              }`}
+            >
+              <span>{sec.label}</span>
+              <span className="text-[10px] opacity-75 font-mono">({sectorCounts[sec.key] || 0})</span>
+            </button>
+          ))}
         </div>
       </div>
 
@@ -335,17 +275,10 @@ export default function SalesKanbanBoard({
 
       {/* KANBAN BOARD: HORIZONTAL SCROLLABLE COLUMNS */}
       {contacts.length > 0 && (
-        <div className="flex gap-4 overflow-x-auto pb-6 pt-1 items-start min-h-[550px]">
-          {(groupBy === 'stage' ? STAGES : SECTORS).map(col => {
+        <div className="flex gap-5 overflow-x-auto pb-8 pt-2 items-start min-h-[550px] no-scrollbar scrollbar-none">
+          {STAGES.map(col => {
             const colKey = col.key;
-            const colLeads = filteredContacts.filter(c => {
-              if (groupBy === 'stage') {
-                return (c.status || 'new') === colKey;
-              } else {
-                return (c.sector || 'post_construction') === colKey;
-              }
-            });
-
+            const colLeads = filteredContacts.filter(c => (c.status || 'new') === colKey);
             const isDragTarget = dragOverColumn === colKey;
 
             return (
@@ -354,13 +287,13 @@ export default function SalesKanbanBoard({
                 onDragOver={e => handleDragOver(e, colKey)}
                 onDragLeave={handleDragLeave}
                 onDrop={e => handleDrop(e, colKey)}
-                className={`w-[340px] shrink-0 rounded-2xl flex flex-col transition border ${
+                className={`w-[360px] shrink-0 rounded-2xl flex flex-col transition border ${
                   isDragTarget
                     ? 'border-blue-500 bg-blue-950/30 shadow-lg shadow-blue-500/10'
                     : 'border-slate-800/80 bg-slate-950/70'
                 }`}
               >
-                {/* Column Header (No deal values!) */}
+                {/* Column Header */}
                 <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <div
@@ -376,16 +309,15 @@ export default function SalesKanbanBoard({
                   </div>
                 </div>
 
-                {/* Column Card List */}
-                <div className="p-2.5 space-y-2.5 max-h-[700px] overflow-y-auto">
+                {/* Column Card List - Generous spacing to eliminate clumping */}
+                <div className="p-3 space-y-4 max-h-[740px] overflow-y-auto no-scrollbar scrollbar-none">
                   {colLeads.length === 0 ? (
-                    <div className="py-8 text-center text-xs text-slate-400 font-mono border border-dashed border-slate-850 rounded-xl">
-                      {groupBy === 'stage' ? 'No leads in this stage' : 'No leads in this sector'}
+                    <div className="py-10 text-center text-xs text-slate-500 font-mono border border-dashed border-slate-800/80 rounded-xl">
+                      No leads in this stage
                     </div>
                   ) : (
                     colLeads.map(contact => {
                       const sectorMeta = SECTORS.find(s => s.key === contact.sector) || SECTORS[0];
-                      const stageMeta = STAGES.find(s => s.key === (contact.status || 'new')) || STAGES[0];
                       const hasDials = (contact.times_contacted || 0) > 0;
 
                       return (
@@ -394,63 +326,70 @@ export default function SalesKanbanBoard({
                           draggable
                           onDragStart={e => handleDragStart(e, contact.id)}
                           onDoubleClick={() => onOpenDossier && onOpenDossier(contact)}
-                          className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 hover:border-slate-700 shadow-sm space-y-3 cursor-grab active:cursor-grabbing transition group select-none"
+                          className="p-4 rounded-xl bg-[#01162b] border border-blue-950/70 hover:border-blue-700/60 hover:bg-[#021d38] shadow-sm hover:shadow-md transition-all duration-150 space-y-3.5 cursor-grab active:cursor-grabbing group select-none"
                           title="Double-click to open full lead dossier"
                         >
-                          {/* Top: Name, Position, Company & City (No Deal Value Badge!) */}
-                          <div className="flex items-start justify-between gap-2">
+                          {/* Top: Name, Position, Company & City */}
+                          <div className="flex items-start justify-between gap-2.5">
                             <div className="min-w-0">
-                              <div className="font-bold text-sm text-white group-hover:text-blue-300 transition truncate">
+                              <div className="font-bold text-[15px] text-white group-hover:text-blue-300 transition truncate tracking-tight">
                                 {contact.name || 'Unnamed Contact'}
                               </div>
-                              <div className="text-[11px] text-slate-400 flex items-center gap-1.5 truncate mt-0.5">
+                              <div className="text-xs text-slate-400 flex items-center gap-1.5 truncate mt-0.5">
                                 <span className="font-semibold text-slate-300">{contact.position || 'Project Lead'}</span>
-                                <span>•</span>
-                                <span className="truncate">{contact.company || 'Commercial Prospect'}</span>
+                                <span className="text-slate-600">•</span>
+                                <span className="truncate text-slate-400">{contact.company || 'Commercial Prospect'}</span>
                               </div>
                             </div>
 
                             {contact.city && (
-                              <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                              <span className="text-[10px] text-slate-400 font-mono px-2 py-0.5 rounded bg-slate-900 border border-slate-800 shrink-0">
                                 {contact.city}
                               </span>
                             )}
                           </div>
 
-                          {/* Middle: Phone Display + Outreach Intelligence */}
-                          <div className="p-2 rounded-lg bg-slate-950/80 border border-slate-850 flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-1.5 font-mono text-slate-300 text-[11px]">
-                              <span>{contact.phone || 'No direct phone'}</span>
+                          {/* Middle: Phone Display - Entire Box is 1-Click Copy */}
+                          <div
+                            onClick={e => handleCopyPhone(e, contact.id, contact.phone)}
+                            className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800/80 hover:border-blue-600/50 flex items-center justify-between text-xs cursor-pointer transition group/phone"
+                            title="Click anywhere to copy phone number"
+                          >
+                            <div className="flex items-center gap-2 font-mono text-[12px] font-medium text-slate-200">
+                              <span className="group-hover/phone:text-blue-300 transition">
+                                {contact.phone || 'No direct phone'}
+                              </span>
                               {contact.phone && (
-                                <button
-                                  type="button"
-                                  onClick={e => handleCopyPhone(e, contact.id, contact.phone)}
-                                  className="text-slate-400 hover:text-white p-0.5 rounded"
-                                  title="Copy phone number"
-                                >
-                                  {copiedId === contact.id ? <Check size={11} className="text-emerald-400" /> : <Copy size={11} />}
-                                </button>
+                                <span className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-400 group-hover/phone:text-white transition">
+                                  {copiedId === contact.id ? (
+                                    <span className="flex items-center gap-1 text-emerald-400 text-[10px] font-sans font-bold">
+                                      <Check size={11} /> Copied!
+                                    </span>
+                                  ) : (
+                                    <Copy size={11} />
+                                  )}
+                                </span>
                               )}
                             </div>
 
                             <div className="flex items-center gap-1.5 text-[10px]">
                               {hasDials ? (
-                                <span className="text-blue-300 font-mono">
+                                <span className="text-blue-300 font-mono font-semibold">
                                   {contact.times_contacted} dials
                                 </span>
                               ) : (
                                 <span className="text-slate-400 font-mono">Untouched</span>
                               )}
                               {contact.last_outcome && (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono border border-slate-700">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 font-mono border border-slate-700/80 font-bold">
                                   {contact.last_outcome}
                                 </span>
                               )}
                             </div>
                           </div>
 
-                          {/* Sector Tag & Stage Badge (Allows quick sector change!) */}
-                          <div className="flex items-center justify-between gap-2 pt-0.5 text-xs">
+                          {/* Sector Tag & Stage Badge */}
+                          <div className="flex items-center justify-between gap-2 text-xs">
                             {/* Sector Selector Dropdown */}
                             <div className="relative">
                               <button
@@ -460,12 +399,12 @@ export default function SalesKanbanBoard({
                                   setOpenSectorMenuId(openSectorMenuId === contact.id ? null : contact.id);
                                   setOpenMoreActionsId(null);
                                 }}
-                                className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[10px] font-bold flex items-center gap-1 transition"
+                                className="px-2 py-1 rounded-md bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition"
                                 title="Click to reassign sector"
                               >
-                                <Building2 size={10} className="text-blue-400" />
+                                <Building2 size={11} className="text-blue-400" />
                                 <span>{sectorMeta.shortLabel}</span>
-                                <ChevronDown size={10} className="text-slate-400" />
+                                <ChevronDown size={11} className="text-slate-400" />
                               </button>
 
                               {openSectorMenuId === contact.id && (
@@ -496,20 +435,13 @@ export default function SalesKanbanBoard({
                               )}
                             </div>
 
-                            {/* Stage Badge in Sector View */}
-                            {groupBy === 'sector' && (
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 font-mono">
-                                {stageMeta.label}
-                              </span>
-                            )}
-
-                            <span className="text-[10px] text-slate-400 font-mono">
+                            <span className="text-[11px] text-slate-400 font-mono">
                               {formatDateRelative(contact.last_contacted_at)}
                             </span>
                           </div>
 
                           {/* ONE-CLICK OUTCOME DISPOSITION BUTTONS (Universal Dial Rule applies) */}
-                          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1">
+                          <div className="pt-2 border-t border-slate-800/80 flex items-center justify-between gap-1.5">
                             {/* 1-Click No Answer */}
                             <button
                               type="button"
@@ -517,7 +449,7 @@ export default function SalesKanbanBoard({
                                 e.stopPropagation();
                                 if (onOneClickOutcome) onOneClickOutcome(contact, 'NO_ANSWER');
                               }}
-                              className="flex-1 py-1 px-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1 transition"
+                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1 transition"
                               title="Log No Answer (Bumps Dials and No Answer)"
                             >
                               <PhoneOff size={11} className="text-slate-400" />
@@ -531,7 +463,7 @@ export default function SalesKanbanBoard({
                                 e.stopPropagation();
                                 if (onOneClickOutcome) onOneClickOutcome(contact, 'VOICEMAIL');
                               }}
-                              className="flex-1 py-1 px-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-purple-300 hover:text-white border border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1 transition"
+                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-purple-300 hover:text-white border border-slate-800 text-[10px] font-bold flex items-center justify-center gap-1 transition"
                               title="Log Left Voicemail"
                             >
                               <Voicemail size={11} className="text-purple-400" />
@@ -545,7 +477,7 @@ export default function SalesKanbanBoard({
                                 e.stopPropagation();
                                 if (onOneClickOutcome) onOneClickOutcome(contact, 'CONVO');
                               }}
-                              className="flex-1 py-1 px-1 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 hover:text-emerald-100 border border-emerald-800/60 text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm"
+                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-emerald-950/60 hover:bg-emerald-900/80 text-emerald-300 hover:text-emerald-100 border border-emerald-800/60 text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm"
                               title="Mark Connected / In Discussion (Bumps Dials & Pick Ups)"
                             >
                               <PhoneIncoming size={11} className="text-emerald-400" />
@@ -559,7 +491,7 @@ export default function SalesKanbanBoard({
                                 e.stopPropagation();
                                 if (onOneClickOutcome) onOneClickOutcome(contact, 'INFO_SENT');
                               }}
-                              className="flex-1 py-1 px-1 rounded-lg bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 hover:text-blue-100 border border-blue-800/60 text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm"
+                              className="flex-1 py-1.5 px-1.5 rounded-lg bg-blue-950/60 hover:bg-blue-900/80 text-blue-300 hover:text-blue-100 border border-blue-800/60 text-[10px] font-bold flex items-center justify-center gap-1 transition shadow-sm"
                               title="Log Capabilities Info / Quote Sent (Bumps Dials & Info Sent)"
                             >
                               <FileText size={11} className="text-blue-400" />
@@ -573,7 +505,7 @@ export default function SalesKanbanBoard({
                                 e.stopPropagation();
                                 setOosConfirmContact(contact);
                               }}
-                              className="py-1 px-1.5 rounded-lg bg-rose-950/40 hover:bg-rose-900/70 text-rose-300 hover:text-rose-100 border border-rose-900/50 text-[10px] font-bold flex items-center justify-center gap-1 transition"
+                              className="py-1.5 px-2 rounded-lg bg-rose-950/40 hover:bg-rose-900/70 text-rose-300 hover:text-rose-100 border border-rose-900/50 text-[10px] font-bold flex items-center justify-center gap-1 transition"
                               title="Out of service / Dead line"
                             >
                               <AlertTriangle size={11} className="text-rose-400" />
@@ -589,7 +521,7 @@ export default function SalesKanbanBoard({
                                   setOpenMoreActionsId(openMoreActionsId === contact.id ? null : contact.id);
                                   setOpenSectorMenuId(null);
                                 }}
-                                className="p-1 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
+                                className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition"
                                 title="More actions"
                               >
                                 <MoreHorizontal size={12} />

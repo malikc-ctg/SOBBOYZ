@@ -39,7 +39,8 @@ import {
   FileText,
   Clock,
   Info,
-  KanbanSquare
+  KanbanSquare,
+  Copy
 } from 'lucide-react';
 import MiroScriptEmbed, { DEFAULT_MIRO_URL } from './MiroScriptEmbed';
 import LeadImporterModal from './LeadImporterModal';
@@ -157,6 +158,14 @@ export default function PhoneTab({ user, repName, isActive }) {
     revenue: 0,
     todayCalls: []
   });
+
+  const [copiedPhone, setCopiedPhone] = useState(false);
+  const handleCopyQueuePhone = (phone) => {
+    if (!phone) return;
+    navigator.clipboard.writeText(phone);
+    setCopiedPhone(true);
+    setTimeout(() => setCopiedPhone(false), 2000);
+  };
 
   // Active Call State
   const [activeCallContact, setActiveCallContact] = useState(null);
@@ -1391,10 +1400,21 @@ export default function PhoneTab({ user, repName, isActive }) {
                             <FileText size={13} style={{ marginRight: 6 }} /> Real Info Card
                           </button>
                           <button
+                            type="button"
                             className="phone-call-btn"
-                            onClick={() => startCall(selectedContact)}
+                            style={{ background: copiedPhone ? '#059669' : '#2563eb' }}
+                            onClick={() => handleCopyQueuePhone(selectedContact?.phone)}
+                            title="Copy phone number to clipboard"
                           >
-                            <Phone size={13} style={{ marginRight: 6 }} /> Call Now
+                            {copiedPhone ? (
+                              <>
+                                <Check size={13} style={{ marginRight: 6 }} /> Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy size={13} style={{ marginRight: 6 }} /> Copy Number
+                              </>
+                            )}
                           </button>
                           {selectedContact.phone && (
                             <a

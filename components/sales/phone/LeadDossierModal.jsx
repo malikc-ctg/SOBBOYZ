@@ -22,7 +22,8 @@ import {
   DollarSign,
   Shield,
   Layers,
-  FileText
+  FileText,
+  Copy
 } from 'lucide-react';
 import { CALL_OUTCOMES } from '@/lib/sales/phoneService';
 
@@ -88,7 +89,37 @@ export default function LeadDossierModal({
 
   const [isEditing, setIsEditing] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [copiedKey, setCopiedKey] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  function handleCopyNumber(num, key) {
+    if (!num) return;
+    try {
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard.writeText(num).catch(() => fallbackCopy(num));
+      } else {
+        fallbackCopy(num);
+      }
+    } catch {
+      fallbackCopy(num);
+    }
+    setCopiedKey(key);
+    setTimeout(() => setCopiedKey(null), 2000);
+  }
+
+  function fallbackCopy(text) {
+    try {
+      const el = document.createElement('textarea');
+      el.value = text;
+      el.setAttribute('readonly', '');
+      el.style.position = 'absolute';
+      el.style.left = '-9999px';
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+    } catch {}
+  }
 
   // Form state for editing
   const [editName, setEditName] = useState(contact.name || '');
@@ -476,67 +507,109 @@ export default function LeadDossierModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {/* Direct Desk Line */}
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2">
+              <div
+                onClick={() => handleCopyNumber(contact.work_direct_phone || contact.phone, 'desk')}
+                className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/50 flex items-center justify-between gap-2 cursor-pointer transition group"
+                title="Click to copy direct desk phone"
+              >
                 <div className="min-w-0">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Direct Desk / Extension</div>
-                  <div className="font-mono text-sm font-bold text-blue-300 truncate mt-0.5">
+                  <div className="font-mono text-sm font-bold text-blue-300 truncate mt-0.5 group-hover:text-blue-200">
                     {contact.work_direct_phone || contact.phone || 'No direct line'}
                   </div>
                 </div>
                 {(contact.work_direct_phone || contact.phone) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (onStartCall) onStartCall(contact, contact.work_direct_phone || contact.phone);
-                      onClose();
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopyNumber(contact.work_direct_phone || contact.phone, 'desk');
                     }}
-                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0"
+                    className="px-2.5 py-1.5 bg-blue-950 hover:bg-blue-900/60 border border-blue-800/80 text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0"
                   >
-                    <Phone size={12} /> Call
+                    {copiedKey === 'desk' ? (
+                      <>
+                        <Check size={12} className="text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        <span>Copy</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
 
               {/* Mobile Cell */}
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2">
+              <div
+                onClick={() => handleCopyNumber(contact.mobile_phone, 'mobile')}
+                className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 flex items-center justify-between gap-2 cursor-pointer transition group"
+                title="Click to copy mobile cell phone"
+              >
                 <div className="min-w-0">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Mobile Cell</div>
-                  <div className="font-mono text-sm font-bold text-emerald-300 truncate mt-0.5">
+                  <div className="font-mono text-sm font-bold text-emerald-300 truncate mt-0.5 group-hover:text-emerald-200">
                     {contact.mobile_phone || 'No cell on file'}
                   </div>
                 </div>
                 {contact.mobile_phone && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (onStartCall) onStartCall(contact, contact.mobile_phone);
-                      onClose();
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopyNumber(contact.mobile_phone, 'mobile');
                     }}
-                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0"
+                    className="px-2.5 py-1.5 bg-emerald-950 hover:bg-emerald-900/60 border border-emerald-800/80 text-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0"
                   >
-                    <PhoneCall size={12} /> Call Cell
+                    {copiedKey === 'mobile' ? (
+                      <>
+                        <Check size={12} className="text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        <span>Copy</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
 
               {/* HQ Switchboard */}
-              <div className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between gap-2">
+              <div
+                onClick={() => handleCopyNumber(contact.corporate_phone || contact.phone, 'hq')}
+                className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-slate-600 flex items-center justify-between gap-2 cursor-pointer transition group"
+                title="Click to copy HQ corporate switchboard"
+              >
                 <div className="min-w-0">
                   <div className="text-[10px] uppercase font-bold text-slate-400">HQ Corporate Switchboard</div>
-                  <div className="font-mono text-sm font-bold text-slate-300 truncate mt-0.5">
+                  <div className="font-mono text-sm font-bold text-slate-300 truncate mt-0.5 group-hover:text-white">
                     {contact.corporate_phone || contact.phone || 'No HQ line'}
                   </div>
                 </div>
                 {(contact.corporate_phone || contact.phone) && (
                   <button
                     type="button"
-                    onClick={() => {
-                      if (onStartCall) onStartCall(contact, contact.corporate_phone || contact.phone);
-                      onClose();
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCopyNumber(contact.corporate_phone || contact.phone, 'hq');
                     }}
-                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1 transition shrink-0"
+                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0"
                   >
-                    <Building2 size={12} /> HQ
+                    {copiedKey === 'hq' ? (
+                      <>
+                        <Check size={12} className="text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy size={12} />
+                        <span>Copy</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>
@@ -692,12 +765,22 @@ export default function LeadDossierModal({
                             <button
                               type="button"
                               onClick={() => {
-                                if (onStartCall) onStartCall(col, col.work_direct_phone || col.phone || col.mobile_phone);
-                                onClose();
+                                handleCopyNumber(col.work_direct_phone || col.phone || col.mobile_phone, `col-${col.id}`);
                               }}
-                              className="px-2.5 py-1 rounded bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition flex items-center gap-1"
+                              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-bold transition flex items-center gap-1 border border-slate-750"
+                              title="Copy colleague phone number"
                             >
-                              <Phone size={11} /> Call
+                              {copiedKey === `col-${col.id}` ? (
+                                <>
+                                  <Check size={11} className="text-emerald-400" />
+                                  <span className="text-emerald-400">Copied!</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Copy size={11} />
+                                  <span>Copy</span>
+                                </>
+                              )}
                             </button>
                           )}
                         </div>
@@ -790,7 +873,7 @@ export default function LeadDossierModal({
             Lead ID: <span className="text-slate-300">#{contact.id}</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
             <button
               type="button"
               onClick={onClose}
@@ -798,18 +881,33 @@ export default function LeadDossierModal({
             >
               Close
             </button>
-            <button
-              type="button"
-              onClick={() => {
-                const targetPhone = contact.work_direct_phone || contact.phone || contact.mobile_phone;
-                if (onStartCall) onStartCall(contact, targetPhone);
-                onClose();
-              }}
-              className="px-5 py-2 rounded-xl text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-lg shadow-emerald-900/30 transition"
-            >
-              <Phone size={13} />
-              <span>Dial {contact.name || 'Contact'} Now</span>
-            </button>
+            {(contact.work_direct_phone || contact.phone || contact.mobile_phone) && (
+              <button
+                type="button"
+                onClick={() => {
+                  const targetPhone = contact.work_direct_phone || contact.phone || contact.mobile_phone;
+                  handleCopyNumber(targetPhone, 'footer');
+                }}
+                className={`px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition ${
+                  copiedKey === 'footer'
+                    ? 'bg-emerald-600 text-white shadow-emerald-950/40'
+                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/40'
+                }`}
+                title="Copy phone number"
+              >
+                {copiedKey === 'footer' ? (
+                  <>
+                    <Check size={13} className="text-emerald-200" />
+                    <span>Copied {contact.work_direct_phone || contact.phone || contact.mobile_phone}!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy size={13} />
+                    <span>Copy {contact.work_direct_phone || contact.phone || contact.mobile_phone}</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
 
