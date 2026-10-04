@@ -125,8 +125,8 @@ function getSeniorityLabel(rank, title = '') {
 
 export default function PhoneTab({ user, repName, isActive }) {
   // Navigation
-  // 'queue' (Dialer & Lead Console) | 'miro' (Dedicated Mind Map Tab) | 'logs'
-  const [subView, setSubView] = useState('queue');
+  // 'kanban' (Primary Full Console) | 'queue' (Dialer View) | 'miro' (Mind Map) | 'logs'
+  const [subView, setSubView] = useState('kanban');
   const [filter, setFilter] = useState('all'); // all, hot, callbacks, walkthroughs, missing_info
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -143,6 +143,11 @@ export default function PhoneTab({ user, repName, isActive }) {
   const [loading, setLoading] = useState(true);
   const [selectedContact, setSelectedContact] = useState(null);
   const [callStats, setCallStats] = useState({
+    dials: 0,
+    pickups: 0,
+    noAnswers: 0,
+    infoSent: 0,
+    jobsWon: 0,
     totalCalls: 0,
     connects: 0,
     walkthroughs: 0,
@@ -343,10 +348,27 @@ export default function PhoneTab({ user, repName, isActive }) {
     }
   }
 
-  // Kanban Handlers (Supports 1-click status updates, sector reassignments, and disposition logging)
+  // Kanban Handlers (Any change/action made automatically counts as a Dial)
   async function handleKanbanUpdateStatus(contactId, newStatus) {
     try {
       await updateLeadStatus(contactId, newStatus);
+      const contact = contacts.find(c => c.id === contactId);
+
+      // Universal Dial Rule: Any change logs an event and increments Dials
+      await logCallEvent({
+        contactId: contactId,
+        contactName: contact?.name || 'Contact',
+        companyName: contact?.company || 'Company',
+        phoneNumber: contact?.phone || '',
+        city: contact?.city || 'GTA',
+        callType: 'OUTBOUND',
+        outcomeType: newStatus === 'won' ? 'JOB_WON' : newStatus === 'quoted' ? 'INFO_SENT' : 'CONVO',
+        durationSeconds: 15,
+        notes: `Pipeline status moved to ${newStatus}`,
+        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+        repName: repName || 'Malik',
+      });
+
       setContacts(prev => prev.map(c => c.id === contactId ? { ...c, status: newStatus } : c));
       if (selectedContact?.id === contactId) {
         setSelectedContact(prev => ({ ...prev, status: newStatus }));
@@ -360,10 +382,28 @@ export default function PhoneTab({ user, repName, isActive }) {
   async function handleKanbanUpdateSector(contactId, newSector) {
     try {
       await updateLeadContact(contactId, { sector: newSector, service_type: newSector });
+      const contact = contacts.find(c => c.id === contactId);
+
+      // Universal Dial Rule: Sector reassignments increment Dials
+      await logCallEvent({
+        contactId: contactId,
+        contactName: contact?.name || 'Contact',
+        companyName: contact?.company || 'Company',
+        phoneNumber: contact?.phone || '',
+        city: contact?.city || 'GTA',
+        callType: 'OUTBOUND',
+        outcomeType: 'CONVO',
+        durationSeconds: 10,
+        notes: `Vertical reassigned to ${newSector}`,
+        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+        repName: repName || 'Malik',
+      });
+
       setContacts(prev => prev.map(c => c.id === contactId ? { ...c, sector: newSector, service_type: newSector } : c));
       if (selectedContact?.id === contactId) {
         setSelectedContact(prev => ({ ...prev, sector: newSector, service_type: newSector }));
       }
+      refreshStats();
     } catch (err) {
       console.error('[PhoneTab] Kanban sector update failed:', err);
     }
@@ -374,7 +414,7 @@ export default function PhoneTab({ user, repName, isActive }) {
     
     let newStatus = contact.status;
     let duration = 0;
-    let notes = `One-click disposition: ${outcomeType}`;
+    let notes = `Outcome: ${outcomeType}`;
 
     if (outcomeType === 'NO_ANSWER') {
       duration = 0;
@@ -386,12 +426,16 @@ export default function PhoneTab({ user, repName, isActive }) {
       duration = 60;
       newStatus = 'contacted';
       notes = 'Connected with prospect / In discussion';
+    } else if (outcomeType === 'INFO_SENT' || outcomeType === 'SEND_QUOTE') {
+      duration = 45;
+      newStatus = 'quoted';
+      notes = 'Pricing spec sheet / information sent';
     } else if (outcomeType === 'WALKTHROUGH') {
       newStatus = 'walkthrough_booked';
       notes = 'Jobsite walkthrough requested';
-    } else if (outcomeType === 'SEND_QUOTE') {
-      newStatus = 'quoted';
-      notes = 'Pricing spec sheet / quote requested';
+    } else if (outcomeType === 'JOB_WON' || outcomeType === 'SALE') {
+      newStatus = 'won';
+      notes = 'Contract won / Commercial job closed';
     } else if (outcomeType === 'NOT_INTERESTED') {
       newStatus = 'lost';
       notes = 'Prospect declined / not interested';
@@ -404,10 +448,11 @@ export default function PhoneTab({ user, repName, isActive }) {
       // 1. Update lead status in state & DB
       await updateLeadContact(contact.id, { status: newStatus });
 
-      // 2. Log call event
+      // 2. Log call event (This guarantees DIALS increments automatically!)
       await logCallEvent({
         contactId: contact.id,
         contactName: contact.name,
+        companyName: contact.company,
         phoneNumber: contact.phone,
         city: contact.city,
         callType: 'OUTBOUND',
@@ -445,6 +490,43 @@ export default function PhoneTab({ user, repName, isActive }) {
       refreshStats();
     } catch (err) {
       console.error('[PhoneTab] One-click outcome error:', err);
+    }
+  }
+
+  // Delete lead permanently when confirmed Out of Service
+  async function handleKanbanDeleteLead(contactId) {
+    if (!contactId) return;
+    try {
+      const contact = contacts.find(c => c.id === contactId);
+
+      // Log dial attempt so dial count reflects the reach-out attempt
+      await logCallEvent({
+        contactId: contactId,
+        contactName: contact?.name || 'Contact',
+        companyName: contact?.company || 'Company',
+        phoneNumber: contact?.phone || '',
+        city: contact?.city || 'GTA',
+        callType: 'OUTBOUND',
+        outcomeType: 'OUT_OF_SERVICE',
+        durationSeconds: 0,
+        notes: 'Out of service confirmed after office line check. Lead deleted.',
+        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+        repName: repName || 'Malik',
+      });
+
+      // Call API DELETE
+      const res = await fetch(`/api/sales/leads?lead_id=${contactId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const errJson = await res.json();
+        throw new Error(errJson.error || 'Failed to delete lead');
+      }
+
+      // Remove from state immediately
+      setContacts(prev => prev.filter(c => c.id !== contactId));
+      if (selectedContact?.id === contactId) setSelectedContact(null);
+      refreshStats();
+    } catch (err) {
+      console.error('[PhoneTab] Delete lead failed:', err);
     }
   }
 
@@ -1027,22 +1109,26 @@ export default function PhoneTab({ user, repName, isActive }) {
           
           {/* Top Panel Header: Stats + Navigation */}
           <div style={{ padding: '16px 18px 0' }}>
-            {/* Metric Strip */}
+            {/* Metric Strip (Exact 5 Stats Requested by User) */}
             <div className="phone-metrics-strip">
               <div className="phone-metric-item">
-                <span className="phone-metric-num" style={{ color: '#fff' }}>{callStats.totalCalls}</span>
-                <span className="phone-metric-label">Dials Today</span>
+                <span className="phone-metric-num" style={{ color: '#fff' }}>{callStats.dials ?? callStats.totalCalls ?? 0}</span>
+                <span className="phone-metric-label">Dials</span>
               </div>
               <div className="phone-metric-item">
-                <span className="phone-metric-num" style={{ color: '#60a5fa' }}>{callStats.connects}</span>
-                <span className="phone-metric-label">Connects</span>
-              </div>
-              <div className="phone-metric-item" style={{ borderColor: 'rgba(59, 130, 246, 0.4)' }}>
-                <span className="phone-metric-num" style={{ color: '#38bdf8' }}>{callStats.walkthroughs || 0}</span>
-                <span className="phone-metric-label">Walkthroughs</span>
+                <span className="phone-metric-num" style={{ color: '#10b981' }}>{callStats.pickups ?? callStats.connects ?? 0}</span>
+                <span className="phone-metric-label">Pick Ups</span>
               </div>
               <div className="phone-metric-item">
-                <span className="phone-metric-num" style={{ color: '#10b981' }}>{callStats.sales}</span>
+                <span className="phone-metric-num" style={{ color: '#94a3b8' }}>{callStats.noAnswers ?? 0}</span>
+                <span className="phone-metric-label">No Answer</span>
+              </div>
+              <div className="phone-metric-item">
+                <span className="phone-metric-num" style={{ color: '#38bdf8' }}>{callStats.infoSent ?? 0}</span>
+                <span className="phone-metric-label">Info Sent</span>
+              </div>
+              <div className="phone-metric-item">
+                <span className="phone-metric-num" style={{ color: '#a855f7' }}>{callStats.jobsWon ?? callStats.sales ?? 0}</span>
                 <span className="phone-metric-label">Jobs Won</span>
               </div>
             </div>
@@ -1050,19 +1136,19 @@ export default function PhoneTab({ user, repName, isActive }) {
             {/* Sub-view Nav Pills */}
             <div className="phone-subtabs" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
               <button
-                className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
-                onClick={() => setSubView('queue')}
-                title="Active Dialing Console & Dossier"
-              >
-                <span>Console</span>
-              </button>
-              <button
                 className={`phone-subtab-btn ${subView === 'kanban' ? 'active' : ''}`}
                 onClick={() => setSubView('kanban')}
-                title="Visual Pipeline & Sector Kanban Board"
+                title="Primary Visual Kanban Console & Pipeline"
               >
                 <KanbanSquare size={13} className="text-blue-400" />
-                <span>Kanban Board</span>
+                <span>Kanban Console</span>
+              </button>
+              <button
+                className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
+                onClick={() => setSubView('queue')}
+                title="Dialer View"
+              >
+                <span>Dialer View</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'miro' ? 'active' : ''}`}
@@ -1692,6 +1778,8 @@ export default function PhoneTab({ user, repName, isActive }) {
                   onUpdateStatus={handleKanbanUpdateStatus}
                   onUpdateSector={handleKanbanUpdateSector}
                   onOneClickOutcome={handleKanbanOneClickOutcome}
+                  onDeleteLead={handleKanbanDeleteLead}
+                  onOpenImporter={() => setShowImporterModal(true)}
                   onOpenDossier={contact => {
                     setSelectedContact(contact);
                     setDossierModalContact(contact);

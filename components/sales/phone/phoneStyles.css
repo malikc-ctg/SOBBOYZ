@@ -77,7 +77,7 @@
 /* Hero Metrics Strip (Clean Row Matching SOB Admin) */
 .phone-metrics-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 10px;
   margin-bottom: 16px;
 }
@@ -862,4 +862,50 @@
 .phone-grid-layout.full-width {
   grid-template-columns: 1fr;
 }
+
+/* Sleek Dark Scrollbars across the entire Phone Sales OS */
+.phone-workspace-root,
+.phone-workspace-root * {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(51, 65, 85, 0.45) transparent !important;
+}
+
+.phone-workspace-root ::-webkit-scrollbar,
+::-webkit-scrollbar {
+  width: 6px !important;
+  height: 6px !important;
+}
+
+.phone-workspace-root ::-webkit-scrollbar-track,
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+
+.phone-workspace-root ::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb {
+  background: rgba(51, 65, 85, 0.5) !important;
+  border-radius: 9999px !important;
+}
+
+.phone-workspace-root ::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(100, 116, 139, 0.8) !important;
+}
+
+/* Hide scrollbar completely where horizontal scrolling is used for pills */
+.phone-workspace-root .no-scrollbar::-webkit-scrollbar,
+.phone-workspace-root .scrollbar-none::-webkit-scrollbar,
+.no-scrollbar::-webkit-scrollbar,
+.scrollbar-none::-webkit-scrollbar {
+  display: none !important;
+}
+
+.phone-workspace-root .no-scrollbar,
+.phone-workspace-root .scrollbar-none,
+.no-scrollbar,
+.scrollbar-none {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
 

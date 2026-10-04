@@ -293,3 +293,52 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const supabase = await createServiceClient();
+    const { searchParams } = new URL(request.url);
+    const clearAll = searchParams.get('all') === 'true' || searchParams.get('clear_all') === 'true';
+    let leadId = searchParams.get('lead_id') || searchParams.get('id');
+
+    if (!leadId && !clearAll) {
+      try {
+        const body = await request.json();
+        leadId = body.lead_id || body.id;
+        if (body.all || body.clear_all) {
+          // Flag clearAll from body if passed
+        }
+      } catch {
+        // no body
+      }
+    }
+
+    if (clearAll) {
+      const { data, error } = await supabase
+        .from('leads')
+        .delete()
+        .or('source.in.(phone_sales_os,contact_import,apollo),company_name.ilike.%Apex Edge%')
+        .select();
+
+      if (error) throw error;
+      return NextResponse.json({ success: true, message: 'All B2B phone leads deleted', count: data?.length || 0 });
+    }
+
+    if (!leadId) {
+      return NextResponse.json({ error: 'lead_id is required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabase
+      .from('leads')
+      .delete()
+      .eq('id', leadId)
+      .select();
+
+    if (error) throw error;
+    return NextResponse.json({ success: true, message: `Lead ${leadId} permanently deleted`, lead: data?.[0] });
+  } catch (err: any) {
+    console.error('[API /api/sales/leads DELETE] Error:', err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
