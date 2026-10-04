@@ -1119,7 +1119,11 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         },
       });
 
-      // Double-click on zone polygon triggers Zone Focus & reveals activity dots
+      // Click or double-click on zone polygon triggers Zone Focus & reveals activity dots
+      map.on('click', 'zones-fill', (e) => {
+        const name = e.features?.[0]?.properties?.name;
+        if (name) window.dispatchEvent(new CustomEvent('zone-map-dblclick', { detail: { name } }));
+      });
       map.on('dblclick', 'zones-fill', (e) => {
         e.preventDefault();
         const name = e.features?.[0]?.properties?.name;
@@ -1746,13 +1750,15 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
     };
   }, [mapData.jobs]);
 
-  // ── Sync Sales Layers Visibility & Filters ─────────────────────────────────
+  // ── Sync Sales Layers Visibility & Filters (Revealed ONLY on Zone Focus) ──
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapLoaded) return;
 
+    const isZoneFocused = Boolean(selectedZoneName);
+
     if (map.getLayer('sales-knocks-circle')) {
-      const vis = filters.showKnocks ? 'visible' : 'none';
+      const vis = (filters.showKnocks && isZoneFocused) ? 'visible' : 'none';
       map.setLayoutProperty('sales-knocks-circle', 'visibility', vis);
 
       if (salesFilter !== 'all') {
@@ -1767,15 +1773,15 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
     }
 
     if (map.getLayer('commercial-opps-circle')) {
-      const vis = filters.showCommercialOpps ? 'visible' : 'none';
+      const vis = (filters.showCommercialOpps && isZoneFocused) ? 'visible' : 'none';
       map.setLayoutProperty('commercial-opps-circle', 'visibility', vis);
     }
 
     if (map.getLayer('sales-heat')) {
-      const vis = filters.showSalesHeatmap ? 'visible' : 'none';
+      const vis = (filters.showSalesHeatmap && isZoneFocused) ? 'visible' : 'none';
       map.setLayoutProperty('sales-heat', 'visibility', vis);
     }
-  }, [mapLoaded, filters.showKnocks, filters.showCommercialOpps, filters.showSalesHeatmap, salesFilter]);
+  }, [mapLoaded, filters.showKnocks, filters.showCommercialOpps, filters.showSalesHeatmap, salesFilter, selectedZoneName]);
 
   // ── Road Routing via Directions API ──────────────────────────────────────────
   useEffect(() => {
