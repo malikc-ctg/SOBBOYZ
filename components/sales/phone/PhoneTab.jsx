@@ -40,6 +40,7 @@ import {
   Clock,
   Info,
   KanbanSquare,
+  BarChart3,
   Copy
 } from 'lucide-react';
 import MiroScriptEmbed, { DEFAULT_MIRO_URL } from './MiroScriptEmbed';
@@ -47,6 +48,7 @@ import LeadImporterModal from './LeadImporterModal';
 import WalkthroughModal from './WalkthroughModal';
 import LeadDossierModal from './LeadDossierModal';
 import SalesKanbanBoard from './SalesKanbanBoard';
+import RepStatsView from './RepStatsView';
 import './phoneStyles.css';
 
 /**
@@ -766,10 +768,10 @@ export default function PhoneTab({ user, repName, isActive }) {
 
   return (
     <div className="phone-workspace-root font-sans">
-      <div className={`phone-grid-layout ${subView === 'kanban' ? 'full-width' : ''}`}>
+      <div className={`phone-grid-layout ${subView === 'kanban' || subView === 'reps' ? 'full-width' : ''}`}>
         
-        {/* LEFT COLUMN: Calling Queue & Leads List (Hidden in full Kanban view) */}
-        {subView !== 'kanban' && (
+        {/* LEFT COLUMN: Calling Queue & Leads List (Hidden in full Kanban & Reps view) */}
+        {subView !== 'kanban' && subView !== 'reps' && (
           <div className="phone-panel">
           <div className="phone-panel-header">
             <div className="phone-panel-title">
@@ -1131,6 +1133,31 @@ export default function PhoneTab({ user, repName, isActive }) {
           
           {/* Top Panel Header: Stats + Navigation */}
           <div style={{ padding: '16px 18px 0' }}>
+            {/* Shift Context Header */}
+            <div className="flex items-center justify-between gap-2 mb-2.5 text-xs">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  Shift Metrics:
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-950/80 border border-blue-800/80 text-blue-300">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                  Today (Resets 00:00)
+                </span>
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  All past shifts archived in Rep Tracking
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSubView('reps')}
+                className="text-[11px] font-semibold text-blue-400 hover:text-blue-300 flex items-center gap-1 transition"
+                title="Open Rep Performance & Shift History"
+              >
+                <span>Rep Breakdown</span>
+                <ArrowUpRight size={12} />
+              </button>
+            </div>
+
             {/* Metric Strip (Exact 5 Stats Requested by User) */}
             <div className="phone-metrics-strip">
               <div className="phone-metric-item">
@@ -1166,11 +1193,12 @@ export default function PhoneTab({ user, repName, isActive }) {
                 <span>Kanban Console</span>
               </button>
               <button
-                className={`phone-subtab-btn ${subView === 'queue' ? 'active' : ''}`}
-                onClick={() => setSubView('queue')}
-                title="Dialer View"
+                className={`phone-subtab-btn ${subView === 'reps' || subView === 'queue' ? 'active' : ''}`}
+                onClick={() => setSubView('reps')}
+                title="Rep Performance & Shift History Tracking"
               >
-                <span>Dialer View</span>
+                <BarChart3 size={13} className="text-blue-400" />
+                <span>Rep Tracking</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'miro' ? 'active' : ''}`}
@@ -1185,537 +1213,25 @@ export default function PhoneTab({ user, repName, isActive }) {
                 onClick={() => setSubView('logs')}
                 title="Call History Logs"
               >
-                <span>Logs ({callStats.todayCalls?.length || 0})</span>
+                <span>Logs ({callStats.allCalls?.length || callStats.todayCalls?.length || 0})</span>
               </button>
             </div>
           </div>
 
           <div className="phone-workstation-content">
             
-            {/* VIEW 1: ACTIVE CALL CONSOLE & SELECTED CONTACT DOSSIER */}
-            {subView === 'queue' && (
-              <>
-                {selectedContact ? (
-                  <>
-                    {/* Active Contact Dossier Card with Company Hierarchy & Phone Routing */}
-                    <div className="phone-active-dossier">
-                      <div className="phone-dossier-top">
-                        <div className="flex-1 min-w-0 pr-2">
-                          {isEditingDossier ? (
-                            <div className="space-y-2 mb-2">
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Contact Full Name</label>
-                                  <input
-                                    type="text"
-                                    className="phone-search-input"
-                                    style={{ padding: '6px 10px', fontSize: '13px' }}
-                                    value={editName}
-                                    onChange={e => setEditName(e.target.value)}
-                                    placeholder="e.g. Saleem / Kash Malik"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Role / Position</label>
-                                  <input
-                                    type="text"
-                                    className="phone-search-input"
-                                    style={{ padding: '6px 10px', fontSize: '13px' }}
-                                    value={editTitle}
-                                    onChange={e => setEditTitle(e.target.value)}
-                                    placeholder="Project Manager / Owner"
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="grid grid-cols-3 gap-2">
-                                <div>
-                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Company / GC</label>
-                                  <input
-                                    type="text"
-                                    className="phone-search-input"
-                                    style={{ padding: '6px 10px', fontSize: '12px' }}
-                                    value={editCompany}
-                                    onChange={e => setEditCompany(e.target.value)}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Direct Phone</label>
-                                  <input
-                                    type="tel"
-                                    className="phone-search-input"
-                                    style={{ padding: '6px 10px', fontSize: '12px' }}
-                                    value={editPhone}
-                                    onChange={e => setEditPhone(e.target.value)}
-                                  />
-                                </div>
-                                <div>
-                                  <label className="text-[10px] text-slate-400 uppercase font-bold">Direct Email</label>
-                                  <input
-                                    type="email"
-                                    className="phone-search-input"
-                                    style={{ padding: '6px 10px', fontSize: '12px' }}
-                                    value={editEmail}
-                                    onChange={e => setEditEmail(e.target.value)}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="flex gap-2 justify-end pt-1">
-                                <button
-                                  type="button"
-                                  className="phone-text-btn"
-                                  style={{ padding: '4px 10px', fontSize: '11px' }}
-                                  onClick={() => setIsEditingDossier(false)}
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  type="button"
-                                  className="phone-call-btn"
-                                  style={{ padding: '4px 12px', fontSize: '11px' }}
-                                  onClick={handleSaveDossier}
-                                >
-                                  <Save size={12} /> Save Info
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <div>
-                              {/* Hero Header: Contact Name Prominent */}
-                              <div className="flex items-center gap-2.5">
-                                <span className="phone-dossier-name truncate">{selectedContact.name || 'Decision Maker'}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setIsEditingDossier(true)}
-                                  className="text-slate-400 hover:text-blue-400 p-1 rounded transition"
-                                  title="Edit Contact Info"
-                                >
-                                  <Edit3 size={14} />
-                                </button>
-                                {saveSuccessMsg && (
-                                  <span className="text-[10px] text-emerald-400 flex items-center gap-1 font-bold">
-                                    <Check size={11} /> Saved
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Prominent Position Line + Seniority Rank */}
-                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                                <span className="text-sm font-bold text-blue-400">
-                                  {selectedContact.position || 'Project Lead'}
-                                </span>
-                                <span className="text-[11px] font-semibold text-blue-300 bg-blue-950/80 border border-blue-800/60 px-2.5 py-0.5 rounded-full">
-                                  {getSeniorityLabel(currentRank, selectedContact.position)}
-                                </span>
-                              </div>
-
-                              {/* Secondary Context: Company Name, City, Firm Size */}
-                              <div className="flex items-center gap-2 mt-1.5 text-xs text-slate-400 flex-wrap">
-                                <span className="flex items-center gap-1 text-slate-300 font-semibold">
-                                  <Building2 size={13} className="text-slate-400 shrink-0" />
-                                  {selectedContact.company}
-                                </span>
-                                {selectedContact.city && (
-                                  <span className="text-slate-400">• {selectedContact.city}</span>
-                                )}
-                                {selectedContact.employees && (
-                                  <span className="text-slate-400">• {selectedContact.employees} employees</span>
-                                )}
-                                {selectedContact.annual_revenue && (
-                                  <span className="text-slate-400">• {selectedContact.annual_revenue} rev</span>
-                                )}
-                              </div>
-
-                              {/* Multi-Phone Direct Routing Buttons */}
-                              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                {selectedContact.work_direct_phone ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => startCall(selectedContact, selectedContact.work_direct_phone)}
-                                    className="text-xs font-mono font-bold text-blue-300 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/50 px-2.5 py-1 rounded-md flex items-center gap-1.5 transition"
-                                    title="Call Direct Extension"
-                                  >
-                                    <Phone size={11} className="text-blue-400" />
-                                    <span>Direct: {selectedContact.work_direct_phone}</span>
-                                  </button>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    onClick={() => startCall(selectedContact, selectedContact.phone)}
-                                    className="text-xs font-mono font-bold text-blue-300 bg-blue-950/80 hover:bg-blue-900 border border-blue-700/50 px-2.5 py-1 rounded-md flex items-center gap-1.5 transition"
-                                  >
-                                    <Phone size={11} className="text-blue-400" />
-                                    <span>Line: {selectedContact.phone || 'No Phone'}</span>
-                                  </button>
-                                )}
-
-                                {selectedContact.mobile_phone && selectedContact.mobile_phone !== selectedContact.work_direct_phone && (
-                                  <button
-                                    type="button"
-                                    onClick={() => startCall(selectedContact, selectedContact.mobile_phone)}
-                                    className="text-xs font-mono text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-700/50 px-2 py-1 rounded-md flex items-center gap-1.5 transition"
-                                    title="Call Mobile Cell"
-                                  >
-                                    <PhoneCall size={11} className="text-emerald-400" />
-                                    <span>Cell: {selectedContact.mobile_phone}</span>
-                                  </button>
-                                )}
-
-                                {selectedContact.corporate_phone && selectedContact.corporate_phone !== selectedContact.work_direct_phone && (
-                                  <button
-                                    type="button"
-                                    onClick={() => startCall(selectedContact, selectedContact.corporate_phone)}
-                                    className="text-xs font-mono text-slate-300 bg-slate-900 hover:bg-slate-800 border border-slate-700 px-2 py-1 rounded-md flex items-center gap-1.5 transition"
-                                    title="Call Corporate Switchboard"
-                                  >
-                                    <Building2 size={11} className="text-slate-400" />
-                                    <span>HQ: {selectedContact.corporate_phone}</span>
-                                  </button>
-                                )}
-
-                                {selectedContact.email && (
-                                  <a
-                                    href={`mailto:${selectedContact.email}`}
-                                    className="text-xs text-slate-300 hover:text-white flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-md border border-slate-800"
-                                  >
-                                    <Mail size={11} className="text-indigo-400" />
-                                    <span>{selectedContact.email}</span>
-                                  </a>
-                                )}
-
-                                {selectedContact.linkedin && (
-                                  <a
-                                    href={selectedContact.linkedin}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 bg-slate-900 px-2 py-1 rounded-md border border-slate-800"
-                                  >
-                                    <ExternalLink size={10} /> LinkedIn
-                                  </a>
-                                )}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="phone-dossier-actions shrink-0 flex flex-wrap gap-2">
-                          <button
-                            type="button"
-                            className="phone-text-btn"
-                            style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', borderColor: 'rgba(59, 130, 246, 0.3)' }}
-                            onClick={() => {
-                              setDossierModalContact(selectedContact);
-                              setShowDossierModal(true);
-                            }}
-                            title="View comprehensive dossier with all colleagues, direct lines & call history"
-                          >
-                            <FileText size={13} style={{ marginRight: 6 }} /> Real Info Card
-                          </button>
-                          <button
-                            type="button"
-                            className="phone-call-btn"
-                            style={{ background: copiedPhone ? '#059669' : '#2563eb' }}
-                            onClick={() => handleCopyQueuePhone(selectedContact?.phone)}
-                            title="Copy phone number to clipboard"
-                          >
-                            {copiedPhone ? (
-                              <>
-                                <Check size={13} style={{ marginRight: 6 }} /> Copied!
-                              </>
-                            ) : (
-                              <>
-                                <Copy size={13} style={{ marginRight: 6 }} /> Copy Number
-                              </>
-                            )}
-                          </button>
-                          {selectedContact.phone && (
-                            <a
-                              href={`sms:${selectedContact.phone.replace(/[^0-9+]/g, '')}`}
-                              className="phone-text-btn"
-                            >
-                              <MessageSquare size={13} style={{ marginRight: 6 }} /> SMS
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Full-Width Outreach & Contact History Metrics Strip */}
-                      <div className="grid grid-cols-3 gap-2.5 p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 text-xs">
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Times Contacted</span>
-                          <span className="text-sm font-black text-white mt-0.5 block">
-                            {selectedContact.times_contacted || (selectedContact.call_logs || []).length || 0} dials
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Last Contacted</span>
-                          <span className="text-xs font-bold text-blue-300 mt-0.5 block truncate">
-                            {formatDateRelative(selectedContact.last_contacted_at)}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Company Outreach</span>
-                          <span className="text-xs font-bold text-amber-300 mt-0.5 block truncate">
-                            {selectedContact.company_times_contacted || 0} calls at firm
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Same Company Organizational Hierarchy Box */}
-                      {colleagues.length > 0 && (
-                        <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800/80 space-y-2">
-                          <div className="text-[11px] font-bold text-white flex items-center justify-between">
-                            <span className="flex items-center gap-1.5">
-                              <Users size={13} className="text-blue-400" />
-                              Organizational Hierarchy at {selectedContact.company} ({colleagues.length + 1} Contacts Total)
-                            </span>
-                            <span className="text-[10px] text-slate-400">
-                              Click colleague to switch
-                            </span>
-                          </div>
-
-                          {/* Superiors List */}
-                          {superiors.length > 0 && (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wide">
-                                Superior:
-                              </span>
-                              {superiors.map(sup => (
-                                <button
-                                  key={sup.id}
-                                  type="button"
-                                  className="text-xs px-2.5 py-1 rounded-md bg-amber-500/10 hover:bg-amber-500/20 text-amber-200 border border-amber-500/30 flex items-center gap-1 transition"
-                                  onClick={() => setSelectedContact(sup)}
-                                >
-                                  <ArrowUpRight size={11} className="text-amber-400" />
-                                  <span className="font-semibold">{sup.name}</span>
-                                  <span className="text-[10px] text-slate-400">({sup.position || 'Manager'})</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Subordinates / Team List */}
-                          {subordinates.length > 0 && (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-wide">
-                                Team / Coordinators:
-                              </span>
-                              {subordinates.map(sub => (
-                                <button
-                                  key={sub.id}
-                                  type="button"
-                                  className="text-xs px-2.5 py-1 rounded-md bg-blue-900/30 hover:bg-blue-800/50 text-blue-200 border border-blue-700/40 flex items-center gap-1 transition"
-                                  onClick={() => setSelectedContact(sub)}
-                                >
-                                  <User size={11} className="text-blue-400" />
-                                  <span className="font-semibold">{sub.name}</span>
-                                  <span className="text-[10px] text-slate-400">({sub.position || 'Coordinator'})</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Peers */}
-                          {peers.length > 0 && (
-                            <div className="flex items-center gap-1.5 flex-wrap">
-                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
-                                Peers:
-                              </span>
-                              {peers.map(p => (
-                                <button
-                                  key={p.id}
-                                  type="button"
-                                  className="text-xs px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 flex items-center gap-1 transition"
-                                  onClick={() => setSelectedContact(p)}
-                                >
-                                  <span>{p.name}</span>
-                                  <span className="text-[10px] text-slate-400">({p.position || 'PM'})</span>
-                                </button>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Detail Matrix */}
-                      <div className="phone-dossier-grid">
-                        <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">City / Territory</span>
-                          <span className="phone-dossier-val">{selectedContact.city || 'GTA'}</span>
-                        </div>
-                        <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">Department</span>
-                          <span className="phone-dossier-val truncate">
-                            {selectedContact.departments || selectedContact.service_type || 'Operations'}
-                          </span>
-                        </div>
-                        <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">Last Touch</span>
-                          <span className="phone-dossier-val truncate" style={{ color: '#38bdf8' }}>
-                            {selectedContact.last_rep_name || (selectedContact.call_logs && selectedContact.call_logs[0]?.rep_name) || (selectedContact.times_contacted > 0 ? (selectedContact.rep_name || 'Malik') : 'Untouched')}
-                          </span>
-                        </div>
-                      </div>
-
-                      {selectedContact.address && (
-                        <div className="text-[11px] text-slate-400 bg-black/20 p-2 rounded-lg">
-                          <strong>Address:</strong> {selectedContact.address}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Active Call Console & 1-Tap Dispositions */}
-                    <div className="phone-active-call-box">
-                      <div className="phone-call-timer-row">
-                        <div className="phone-timer-badge">
-                          {isCalling && <span className="phone-timer-dot" />}
-                          <span>{isCalling ? `ON CALL: ${formatDuration(callDuration)}` : 'CALL DISPOSITION'}</span>
-                        </div>
-                        
-                        {/* Toggle Miro Mind Map in Call */}
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            className="text-xs px-3 py-1 rounded-md font-semibold bg-blue-900/30 hover:bg-blue-800/50 text-blue-300 border border-blue-700/40 flex items-center gap-1.5 transition"
-                            onClick={() => setInCallMiroOpen(!inCallMiroOpen)}
-                          >
-                            <Map size={12} />
-                            {inCallMiroOpen ? 'Hide Mind Map' : 'Open Miro Mind Map Script'}
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Inline Miro Mind Map Split */}
-                      {inCallMiroOpen && (
-                        <div className="my-2 border border-slate-700/60 rounded-xl overflow-hidden">
-                          <MiroScriptEmbed isCompact={true} />
-                        </div>
-                      )}
-
-                      {/* Rep Live Notes Input */}
-                      <div>
-                        <textarea
-                          className="phone-notes-area"
-                          placeholder="Type call notes... (e.g. Spoke with PM Dave, rough clean complete, needs walkthrough next Tuesday for final occupancy clean on 30,000 sq ft build)"
-                          value={callNotes}
-                          onChange={e => setCallNotes(e.target.value)}
-                        />
-                      </div>
-
-                      {/* 1-Tap Clean Disposition Buttons (ZERO EMOJIS) */}
-                      <div>
-                        <div style={{ fontSize: '11px', fontWeight: 700, color: '#8888a0', textTransform: 'uppercase', marginBottom: 6 }}>
-                          Record Call Outcome:
-                        </div>
-                        <div className="phone-dispositions-grid">
-                          {/* PRIMARY B2B GOAL: SITE WALKTHROUGH */}
-                          <button
-                            className="phone-disp-btn"
-                            style={{
-                              gridColumn: 'span 3',
-                              background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-                              borderColor: '#3b82f6',
-                              color: '#fff',
-                              fontSize: '13px',
-                              padding: '11px',
-                              boxShadow: '0 2px 10px rgba(37, 99, 235, 0.3)'
-                            }}
-                            onClick={() => handleDisposition('WALKTHROUGH')}
-                          >
-                            BOOK SITE WALKTHROUGH ASSESSMENT (PRIMARY GOAL)
-                          </button>
-
-                          <button
-                            className="phone-disp-btn won"
-                            onClick={() => handleDisposition('SALE')}
-                          >
-                            WON TRADE SUBCONTRACT / PO ($)
-                          </button>
-
-                          <button
-                            className="phone-disp-btn"
-                            style={{ borderColor: 'rgba(6, 182, 212, 0.4)', color: '#22d3ee' }}
-                            onClick={() => handleDisposition('SEND_QUOTE')}
-                          >
-                            Send Bid / Spec Sheet
-                          </button>
-
-                          <button
-                            className="phone-disp-btn"
-                            style={{ borderColor: 'rgba(139, 92, 246, 0.4)', color: '#c084fc' }}
-                            onClick={() => handleDisposition('CALLBACK')}
-                          >
-                            Callback Scheduled
-                          </button>
-
-                          <button
-                            className="phone-disp-btn"
-                            style={{ color: '#f59e0b', borderColor: 'rgba(245, 158, 11, 0.3)' }}
-                            onClick={() => handleDisposition('GATEKEEPER')}
-                          >
-                            Gatekeeper / Found DM
-                          </button>
-
-                          <button
-                            className="phone-disp-btn"
-                            style={{ color: '#10b981' }}
-                            onClick={() => handleDisposition('CONVO')}
-                          >
-                            Qualified Interest
-                          </button>
-
-                          <button
-                            className="phone-disp-btn"
-                            style={{ color: '#94a3b8' }}
-                            onClick={() => handleDisposition('VOICEMAIL')}
-                          >
-                            Left Voicemail
-                          </button>
-
-                          <button
-                            className="phone-disp-btn"
-                            style={{ color: '#94a3b8' }}
-                            onClick={() => handleDisposition('NO_ANSWER')}
-                          >
-                            No Answer
-                          </button>
-
-                          <button
-                            className="phone-disp-btn"
-                            style={{ color: '#f87171' }}
-                            onClick={() => handleDisposition('NOT_INTERESTED')}
-                          >
-                            Not Interested
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </>
-                ) : (
-                  <div style={{ textAlign: 'center', padding: '60px 20px', color: '#88a2c0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 12 }}>
-                      <Building2 size={38} className="text-blue-400" />
-                    </div>
-                    <div style={{ fontSize: '16px', fontWeight: 800, color: '#fff', marginBottom: 8 }}>
-                      Post-Construction & Commercial Calling Console
-                    </div>
-                    <p style={{ fontSize: '13px', color: '#88a2c0', maxWidth: 380, margin: '0 auto 20px', lineHeight: 1.5 }}>
-                      Select a general contractor or commercial account on the left to start outbound calling, view organizational hierarchy, and book walkthroughs.
-                    </p>
-                    <div className="flex justify-center gap-2">
-                      <button
-                        className="phone-call-btn"
-                        style={{ padding: '9px 18px', fontSize: '13px' }}
-                        onClick={() => setShowImporterModal(true)}
-                      >
-                        <Upload size={14} /> Import Spreadsheet
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </>
+            {/* VIEW 1: REP PERFORMANCE, SHIFT RESET & ARCHIVE TRACKING (Replaces Dialer View) */}
+            {(subView === "reps" || subView === "queue") && (
+              <div className="p-2 sm:p-4">
+                <RepStatsView
+                  initialRep="all"
+                  onOpenDossier={contact => {
+                    setSelectedContact(contact);
+                    setDossierModalContact(contact);
+                    setShowDossierModal(true);
+                  }}
+                />
+              </div>
             )}
 
             {/* VIEW 2: DEDICATED MIRO MIND MAP SCRIPT VIEW */}
@@ -1729,8 +1245,8 @@ export default function PhoneTab({ user, repName, isActive }) {
             {subView === 'logs' && (
               <div className="phone-scripts-card">
                 <div className="phone-scripts-header flex items-center justify-between">
-                  <span>Today's Call History</span>
-                  <span className="text-xs text-slate-400">{callStats.todayCalls.length} Dials Logged</span>
+                  <span>Today&apos;s Call History</span>
+                  <span className="text-xs text-slate-400">{callStats.todayCalls?.length || 0} Dials Logged</span>
                 </div>
 
                 {callStats.todayCalls.length === 0 ? (
