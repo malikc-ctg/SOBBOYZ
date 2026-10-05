@@ -36,7 +36,7 @@ import {
   MessageSquare,
   Sparkles
 } from 'lucide-react';
-import { CALL_OUTCOMES } from '@/lib/sales/phoneService';
+import { CALL_OUTCOMES, normalizeRepName } from '@/lib/sales/phoneService';
 
 const OUTCOME_OPTIONS = [
   {
@@ -314,8 +314,8 @@ export default function LeadDossierModal({
   const allRelatedLogs = [...directCallLogs, ...companyCallLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   // Determine Last Touch Rep Name
-  const lastDirectCall = directCallLogs[0];
-  const lastTouchRep = lastDirectCall?.rep_name || contact.last_rep_name || (directCallLogs.length > 0 || (contact.times_contacted || 0) > 0 ? (contact.rep_name || 'Malik') : null);
+  const rawLastRep = lastDirectCall?.rep_name || contact.last_rep_name || (directCallLogs.length > 0 || (contact.times_contacted || 0) > 0 ? (contact.rep_name || 'Malik Campbell') : null);
+  const lastTouchRep = rawLastRep ? normalizeRepName(rawLastRep) : null;
 
   // Comprehensive Transcripts & Sona AI Aggregation
   const transcriptsList = [];
@@ -1282,7 +1282,7 @@ export default function LeadDossierModal({
                                 const time = match[1];
                                 const speaker = match[2];
                                 const text = match[3];
-                                const isInternalRep = speaker.toLowerCase().includes('sea of blue') || speaker.toLowerCase().includes('malik') || speaker.toLowerCase().includes('ryan');
+                                const isInternalRep = speaker.toLowerCase().includes('sea of blue') || speaker.toLowerCase().includes('malik') || speaker.toLowerCase().includes('ryan') || speaker.toLowerCase().includes('raahim');
 
                                 return (
                                   <div key={lIdx} className="flex items-start gap-2 py-0.5">

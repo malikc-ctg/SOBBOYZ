@@ -6,6 +6,7 @@ import {
   createNewPhoneLead,
   logCallEvent,
   getTodayCallStats,
+  normalizeRepName,
   CALL_OUTCOMES
 } from '@/lib/sales/phoneService';
 import {
@@ -127,6 +128,12 @@ function getSeniorityLabel(rank, title = '') {
 }
 
 export default function PhoneTab({ user, repName, isActive }) {
+  // Resolve unified rep name and ID (e.g. Raahim / Ryan -> Raahim Ahmed)
+  const activeRepName = normalizeRepName(
+    repName || (user?.email?.includes('raahim') ? 'Raahim Ahmed' : 'Malik Campbell')
+  );
+  const activeRepId = user?.id || (activeRepName === 'Raahim Ahmed' ? 'fa039375-1c07-4579-890a-6c7000cc0be8' : '07853cdf-ed2c-4f3b-b713-cde7c40e20a1');
+
   // Navigation
   // 'kanban' (Primary Full Console) | 'queue' (Dialer View) | 'miro' (Mind Map) | 'logs'
   const [subView, setSubView] = useState('kanban');
@@ -376,8 +383,8 @@ export default function PhoneTab({ user, repName, isActive }) {
         outcomeType: newStatus === 'won' ? 'JOB_WON' : newStatus === 'quoted' ? 'INFO_SENT' : newStatus === 'no_answer' ? 'NO_ANSWER' : 'CONVO',
         durationSeconds: 15,
         notes: `Pipeline status moved to ${newStatus}`,
-        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-        repName: repName || 'Malik',
+        repId: activeRepId,
+        repName: activeRepName,
       });
 
       setContacts(prev => prev.map(c => c.id === contactId ? { ...c, status: newStatus } : c));
@@ -406,8 +413,8 @@ export default function PhoneTab({ user, repName, isActive }) {
         outcomeType: 'CONVO',
         durationSeconds: 10,
         notes: `Vertical reassigned to ${newSector}`,
-        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-        repName: repName || 'Malik',
+        repId: activeRepId,
+        repName: activeRepName,
       });
 
       setContacts(prev => prev.map(c => c.id === contactId ? { ...c, sector: newSector, service_type: newSector } : c));
@@ -472,8 +479,8 @@ export default function PhoneTab({ user, repName, isActive }) {
         outcomeType: outcomeType,
         durationSeconds: duration,
         notes: notes,
-        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-        repName: repName || 'Malik',
+        repId: activeRepId,
+        repName: activeRepName,
       });
 
       // 3. Update local state
@@ -533,8 +540,8 @@ export default function PhoneTab({ user, repName, isActive }) {
         outcomeType: 'OUT_OF_SERVICE',
         durationSeconds: 0,
         notes: 'Out of service confirmed after office line check. Lead deleted.',
-        repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-        repName: repName || 'Malik',
+        repId: activeRepId,
+        repName: activeRepName,
       });
 
       // Call API DELETE
@@ -631,8 +638,8 @@ export default function PhoneTab({ user, repName, isActive }) {
       durationSeconds: callDuration,
       notes: callNotes,
       callbackTime: outcomeType === 'CALLBACK' ? callbackDateTime : null,
-      repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-      repName: repName || 'Malik',
+      repId: activeRepId,
+      repName: activeRepName,
     });
 
     setIsCalling(false);
@@ -670,8 +677,8 @@ export default function PhoneTab({ user, repName, isActive }) {
         site_address: walkDetails.siteAddress,
         scope: walkDetails.scopePhase
       },
-      repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-      repName: repName || 'Malik',
+      repId: activeRepId,
+      repName: activeRepName,
     });
 
     setIsCalling(false);
@@ -700,8 +707,8 @@ export default function PhoneTab({ user, repName, isActive }) {
         payment_method: 'Subcontract Invoice',
         homeowner_name: contactToLog.name
       },
-      repId: user?.id || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-      repName: repName || 'Malik',
+      repId: activeRepId,
+      repName: activeRepName,
     });
 
     setShowSaleModal(false);
@@ -1114,7 +1121,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                       {/* Metadata Row */}
                       <div className="phone-lead-meta">
                         <span className="text-[10px] text-slate-400">{getSeniorityLabel(cRank, c.position)}</span>
-                        <span className="phone-lead-val">{c.last_rep_name || (c.call_logs && c.call_logs[0]?.rep_name) || (c.times_contacted > 0 ? (c.rep_name || 'Malik') : 'Untouched')}</span>
+                        <span className="phone-lead-val">{c.last_rep_name ? normalizeRepName(c.last_rep_name) : (c.call_logs && c.call_logs[0]?.rep_name ? normalizeRepName(c.call_logs[0].rep_name) : (c.times_contacted > 0 ? normalizeRepName(c.rep_name || 'Malik Campbell') : 'Untouched'))}</span>
                         <span className="uppercase text-[10px] font-bold text-slate-400">
                           {c.status === 'walkthrough_booked' ? 'Walkthrough' : c.status === 'no_answer' ? 'No Answer' : c.status || 'New'}
                         </span>

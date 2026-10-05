@@ -14,6 +14,19 @@ function normalizeCompanyName(name: string) {
 }
 
 /**
+ * Normalizes rep names across calls
+ */
+function normalizeRepName(name: string) {
+  if (!name) return 'Malik Campbell';
+  const clean = String(name).trim();
+  const lower = clean.toLowerCase();
+  if (lower === 'malik' || lower === 'malik campbell') return 'Malik Campbell';
+  if (lower === 'ryan' || lower === 'raahim' || lower === 'raahim ahmed') return 'Raahim Ahmed';
+  if (lower === 'ayaan' || lower === 'ayaan baig') return 'Ayaan Baig';
+  return clean;
+}
+
+/**
  * GET /api/sales/calls
  * Fetches phone call history logs with optional contact or company filtering
  */
@@ -48,7 +61,7 @@ export async function GET(request: NextRequest) {
         event_id: e.event_id || e.id,
         created_at: e.created_at || payload.timestamp,
         rep_id: e.rep_id || payload.rep_id,
-        rep_name: payload.rep_name || 'Malik',
+        rep_name: normalizeRepName(payload.rep_name || 'Malik Campbell'),
         contact_id: payload.contact_id,
         contact_name: payload.contact_name,
         company_name: payload.company_name,
@@ -115,8 +128,16 @@ export async function POST(request: NextRequest) {
       callback_time = null,
       sale_details = null,
       rep_id = '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-      rep_name = 'Malik',
+      rep_name = 'Malik Campbell',
     } = body;
+
+    const finalRepName = normalizeRepName(rep_name);
+    let finalRepId = rep_id;
+    if (finalRepName === 'Raahim Ahmed') {
+      finalRepId = 'fa039375-1c07-4579-890a-6c7000cc0be8';
+    } else if (finalRepName === 'Malik Campbell') {
+      finalRepId = finalRepId || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1';
+    }
 
     const eventId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
@@ -134,15 +155,15 @@ export async function POST(request: NextRequest) {
       notes,
       callback_time,
       sale_details,
-      rep_id,
-      rep_name,
+      rep_id: finalRepId,
+      rep_name: finalRepName,
       timestamp,
     };
 
     // 1. Insert into events table
     const { error: eventError } = await supabase.from('events').insert({
       event_id: eventId,
-      rep_id,
+      rep_id: finalRepId,
       type: 'PHONE_CALL',
       payload: payload,
       created_at: timestamp,

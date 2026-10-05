@@ -15,7 +15,7 @@ import {
   FileText,
   BarChart3
 } from 'lucide-react';
-import { getTodayCallStats } from '@/lib/sales/phoneService';
+import { getTodayCallStats, isAutomatedSource } from '@/lib/sales/phoneService';
 
 export default function RepStatsView({ onOpenDossier, initialRep = 'all' }) {
   const [loading, setLoading] = useState(true);
@@ -449,7 +449,7 @@ export default function RepStatsView({ onOpenDossier, initialRep = 'all' }) {
 
                 <div className="mt-3 pt-2 border-t border-slate-800/80 flex items-center justify-between text-[10px] text-slate-400">
                   <span className="truncate max-w-[120px]">
-                    {shift.reps.join(', ')}
+                    {shift.reps && shift.reps.length > 0 ? shift.reps.join(', ') : 'VoIP Auto-Sync'}
                   </span>
                   <span className="text-blue-400 font-bold">
                     {isSelectedDate ? 'Active' : 'Inspect'}
@@ -548,7 +548,13 @@ export default function RepStatsView({ onOpenDossier, initialRep = 'all' }) {
                       </td>
 
                       <td className="py-2.5 px-3 whitespace-nowrap font-sans font-semibold text-slate-200">
-                        {c.rep_name}
+                        {isAutomatedSource(c.rep_name) ? (
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-slate-850 text-slate-400 border border-slate-700/80">
+                            VoIP Auto-Sync
+                          </span>
+                        ) : (
+                          <span>{c.rep_name}</span>
+                        )}
                       </td>
 
                       <td className="py-2.5 px-3 min-w-[160px] font-sans">

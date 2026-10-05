@@ -1,6 +1,16 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 
+function normalizeRepName(name: string) {
+  if (!name) return 'Malik Campbell';
+  const clean = String(name).trim();
+  const lower = clean.toLowerCase();
+  if (lower === 'malik' || lower === 'malik campbell') return 'Malik Campbell';
+  if (lower === 'ryan' || lower === 'raahim' || lower === 'raahim ahmed') return 'Raahim Ahmed';
+  if (lower === 'ayaan' || lower === 'ayaan baig') return 'Ayaan Baig';
+  return clean;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createServiceClient();
@@ -41,7 +51,7 @@ export async function GET(request: NextRequest) {
         outcome_type: p.outcome_type,
         duration_seconds: p.duration_seconds || 0,
         notes: p.notes || '',
-        rep_name: p.rep_name || 'Malik',
+        rep_name: normalizeRepName(p.rep_name || 'Malik Campbell'),
         callback_time: p.callback_time,
         source: p.source || 'manual',
         ai_summary: p.ai_summary || null,
@@ -137,7 +147,7 @@ export async function GET(request: NextRequest) {
         last_contacted_at: directCalls[0]?.created_at || null,
         last_outcome: directCalls[0]?.outcome_type || null,
         last_notes: directCalls[0]?.notes || null,
-        last_rep_name: directCalls[0]?.rep_name || null,
+        last_rep_name: directCalls[0]?.rep_name ? normalizeRepName(directCalls[0].rep_name) : null,
         call_logs: directCalls,
         company_times_contacted: companyCalls.length,
         company_last_contacted_at: companyCalls[0]?.created_at || null,
