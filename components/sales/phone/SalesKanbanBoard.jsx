@@ -1,9 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Layers,
   Building2,
   Search,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   User,
   Copy,
   Check,
@@ -21,13 +23,13 @@ export const SECTORS = [
 ];
 
 export const STAGES = [
-  { key: 'new', label: 'New Leads', color: '#64748b', bg: 'bg-slate-900/60', border: 'border-slate-800' },
-  { key: 'no_answer', label: 'No Answer', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-900/40' },
-  { key: 'contacted', label: 'Contacted / In Progress', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-900/40' },
-  { key: 'walkthrough_booked', label: 'Walkthrough Booked', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-900/40' },
-  { key: 'quoted', label: 'Quote Sent', color: '#06b6d4', bg: 'bg-cyan-950/20', border: 'border-cyan-900/40' },
-  { key: 'won', label: 'Contract Won', color: '#10b981', bg: 'bg-emerald-950/20', border: 'border-emerald-900/40' },
-  { key: 'lost', label: 'Lost / Follow Up', color: '#ef4444', bg: 'bg-rose-950/20', border: 'border-rose-950/40' }
+  { key: 'new', label: 'New Leads', shortLabel: 'New', color: '#64748b', bg: 'bg-slate-900/60', border: 'border-slate-800' },
+  { key: 'no_answer', label: 'No Answer', shortLabel: 'No Answer', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-900/40' },
+  { key: 'contacted', label: 'Contacted / In Progress', shortLabel: 'In Progress', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-900/40' },
+  { key: 'walkthrough_booked', label: 'Walkthrough Booked', shortLabel: 'Booked', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-900/40' },
+  { key: 'quoted', label: 'Quote Sent', shortLabel: 'Quoted', color: '#06b6d4', bg: 'bg-cyan-950/20', border: 'border-cyan-900/40' },
+  { key: 'won', label: 'Contract Won', shortLabel: 'Won', color: '#10b981', bg: 'bg-emerald-950/20', border: 'border-emerald-900/40' },
+  { key: 'lost', label: 'Lost / Follow Up', shortLabel: 'Lost', color: '#ef4444', bg: 'bg-rose-950/20', border: 'border-rose-950/40' }
 ];
 
 function formatDateRelative(dateStr) {
@@ -69,6 +71,60 @@ export default function SalesKanbanBoard({
   const [copiedId, setCopiedId] = useState(null);
   const [copiedNameId, setCopiedNameId] = useState(null);
   const [openSectorMenuId, setOpenSectorMenuId] = useState(null);
+
+  // Horizontal Navigation & Scroll State
+  const boardRef = useRef(null);
+  const columnRefs = useRef({});
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
+
+  const checkScrollability = () => {
+    if (!boardRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = boardRef.current;
+    setCanScrollLeft(scrollLeft > 15);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 15);
+  };
+
+  useEffect(() => {
+    const el = boardRef.current;
+    if (!el) return;
+    checkScrollability();
+    el.addEventListener('scroll', checkScrollability, { passive: true });
+    window.addEventListener('resize', checkScrollability);
+    return () => {
+      el.removeEventListener('scroll', checkScrollability);
+      window.removeEventListener('resize', checkScrollability);
+    };
+  }, [contacts.length]);
+
+  const scrollBoard = (direction) => {
+    if (!boardRef.current) return;
+    const offset = direction === 'left' ? -400 : 400;
+    boardRef.current.scrollBy({ left: offset, behavior: 'smooth' });
+  };
+
+  const scrollToStage = (stageKey) => {
+    const targetEl = columnRefs.current[stageKey];
+    if (targetEl && boardRef.current) {
+      targetEl.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+    }
+  };
+
+  const handleBoardWheel = (e) => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+      const isOverCardList = e.target.closest('.column-card-list');
+      if (isOverCardList) {
+        const canScrollUp = isOverCardList.scrollTop > 0;
+        const canScrollDown = isOverCardList.scrollTop + isOverCardList.clientHeight < isOverCardList.scrollHeight;
+        if ((e.deltaY < 0 && canScrollUp) || (e.deltaY > 0 && canScrollDown)) {
+          return;
+        }
+      }
+      if (boardRef.current) {
+        boardRef.current.scrollLeft += e.deltaY;
+      }
+    }
+  };
 
   // Copy contact name helper
   const handleCopyName = (e, contactId, name) => {
@@ -279,49 +335,152 @@ export default function SalesKanbanBoard({
         </div>
       )}
 
-      {/* KANBAN BOARD: HORIZONTAL SCROLLABLE COLUMNS */}
+      {/* STAGE JUMP STRIP & SIDEWAYS SCROLL NAVIGATION BAR */}
       {contacts.length > 0 && (
-        <div className="flex gap-5 overflow-x-auto pb-8 pt-2 items-start min-h-[550px] no-scrollbar scrollbar-none">
-          {STAGES.map(col => {
-            const colKey = col.key;
-            const colLeads = filteredContacts.filter(c => {
-              const s = (c.status || 'new').toLowerCase();
-              if (colKey === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable';
-              if (colKey === 'contacted') return s === 'contacted' || s === 'convo';
-              return s === colKey;
-            });
-            const isDragTarget = dragOverColumn === colKey;
+        <div className="flex items-center justify-between gap-3 bg-slate-900/80 border border-slate-800/80 px-3.5 py-2 rounded-xl shadow-xs">
+          {/* Quick Stage Jump Buttons */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 min-w-0">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1 hidden sm:inline">
+              Jump:
+            </span>
+            {STAGES.map(stage => {
+              const count = filteredContacts.filter(c => {
+                const s = (c.status || 'new').toLowerCase();
+                if (stage.key === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable';
+                if (stage.key === 'contacted') return s === 'contacted' || s === 'convo';
+                return s === stage.key;
+              }).length;
 
-            return (
-              <div
-                key={colKey}
-                onDragOver={e => handleDragOver(e, colKey)}
-                onDragLeave={handleDragLeave}
-                onDrop={e => handleDrop(e, colKey)}
-                className={`w-[360px] shrink-0 rounded-2xl flex flex-col transition border ${
-                  isDragTarget
-                    ? 'border-blue-500 bg-blue-950/30 shadow-lg shadow-blue-500/10'
-                    : 'border-slate-800/80 bg-slate-950/70'
-                }`}
-              >
-                {/* Column Header */}
-                <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full"
-                      style={{ backgroundColor: col.color || '#3b82f6' }}
-                    />
-                    <span className="text-xs font-black uppercase tracking-wider text-slate-200">
-                      {col.label}
-                    </span>
-                    <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-slate-900 border border-slate-800 text-slate-300">
-                      {colLeads.length}
-                    </span>
+              return (
+                <button
+                  key={stage.key}
+                  type="button"
+                  onClick={() => scrollToStage(stage.key)}
+                  className="px-2 py-1 rounded-lg bg-slate-950/80 hover:bg-slate-800 border border-slate-800/80 hover:border-slate-700 text-xs font-semibold flex items-center gap-1.5 shrink-0 transition group cursor-pointer"
+                  title={`Jump to ${stage.label}`}
+                >
+                  <span
+                    className="w-2 h-2 rounded-full shrink-0 group-hover:scale-125 transition-transform"
+                    style={{ backgroundColor: stage.color }}
+                  />
+                  <span className="text-slate-300 group-hover:text-white truncate text-[11px]">
+                    {stage.shortLabel || stage.label}
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-slate-400 bg-slate-900 px-1 rounded">
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Left & Right Column Scroll Arrows */}
+          <div className="flex items-center gap-1.5 shrink-0 pl-2 border-l border-slate-800/80">
+            <button
+              type="button"
+              onClick={() => scrollBoard('left')}
+              disabled={!canScrollLeft}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                canScrollLeft
+                  ? 'bg-blue-950/80 border-blue-800/80 text-blue-300 hover:bg-blue-900 hover:text-white shadow-sm'
+                  : 'bg-slate-950/40 border-slate-800/50 text-slate-600 cursor-not-allowed'
+              }`}
+              title="Scroll board left"
+            >
+              <ChevronLeft size={15} />
+              <span className="text-[11px] hidden sm:inline">Left</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => scrollBoard('right')}
+              disabled={!canScrollRight}
+              className={`px-2.5 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1 transition cursor-pointer ${
+                canScrollRight
+                  ? 'bg-blue-950/80 border-blue-800/80 text-blue-300 hover:bg-blue-900 hover:text-white shadow-sm'
+                  : 'bg-slate-950/40 border-slate-800/50 text-slate-600 cursor-not-allowed'
+              }`}
+              title="Scroll board right"
+            >
+              <span className="text-[11px] hidden sm:inline">Right</span>
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* KANBAN BOARD: HORIZONTAL SCROLLABLE COLUMNS WITH FLOATING CONTROLS */}
+      {contacts.length > 0 && (
+        <div className="relative group/kanban">
+          {/* Floating Left Arrow */}
+          {canScrollLeft && (
+            <button
+              type="button"
+              onClick={() => scrollBoard('left')}
+              className="absolute left-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-slate-950/90 border border-blue-500/70 shadow-2xl flex items-center justify-center text-blue-300 hover:text-white hover:bg-blue-600 hover:border-blue-400 transition-all transform hover:scale-110 active:scale-95 backdrop-blur-md cursor-pointer"
+              title="Scroll left"
+            >
+              <ChevronLeft size={20} />
+            </button>
+          )}
+
+          {/* Floating Right Arrow */}
+          {canScrollRight && (
+            <button
+              type="button"
+              onClick={() => scrollBoard('right')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 z-30 w-10 h-10 rounded-full bg-slate-950/90 border border-blue-500/70 shadow-2xl flex items-center justify-center text-blue-300 hover:text-white hover:bg-blue-600 hover:border-blue-400 transition-all transform hover:scale-110 active:scale-95 backdrop-blur-md cursor-pointer"
+              title="Scroll right"
+            >
+              <ChevronRight size={20} />
+            </button>
+          )}
+
+          <div
+            ref={boardRef}
+            onWheel={handleBoardWheel}
+            className="flex gap-5 overflow-x-auto pb-6 pt-2 items-start min-h-[550px] kanban-horizontal-scroll"
+          >
+            {STAGES.map(col => {
+              const colKey = col.key;
+              const colLeads = filteredContacts.filter(c => {
+                const s = (c.status || 'new').toLowerCase();
+                if (colKey === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable';
+                if (colKey === 'contacted') return s === 'contacted' || s === 'convo';
+                return s === colKey;
+              });
+              const isDragTarget = dragOverColumn === colKey;
+
+              return (
+                <div
+                  key={colKey}
+                  ref={el => { columnRefs.current[colKey] = el; }}
+                  onDragOver={e => handleDragOver(e, colKey)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={e => handleDrop(e, colKey)}
+                  className={`w-[360px] shrink-0 rounded-2xl flex flex-col transition border ${
+                    isDragTarget
+                      ? 'border-blue-500 bg-blue-950/30 shadow-lg shadow-blue-500/10'
+                      : 'border-slate-800/80 bg-slate-950/70'
+                  }`}
+                >
+                  {/* Column Header */}
+                  <div className="p-3.5 border-b border-slate-800/80 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-2.5 h-2.5 rounded-full"
+                        style={{ backgroundColor: col.color || '#3b82f6' }}
+                      />
+                      <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                        {col.label}
+                      </span>
+                      <span className="px-2 py-0.5 rounded-full text-[11px] font-mono font-bold bg-slate-900 border border-slate-800 text-slate-300">
+                        {colLeads.length}
+                      </span>
+                    </div>
                   </div>
-                </div>
 
-                {/* Column Card List - Generous spacing to eliminate clumping */}
-                <div className="p-3 space-y-4 max-h-[740px] overflow-y-auto no-scrollbar scrollbar-none">
+                  {/* Column Card List - Generous spacing to eliminate clumping */}
+                  <div className="p-3 space-y-4 max-h-[660px] overflow-y-auto no-scrollbar scrollbar-none column-card-list">
                   {colLeads.length === 0 ? (
                     <div className="py-10 text-center text-xs text-slate-500 font-mono border border-dashed border-slate-800/80 rounded-xl">
                       No leads in this stage
@@ -473,6 +632,7 @@ export default function SalesKanbanBoard({
               </div>
             );
           })}
+          </div>
         </div>
       )}
 

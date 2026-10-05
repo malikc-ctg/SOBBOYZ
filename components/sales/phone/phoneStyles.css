@@ -908,4 +908,38 @@
   scrollbar-width: none !important;
 }
 
+/* Highly visible, smooth horizontal scrollbar for Kanban board */
+.kanban-horizontal-scroll {
+  scrollbar-width: thin !important;
+  scrollbar-color: rgba(59, 130, 246, 0.7) rgba(15, 23, 42, 0.9) !important;
+  scroll-behavior: smooth;
+}
+
+.kanban-horizontal-scroll::-webkit-scrollbar {
+  display: block !important;
+  height: 10px !important;
+}
+
+.kanban-horizontal-scroll::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.9) !important;
+  border-radius: 9999px !important;
+  border: 1px solid rgba(30, 41, 59, 0.9) !important;
+}
+
+.kanban-horizontal-scroll::-webkit-scrollbar-thumb {
+  background: rgba(59, 130, 246, 0.75) !important;
+  border-radius: 9999px !important;
+  border: 2px solid rgba(15, 23, 42, 0.9) !important;
+  cursor: grab !important;
+}
+
+.kanban-horizontal-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(96, 165, 250, 0.95) !important;
+}
+
+.kanban-horizontal-scroll::-webkit-scrollbar-thumb:active {
+  cursor: grabbing !important;
+}
+
+
 
