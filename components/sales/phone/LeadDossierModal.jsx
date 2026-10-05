@@ -313,6 +313,10 @@ export default function LeadDossierModal({
   const directCallLogs = contact.call_logs || [];
   const allRelatedLogs = [...directCallLogs, ...companyCallLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
+  // Determine Last Touch Rep Name
+  const lastDirectCall = directCallLogs[0];
+  const lastTouchRep = lastDirectCall?.rep_name || contact.last_rep_name || (directCallLogs.length > 0 || (contact.times_contacted || 0) > 0 ? (contact.rep_name || 'Malik') : null);
+
   // Comprehensive Transcripts & Sona AI Aggregation
   const transcriptsList = [];
 
@@ -487,9 +491,20 @@ export default function LeadDossierModal({
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300">
                   {getSeniorityLabel(currentRank, contact.position)}
                 </span>
-                <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-950/80 text-emerald-400 border border-emerald-800/60">
-                  ${contact.estimated_value || '2,500'} Target
-                </span>
+                {lastTouchRep ? (
+                  <span className="text-[11px] font-bold tracking-wider px-2.5 py-0.5 rounded bg-slate-900 border border-blue-800/60 text-blue-300 flex items-center gap-1.5 shrink-0" title={contact.last_contacted_at ? `Last touched ${formatDateRelative(contact.last_contacted_at)} by ${lastTouchRep}` : `Last touched by ${lastTouchRep}`}>
+                    <span className="text-slate-400 font-semibold uppercase text-[10px]">Last Touch:</span>
+                    <span className="text-white font-bold">{lastTouchRep}</span>
+                    {contact.last_contacted_at && (
+                      <span className="text-blue-300/80 text-[10px] font-normal font-mono">({formatDateRelative(contact.last_contacted_at)})</span>
+                    )}
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-bold tracking-wider px-2.5 py-0.5 rounded bg-slate-900/80 text-slate-400 border border-slate-800 flex items-center gap-1 shrink-0">
+                    <span className="text-slate-400 font-semibold uppercase text-[10px]">Last Touch:</span>
+                    <span className="text-slate-300 font-medium">Untouched</span>
+                  </span>
+                )}
                 {saveSuccess && (
                   <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                     <Check size={13} /> Updated

@@ -137,6 +137,7 @@ export async function GET(request: NextRequest) {
         last_contacted_at: directCalls[0]?.created_at || null,
         last_outcome: directCalls[0]?.outcome_type || null,
         last_notes: directCalls[0]?.notes || null,
+        last_rep_name: directCalls[0]?.rep_name || null,
         call_logs: directCalls,
         company_times_contacted: companyCalls.length,
         company_last_contacted_at: companyCalls[0]?.created_at || null,

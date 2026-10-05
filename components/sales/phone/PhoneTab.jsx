@@ -1112,7 +1112,7 @@ export default function PhoneTab({ user, repName, isActive }) {
                       {/* Metadata Row */}
                       <div className="phone-lead-meta">
                         <span className="text-[10px] text-slate-400">{getSeniorityLabel(cRank, c.position)}</span>
-                        <span className="phone-lead-val">${c.estimated_value || '2,500'}</span>
+                        <span className="phone-lead-val">{c.last_rep_name || (c.call_logs && c.call_logs[0]?.rep_name) || (c.times_contacted > 0 ? (c.rep_name || 'Malik') : 'Untouched')}</span>
                         <span className="uppercase text-[10px] font-bold text-slate-400">
                           {c.status === 'walkthrough_booked' ? 'Walkthrough' : c.status === 'no_answer' ? 'No Answer' : c.status || 'New'}
                         </span>
@@ -1552,9 +1552,9 @@ export default function PhoneTab({ user, repName, isActive }) {
                           </span>
                         </div>
                         <div className="phone-dossier-cell">
-                          <span className="phone-dossier-label">Target Job Value</span>
-                          <span className="phone-dossier-val" style={{ color: '#10b981' }}>
-                            ${selectedContact.estimated_value || '2,500'}
+                          <span className="phone-dossier-label">Last Touch</span>
+                          <span className="phone-dossier-val truncate" style={{ color: '#38bdf8' }}>
+                            {selectedContact.last_rep_name || (selectedContact.call_logs && selectedContact.call_logs[0]?.rep_name) || (selectedContact.times_contacted > 0 ? (selectedContact.rep_name || 'Malik') : 'Untouched')}
                           </span>
                         </div>
                       </div>
