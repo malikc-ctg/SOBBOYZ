@@ -568,20 +568,23 @@ export default function Logger({
 
   const selectStreetSuggestion = async (feature) => {
     let finalStreet = '';
-    if (mode === MODES.COMMERCIAL && (feature.is_poi || feature.place_type?.includes('poi') || feature._isGpsFallback)) {
+    if (mode === MODES.COMMERCIAL) {
       const poiName = feature.name || feature.text || '';
-      setBusinessName(poiName);
+      const fullAddr = feature.address || feature.place_name || poiName;
+      if (poiName && fullAddr && fullAddr !== poiName) {
+        finalStreet = `${poiName} — ${fullAddr}`;
+      } else {
+        finalStreet = fullAddr || poiName;
+      }
+      setStreetInput(finalStreet);
+      setBusinessName(''); // Rep will input business/tenant name inside this plaza
+      setSuiteNum('');
+
       if (feature._isGpsFallback) {
-        finalStreet = poiName;
-        setStreetInput(poiName);
         if (geoRef.current.lat) {
           setStreetCoords({ lng: geoRef.current.lng, lat: geoRef.current.lat });
         }
       } else {
-        const fullAddr = feature.address || feature.place_name || poiName;
-        finalStreet = fullAddr;
-        setStreetInput(fullAddr);
-
         if (feature.lat && feature.lng) {
           setStreetCoords({ lng: feature.lng, lat: feature.lat });
         } else if (feature.center) {
@@ -623,6 +626,10 @@ export default function Logger({
     const s = streetInput.trim();
     if (!s) return;
     setStreet(s);
+    if (mode === MODES.COMMERCIAL) {
+      setBusinessName('');
+      setSuiteNum('');
+    }
     if (typeof window !== 'undefined') {
       try {
         if (user?.id) localStorage.setItem(`knocklog_active_street_${user.id}`, s);
@@ -637,14 +644,25 @@ export default function Logger({
     if (dayState !== 'ACTIVE') return;
     const isCommercial = mode === MODES.COMMERCIAL;
 
-    const effectiveStreet = street || businessName?.trim() || (extraDetails?.lead_details?.contact_name ? `${extraDetails.lead_details.contact_name} Account` : null);
-    if (!effectiveStreet) {
-      setError(isCommercial ? 'Set plaza / building address first' : 'Set street & house number first');
-      return;
-    }
-    if (!isCommercial && !houseNum) {
-      setError('Set house number first');
-      return;
+    const effectiveStreet = street || (isCommercial ? null : businessName?.trim()) || (extraDetails?.lead_details?.contact_name ? `${extraDetails.lead_details.contact_name} Account` : null);
+    if (isCommercial) {
+      if (!effectiveStreet) {
+        setError('Select a plaza location first');
+        return;
+      }
+      if (!businessName?.trim() && !extraDetails?.lead_details?.contact_name) {
+        setError('Enter business name first');
+        return;
+      }
+    } else {
+      if (!street) {
+        setError('Set street name first');
+        return;
+      }
+      if (!houseNum) {
+        setError('Set house number first');
+        return;
+      }
     }
 
     setLogging(true);
@@ -1520,6 +1538,7 @@ export default function Logger({
           <>
             <div className="active-street-container">
               <div className="active-street">
+                {mode === MODES.COMMERCIAL && <span style={{ fontSize: '0.7em', display: 'inline-block', marginRight: 6, color: '#38bdf8', fontWeight: 800 }}>PLAZA:</span>}
                 {street}
                 {isReknock && <span style={{ marginLeft: 8, fontSize: '0.65em', background: '#f59e0b', color: '#000', padding: '2px 6px', borderRadius: '4px', fontWeight: 800 }}>REKNOCK</span>}
               </div>
@@ -1539,20 +1558,30 @@ export default function Logger({
                   }
                 }}
               >
-                {mode === MODES.COMMERCIAL ? 'END BLOCK' : 'END STREET'}
+                {mode === MODES.COMMERCIAL ? 'END PLAZA' : 'END STREET'}
               </button>
             </div>
 
             {mode === MODES.COMMERCIAL ? (
-              /* ── Commercial target fields ── */
-              <div className="comm-target-fields">
-                <div className="comm-field-row">
+              /* ── Commercial Target Fields (Anchored to active Plaza) ── */
+              <div className="comm-target-fields" style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '6px' }}>
+                <input
+                  type="text"
+                  className="sale-form-input"
+                  placeholder="Business / Tenant Name (e.g. Subway, Tim Hortons)"
+                  value={businessName}
+                  onChange={e => setBusinessName(e.target.value)}
+                  style={{ fontWeight: 600 }}
+                  autoFocus
+                />
+                <div className="comm-field-row" style={{ display: 'flex', gap: '8px' }}>
                   <input
                     type="text"
                     className="house-input"
                     placeholder="Unit / Suite #"
                     value={suiteNum}
                     onChange={e => setSuiteNum(e.target.value)}
+                    style={{ flex: 1 }}
                   />
                   <input
                     type="text"
@@ -1560,17 +1589,9 @@ export default function Logger({
                     placeholder="Street # (optional)"
                     value={houseNum}
                     onChange={e => setHouseNum(e.target.value)}
-                    style={{ maxWidth: 110 }}
+                    style={{ maxWidth: 130 }}
                   />
                 </div>
-                <input
-                  type="text"
-                  className="sale-form-input"
-                  placeholder="Business / Tenant Name (optional)"
-                  value={businessName}
-                  onChange={e => setBusinessName(e.target.value)}
-                  style={{ marginTop: 6 }}
-                />
               </div>
             ) : (
               /* ── Residential house cursor bar (unchanged) ── */
@@ -1604,12 +1625,14 @@ export default function Logger({
             <input
               type="text"
               className="street-input"
-              placeholder={mode === MODES.COMMERCIAL ? 'Search plaza, business, or street...' : 'Enter street name...'}
+              placeholder={mode === MODES.COMMERCIAL ? 'Search plaza location or commercial complex...' : 'Enter street name...'}
               value={streetInput}
               onChange={handleStreetInputChange}
               onKeyDown={e => { if (e.key === 'Enter') commitStreet(); }}
             />
-            <button className="street-set-btn" onClick={commitStreet}>START</button>
+            <button className="street-set-btn" onClick={commitStreet}>
+              {mode === MODES.COMMERCIAL ? 'SET PLAZA' : 'START'}
+            </button>
 
             {streetSuggestions.length > 0 && (
               <div className="autocomplete-dropdown" style={{

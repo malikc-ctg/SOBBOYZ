@@ -941,5 +941,10 @@
   cursor: grabbing !important;
 }
 
+/* Ensure column cards vertical scroll stays contained and never leaks horizontal or vertical overscroll */
+.column-card-list {
+  overscroll-behavior: contain !important;
+}
+
 
 

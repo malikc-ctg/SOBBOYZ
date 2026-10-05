@@ -111,15 +111,15 @@ export default function SalesKanbanBoard({
   };
 
   const handleBoardWheel = (e) => {
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
-      const isOverCardList = e.target.closest('.column-card-list');
-      if (isOverCardList) {
-        const canScrollUp = isOverCardList.scrollTop > 0;
-        const canScrollDown = isOverCardList.scrollTop + isOverCardList.clientHeight < isOverCardList.scrollHeight;
-        if ((e.deltaY < 0 && canScrollUp) || (e.deltaY > 0 && canScrollDown)) {
-          return;
-        }
-      }
+    // If the wheel event originated inside any column or its card list,
+    // NEVER convert vertical wheel scrolling into horizontal board scrolling!
+    // Column scrolling must stay purely vertical and cleanly stop at column boundaries.
+    if (e.target.closest('.column-card-list') || e.target.closest('.kanban-column')) {
+      return;
+    }
+
+    // Only translate vertical wheel to horizontal if cursor is over empty board gutters/padding
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX) && !e.shiftKey && !e.ctrlKey && !e.altKey && !e.metaKey) {
       if (boardRef.current) {
         boardRef.current.scrollLeft += e.deltaY;
       }
@@ -457,7 +457,7 @@ export default function SalesKanbanBoard({
                   onDragOver={e => handleDragOver(e, colKey)}
                   onDragLeave={handleDragLeave}
                   onDrop={e => handleDrop(e, colKey)}
-                  className={`w-[360px] shrink-0 rounded-2xl flex flex-col transition border ${
+                  className={`kanban-column w-[360px] shrink-0 rounded-2xl flex flex-col transition border ${
                     isDragTarget
                       ? 'border-blue-500 bg-blue-950/30 shadow-lg shadow-blue-500/10'
                       : 'border-slate-800/80 bg-slate-950/70'
