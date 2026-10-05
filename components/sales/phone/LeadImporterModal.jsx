@@ -11,12 +11,33 @@ function cleanKey(k) {
 }
 
 /**
- * Extracts field value using multiple candidate substrings
+ * Extracts field value using multiple candidate substrings with exact match priority
  */
-function extractField(row, candidates) {
+function extractField(row, candidates, options = {}) {
   const keys = Object.keys(row);
+  const excludeList = (options.exclude || []).map(cleanKey);
+
+  // Pass 1: exact match
   for (const cand of candidates) {
-    const matched = keys.find(k => cleanKey(k).includes(cleanKey(cand)));
+    const target = cleanKey(cand);
+    const matched = keys.find(k => {
+      const ck = cleanKey(k);
+      if (excludeList.some(ex => ck.includes(ex))) return false;
+      return ck === target;
+    });
+    if (matched && row[matched] !== undefined && row[matched] !== null && String(row[matched]).trim() !== '') {
+      return String(row[matched]).trim().replace(/^['"]|['"]$/g, '');
+    }
+  }
+
+  // Pass 2: substring includes match
+  for (const cand of candidates) {
+    const target = cleanKey(cand);
+    const matched = keys.find(k => {
+      const ck = cleanKey(k);
+      if (excludeList.some(ex => ck.includes(ex))) return false;
+      return ck.includes(target);
+    });
     if (matched && row[matched] !== undefined && row[matched] !== null && String(row[matched]).trim() !== '') {
       return String(row[matched]).trim().replace(/^['"]|['"]$/g, '');
     }
@@ -30,10 +51,12 @@ function extractField(row, candidates) {
 function mapRowToLead(row, defaultVertical = 'post_construction') {
   const firstName = extractField(row, ['firstname', 'first']) || '';
   const lastName = extractField(row, ['lastname', 'last']) || '';
-  const fullName = extractField(row, ['fullname', 'contactname', 'name']) || `${firstName} ${lastName}`.trim();
+  const combinedName = (firstName && lastName) ? `${firstName} ${lastName}`.trim() : '';
+  const explicitFullName = extractField(row, ['fullname', 'contactname']) || '';
+  const fullName = combinedName || explicitFullName || (firstName || lastName) || extractField(row, ['name']) || 'Decision Maker';
 
   const title = extractField(row, ['title', 'position', 'jobtitle', 'role', 'occupation']) || '';
-  const company = extractField(row, ['companyname', 'company', 'organization', 'accountname', 'account', 'business']) || 'Commercial Prospect';
+  const company = extractField(row, ['companyname', 'company', 'organization', 'accountname', 'account', 'business'], { exclude: ['email'] }) || 'Commercial Prospect';
   
   // Phone fields
   const workDirectPhone = extractField(row, ['workdirectphone', 'directphone', 'directline', 'workphone', 'extension', 'ext']) || '';
@@ -42,7 +65,7 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
   const genericPhone = extractField(row, ['phone', 'phonenumber', 'telephone', 'tel']) || '';
   const primaryPhone = workDirectPhone || mobilePhone || genericPhone || corporatePhone || '';
 
-  const email = extractField(row, ['workemail', 'email', 'contactemail', 'corporateemail']) || '';
+  const email = extractField(row, ['email', 'workemail', 'contactemail', 'corporateemail', 'emailaddress'], { exclude: ['company', 'account'] }) || '';
   const city = extractField(row, ['city', 'companycity', 'location', 'locality', 'metro']) || 'GTA';
   const address = extractField(row, ['companyaddress', 'address', 'streetaddress', 'fulladdress']) || '';
   const seniority = extractField(row, ['seniority', 'level', 'senioritylevel']) || 'Manager';

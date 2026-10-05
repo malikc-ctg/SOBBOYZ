@@ -314,6 +314,7 @@ export default function LeadDossierModal({
   const allRelatedLogs = [...directCallLogs, ...companyCallLogs].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
 
   // Determine Last Touch Rep Name
+  const lastDirectCall = directCallLogs[0];
   const rawLastRep = lastDirectCall?.rep_name || contact.last_rep_name || (directCallLogs.length > 0 || (contact.times_contacted || 0) > 0 ? (contact.rep_name || 'Malik Campbell') : null);
   const lastTouchRep = rawLastRep ? normalizeRepName(rawLastRep) : null;
 
