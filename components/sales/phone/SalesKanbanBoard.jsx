@@ -15,9 +15,10 @@ import {
 
 export const SECTORS = [
   { key: 'post_construction', label: 'Post-Construction', shortLabel: 'Construction', color: 'blue', description: 'General Contractors, Builders, Developers, Site Supers' },
+  { key: 'franchise_owners', label: 'Franchise Owners', shortLabel: 'Franchise', color: 'amber', description: 'Franchise Owners, Multi-Unit Operators, Store Owners' },
   { key: 'commercial_office', label: 'Commercial Offices', shortLabel: 'Corporate', color: 'indigo', description: 'Corporate HQ, Business Centers, Office Parks' },
-  { key: 'property_management', label: 'Property Management', shortLabel: 'Property Mgmt', color: 'amber', description: 'Multi-Family, Condos, HOA, Commercial Landlords' },
-  { key: 'industrial_warehouse', label: 'Industrial & Warehouses', shortLabel: 'Industrial', color: 'emerald', description: 'Manufacturing, Warehouses, Logistics Hubs' },
+  { key: 'property_management', label: 'Property Management', shortLabel: 'Property Mgmt', color: 'emerald', description: 'Multi-Family, Condos, HOA, Commercial Landlords' },
+  { key: 'industrial_warehouse', label: 'Industrial & Warehouses', shortLabel: 'Industrial', color: 'slate', description: 'Manufacturing, Warehouses, Logistics Hubs' },
   { key: 'medical_healthcare', label: 'Medical & Healthcare', shortLabel: 'Healthcare', color: 'cyan', description: 'Medical Clinics, Dental Offices, Surgical Centers' },
   { key: 'retail_hospitality', label: 'Retail & Hospitality', shortLabel: 'Retail / Dining', color: 'purple', description: 'Showrooms, Fitness Clubs, Retail Storefronts' },
 ];
@@ -65,12 +66,31 @@ export default function SalesKanbanBoard({
   user
 }) {
   const [activeSectorFilter, setActiveSectorFilter] = useState('all');
+  const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false);
+  const sectorDropdownRef = useRef(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [draggedContactId, setDraggedContactId] = useState(null);
   const [dragOverColumn, setDragOverColumn] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [copiedNameId, setCopiedNameId] = useState(null);
   const [openSectorMenuId, setOpenSectorMenuId] = useState(null);
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (sectorDropdownRef.current && !sectorDropdownRef.current.contains(event.target)) {
+        setIsSectorDropdownOpen(false);
+      }
+    }
+    if (isSectorDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [isSectorDropdownOpen]);
+
+  const currentSectorMeta = useMemo(() => {
+    if (activeSectorFilter === 'all') return null;
+    return SECTORS.find(s => s.key === activeSectorFilter) || null;
+  }, [activeSectorFilter]);
 
   // Horizontal Navigation & Scroll State
   const boardRef = useRef(null);
@@ -247,18 +267,134 @@ export default function SalesKanbanBoard({
   return (
     <div className="space-y-5">
       {/* CONTROLS HEADER */}
-      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-sm space-y-3.5">
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
-          {/* Search bar */}
-          <div className="relative flex-1 max-w-lg">
-            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
-              placeholder="Search by name, company, position, phone, city..."
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-            />
+      <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 shadow-sm">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* Left: Search Bar & Sector Dropdown Filter */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 max-w-2xl">
+            {/* Search bar */}
+            <div className="relative flex-1">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
+                placeholder="Search by name, company, position, phone, city..."
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {/* Sector Dropdown Filter */}
+            <div className="relative shrink-0" ref={sectorDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setIsSectorDropdownOpen(prev => !prev)}
+                className={`w-full sm:w-auto px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center justify-between sm:justify-start gap-2 border shadow-sm ${
+                  activeSectorFilter !== 'all'
+                    ? 'bg-blue-600/20 text-blue-200 border-blue-500/60 hover:bg-blue-600/30'
+                    : 'bg-slate-950 text-slate-300 border-slate-800 hover:text-white hover:border-slate-700'
+                }`}
+                title="Filter by Industry Sector"
+              >
+                <div className="flex items-center gap-2 truncate">
+                  <Building2 size={13} className={activeSectorFilter !== 'all' ? 'text-blue-400' : 'text-slate-400'} />
+                  <span className="font-semibold text-slate-400">Sector:</span>
+                  <span className="text-white font-bold truncate max-w-[150px]">
+                    {currentSectorMeta?.label || 'All Sectors'}
+                  </span>
+                  <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-blue-950/80 text-blue-300 border border-blue-800/60">
+                    {activeSectorFilter === 'all' ? (sectorCounts.all || 0) : (sectorCounts[activeSectorFilter] || 0)}
+                  </span>
+                </div>
+                <ChevronDown
+                  size={13}
+                  className={`text-slate-400 transition-transform duration-200 shrink-0 ml-1 ${
+                    isSectorDropdownOpen ? 'rotate-180 text-white' : ''
+                  }`}
+                />
+              </button>
+
+              {/* Sector Dropdown Menu */}
+              {isSectorDropdownOpen && (
+                <div className="absolute left-0 top-full mt-1.5 w-72 rounded-2xl bg-slate-950 border border-slate-800 shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100">
+                  <div className="px-2.5 py-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between border-b border-slate-800/80 mb-1">
+                    <span>Filter By Sector</span>
+                    <span className="font-mono text-slate-400">{contacts.length} total</span>
+                  </div>
+
+                  <div className="space-y-0.5 max-h-72 overflow-y-auto no-scrollbar">
+                    {/* All Sectors Option */}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveSectorFilter('all');
+                        setIsSectorDropdownOpen(false);
+                      }}
+                      className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
+                        activeSectorFilter === 'all'
+                          ? 'bg-blue-600 text-white font-bold shadow-sm'
+                          : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <Layers size={13} className={activeSectorFilter === 'all' ? 'text-white' : 'text-slate-400'} />
+                        <span>All Sectors</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                          activeSectorFilter === 'all' ? 'bg-blue-700 text-blue-100' : 'bg-slate-900 text-slate-400 border border-slate-800'
+                        }`}>
+                          {sectorCounts.all || 0}
+                        </span>
+                        {activeSectorFilter === 'all' && <Check size={13} />}
+                      </div>
+                    </button>
+
+                    {/* Individual Sectors */}
+                    {SECTORS.map(sec => {
+                      const count = sectorCounts[sec.key] || 0;
+                      const isSelected = activeSectorFilter === sec.key;
+                      return (
+                        <button
+                          key={sec.key}
+                          type="button"
+                          onClick={() => {
+                            setActiveSectorFilter(sec.key);
+                            setIsSectorDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${
+                            isSelected
+                              ? 'bg-blue-600 text-white font-bold shadow-sm'
+                              : 'text-slate-300 hover:bg-slate-900 hover:text-white'
+                          }`}
+                        >
+                          <div className="min-w-0 pr-2">
+                            <div className="flex items-center gap-2">
+                              <Building2 size={13} className={isSelected ? 'text-white' : 'text-blue-400'} />
+                              <span className="truncate">{sec.label}</span>
+                            </div>
+                            {sec.description && (
+                              <div className={`text-[10px] truncate pl-5 font-normal ${
+                                isSelected ? 'text-blue-100/80' : 'text-slate-400'
+                              }`}>
+                                {sec.description}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                              isSelected ? 'bg-blue-700 text-blue-100' : 'bg-slate-900 text-slate-400 border border-slate-800'
+                            }`}>
+                              {count}
+                            </span>
+                            {isSelected && <Check size={13} />}
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Quick Metrics & Import Action */}
@@ -277,36 +413,6 @@ export default function SalesKanbanBoard({
               </button>
             )}
           </div>
-        </div>
-
-        {/* Dynamic Sector Filter Tabs */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar scrollbar-none">
-          <button
-            type="button"
-            onClick={() => setActiveSectorFilter('all')}
-            className={`px-3 py-1.5 rounded-lg font-bold shrink-0 transition ${
-              activeSectorFilter === 'all'
-                ? 'bg-blue-900/60 text-blue-200 border border-blue-700 shadow-sm'
-                : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-            }`}
-          >
-            All Sectors ({sectorCounts.all || 0})
-          </button>
-          {SECTORS.map(sec => (
-            <button
-              key={sec.key}
-              type="button"
-              onClick={() => setActiveSectorFilter(sec.key)}
-              className={`px-3 py-1.5 rounded-lg font-bold shrink-0 transition flex items-center gap-1.5 ${
-                activeSectorFilter === sec.key
-                  ? 'bg-blue-900/60 text-blue-200 border border-blue-700 shadow-sm'
-                  : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
-              }`}
-            >
-              <span>{sec.label}</span>
-              <span className="text-[10px] opacity-75 font-mono">({sectorCounts[sec.key] || 0})</span>
-            </button>
-          ))}
         </div>
       </div>
 

@@ -100,7 +100,9 @@ export async function GET(request: NextRequest) {
 
       const rawSector = (l.service_type || intel.industry || intel.sector || '').toLowerCase();
       let sector = 'post_construction';
-      if (rawSector.includes('office') || rawSector.includes('corporate') || rawSector.includes('financial')) {
+      if (rawSector.includes('franchise') || rawSector.includes('franchisee') || rawSector.includes('owner-operator')) {
+        sector = 'franchise_owners';
+      } else if (rawSector.includes('office') || rawSector.includes('corporate') || rawSector.includes('financial')) {
         sector = 'commercial_office';
       } else if (rawSector.includes('property') || rawSector.includes('real estate') || rawSector.includes('residential') || rawSector.includes('hoa') || rawSector.includes('landlord')) {
         sector = 'property_management';

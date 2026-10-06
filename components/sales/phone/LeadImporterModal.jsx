@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Building2, User, Phone, Mail, Layers } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Building2, User, Phone, Mail, Layers, Store } from 'lucide-react';
 import { batchImportApolloLeads } from '@/lib/sales/phoneService';
 
 /**
@@ -95,9 +95,11 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
     technologies: technologies.substring(0, 300)
   };
 
-  const defaultPrice = defaultVertical === 'post_construction' ? 2500 : 650;
+  const defaultPrice = defaultVertical === 'post_construction' ? 2500 : defaultVertical === 'franchise_owners' ? 950 : 650;
   const defaultService = defaultVertical === 'post_construction'
     ? 'post_construction_clean'
+    : defaultVertical === 'franchise_owners'
+    ? 'franchise_owners'
     : 'commercial_cleaning';
 
   return {
@@ -239,7 +241,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
           <label className="text-[11px] font-bold text-slate-300 block mb-1.5 uppercase tracking-wide">
             Target Service & Vertical
           </label>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <button
               type="button"
               className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
@@ -251,9 +253,27 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
             >
               <Building2 className="w-4 h-4 text-blue-400 mt-0.5" />
               <div>
-                <div className="text-xs font-bold text-white">Post-Construction (General Contractors)</div>
+                <div className="text-xs font-bold text-white">Post-Construction</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  PMs, Site Supers, Estimators ($2,500 target bid).
+                  General Contractors & Site Supers ($2,500 target).
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
+                vertical === 'franchise_owners'
+                  ? 'border-blue-500/60 bg-blue-500/10 text-white'
+                  : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
+              }`}
+              onClick={() => setVertical('franchise_owners')}
+            >
+              <Store className="w-4 h-4 text-amber-400 mt-0.5" />
+              <div>
+                <div className="text-xs font-bold text-white">Franchise Owners</div>
+                <div className="text-[10px] text-slate-400 mt-0.5">
+                  Multi-Unit Operators & Stores ($950 target).
                 </div>
               </div>
             </button>
@@ -269,9 +289,9 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
             >
               <Layers className="w-4 h-4 text-purple-400 mt-0.5" />
               <div>
-                <div className="text-xs font-bold text-white">Commercial Facilities & Plazas</div>
+                <div className="text-xs font-bold text-white">Commercial Facilities</div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  Property Managers & Facilities Directors ($650 target).
+                  Property Managers & Facilities ($650 target).
                 </div>
               </div>
             </button>
