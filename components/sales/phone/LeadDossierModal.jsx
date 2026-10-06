@@ -297,7 +297,18 @@ export default function LeadDossierModal({
     setEditCity(contact.city || '');
     setEditValue(contact.estimated_value || '2500');
     setIsEditingLiveNote(false);
-  }, [contact.id, contact.notes]);
+  }, [
+    contact.id,
+    contact.phone,
+    contact.work_direct_phone,
+    contact.mobile_phone,
+    contact.email,
+    contact.name,
+    contact.company,
+    contact.position,
+    contact.city,
+    contact.notes
+  ]);
 
   // Calculate Company Colleagues & Hierarchy
   const normComp = normalizeCompanyName(contact.company);
@@ -432,7 +443,7 @@ export default function LeadDossierModal({
 
   async function handleSave() {
     if (onSaveContact) {
-      await onSaveContact(contact.id, {
+      const res = await onSaveContact(contact.id, {
         name: editName,
         position: editTitle,
         company: editCompany,
@@ -444,9 +455,11 @@ export default function LeadDossierModal({
         estimated_value: editValue,
         notes: editNotes,
       });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 2500);
-      setIsEditing(false);
+      if (res !== false) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2500);
+        setIsEditing(false);
+      }
     }
   }
 

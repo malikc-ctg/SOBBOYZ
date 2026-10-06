@@ -217,7 +217,8 @@ export async function PATCH(request: NextRequest) {
     const { 
       lead_id, status, notes, callback_time,
       customer_name, company_name, contact_title, 
-      customer_phone, customer_email, city, service_type, sector, quoted_price
+      customer_phone, phone, work_direct_phone, mobile_phone, corporate_phone,
+      customer_email, email, city, service_type, sector, quoted_price
     } = body;
 
     if (!lead_id) {
@@ -227,28 +228,67 @@ export async function PATCH(request: NextRequest) {
     const rawId = String(lead_id).replace(/^lead_/, '');
     const updatePayload: any = { updated_at: new Date().toISOString() };
     
-    if (status !== undefined) updatePayload.status = status;
-    if (notes !== undefined) {
-      const { data: existingLead } = await supabase.from('leads').select('notes').eq('id', rawId).maybeSingle();
-      if (existingLead?.notes && existingLead.notes.startsWith('{') && existingLead.notes.endsWith('}')) {
-        try {
-          const parsed = JSON.parse(existingLead.notes);
-          parsed.notes = notes;
-          parsed.rep_notes = notes;
-          updatePayload.notes = JSON.stringify(parsed);
-        } catch {
-          updatePayload.notes = notes;
-        }
-      } else {
-        updatePayload.notes = notes;
+    // Resolve primary phone
+    const effectivePhone = customer_phone !== undefined ? customer_phone : phone;
+    if (effectivePhone !== undefined) {
+      updatePayload.customer_phone = effectivePhone;
+    }
+
+    // Fetch existing lead to sync intel metadata in notes JSON
+    const { data: existingLead } = await supabase.from('leads').select('notes, customer_phone').eq('id', rawId).maybeSingle();
+    let parsedNotes: any = null;
+    let isJsonNotes = false;
+
+    if (existingLead?.notes && existingLead.notes.startsWith('{') && existingLead.notes.endsWith('}')) {
+      try {
+        parsedNotes = JSON.parse(existingLead.notes);
+        isJsonNotes = true;
+      } catch {
+        parsedNotes = null;
       }
     }
+
+    if (isJsonNotes && parsedNotes) {
+      if (notes !== undefined) {
+        parsedNotes.notes = notes;
+        parsedNotes.rep_notes = notes;
+      }
+      if (work_direct_phone !== undefined) {
+        parsedNotes.work_direct_phone = work_direct_phone;
+      }
+      if (mobile_phone !== undefined) {
+        parsedNotes.mobile_phone = mobile_phone;
+      }
+      if (corporate_phone !== undefined) {
+        parsedNotes.corporate_phone = corporate_phone;
+      }
+      if (effectivePhone !== undefined) {
+        // If work_direct_phone was not explicitly set, keep it in sync with primary line
+        if (work_direct_phone === undefined && (!parsedNotes.work_direct_phone || parsedNotes.work_direct_phone === existingLead?.customer_phone)) {
+          parsedNotes.work_direct_phone = effectivePhone;
+        }
+      }
+      if (updatePayload.customer_phone === undefined && (parsedNotes.work_direct_phone || parsedNotes.mobile_phone)) {
+        updatePayload.customer_phone = parsedNotes.work_direct_phone || parsedNotes.mobile_phone;
+      }
+      if (customer_name !== undefined) parsedNotes.full_name = customer_name;
+      if (customer_email !== undefined || email !== undefined) parsedNotes.email = customer_email || email;
+
+      updatePayload.notes = JSON.stringify(parsedNotes);
+    } else {
+      if (notes !== undefined) updatePayload.notes = notes;
+      if (updatePayload.customer_phone === undefined && (work_direct_phone || mobile_phone)) {
+        updatePayload.customer_phone = work_direct_phone || mobile_phone;
+      }
+    }
+
+    if (status !== undefined) updatePayload.status = status;
     if (callback_time !== undefined) updatePayload.preferred_date = callback_time;
     if (customer_name !== undefined) updatePayload.customer_name = customer_name;
     if (company_name !== undefined) updatePayload.company_name = company_name;
     if (contact_title !== undefined) updatePayload.contact_title = contact_title;
-    if (customer_phone !== undefined) updatePayload.customer_phone = customer_phone;
     if (customer_email !== undefined) updatePayload.customer_email = customer_email;
+    else if (email !== undefined) updatePayload.customer_email = email;
     if (city !== undefined) updatePayload.city = city;
     if (sector !== undefined) updatePayload.service_type = sector;
     if (service_type !== undefined) updatePayload.service_type = service_type;

@@ -305,20 +305,33 @@ export default function PhoneTab({ user, repName, isActive }) {
   // Update contact from inside LeadDossierModal
   async function handleSaveContactFromModal(contactId, updatedFields) {
     try {
-      await updateLeadContact(contactId, {
+      const res = await updateLeadContact(contactId, {
         customer_name: updatedFields.name,
         company_name: updatedFields.company,
         contact_title: updatedFields.position,
         customer_phone: updatedFields.phone,
+        phone: updatedFields.phone,
+        work_direct_phone: updatedFields.work_direct_phone,
+        mobile_phone: updatedFields.mobile_phone,
         customer_email: updatedFields.email,
+        email: updatedFields.email,
         city: updatedFields.city,
         notes: updatedFields.notes,
         quoted_price: updatedFields.estimated_value
       });
 
+      if (res && res.error) {
+        console.error('[PhoneTab] Save contact failed:', res.error);
+        return false;
+      }
+
+      const existing = contacts.find(c => c.id === contactId) || {};
       const updated = {
-        ...contacts.find(c => c.id === contactId),
-        ...updatedFields
+        ...existing,
+        ...updatedFields,
+        phone: updatedFields.phone || updatedFields.work_direct_phone || existing.phone,
+        work_direct_phone: updatedFields.work_direct_phone !== undefined ? updatedFields.work_direct_phone : existing.work_direct_phone,
+        mobile_phone: updatedFields.mobile_phone !== undefined ? updatedFields.mobile_phone : existing.mobile_phone,
       };
 
       setContacts(prev => prev.map(c => c.id === contactId ? updated : c));
@@ -328,25 +341,35 @@ export default function PhoneTab({ user, repName, isActive }) {
       if (dossierModalContact?.id === contactId) {
         setDossierModalContact(updated);
       }
+      return true;
     } catch (err) {
       console.error('[PhoneTab] Save contact from modal failed:', err);
+      return false;
     }
   }
 
   async function handleSaveQueueInlineEdit(contactId) {
     try {
-      await updateLeadContact(contactId, {
+      const res = await updateLeadContact(contactId, {
         customer_name: inlineFormData.name,
         company_name: inlineFormData.company,
         contact_title: inlineFormData.position,
         customer_phone: inlineFormData.phone,
+        phone: inlineFormData.phone,
         customer_email: inlineFormData.email,
+        email: inlineFormData.email,
         city: inlineFormData.city,
         status: inlineFormData.status
       });
 
+      if (res && res.error) {
+        console.error('[PhoneTab] Save inline queue edit failed:', res.error);
+        return false;
+      }
+
+      const existing = contacts.find(c => c.id === contactId) || {};
       const updated = {
-        ...contacts.find(c => c.id === contactId),
+        ...existing,
         name: inlineFormData.name,
         company: inlineFormData.company,
         position: inlineFormData.position,
@@ -360,9 +383,14 @@ export default function PhoneTab({ user, repName, isActive }) {
       if (selectedContact?.id === contactId) {
         setSelectedContact(updated);
       }
+      if (dossierModalContact?.id === contactId) {
+        setDossierModalContact(updated);
+      }
       setInlineEditingLeadId(null);
+      return true;
     } catch (err) {
       console.error('[PhoneTab] Inline edit save failed:', err);
+      return false;
     }
   }
 
