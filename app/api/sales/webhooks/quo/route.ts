@@ -1,5 +1,6 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
 import crypto from 'crypto';
 
 /**
@@ -310,9 +311,10 @@ export async function POST(request: NextRequest) {
 
       // If matched lead, auto-update lead status
       if (matchedLead) {
+        const nextStatus = nextLeadStatus(matchedLead.status, outcomeType);
         const updatePayload: any = { updated_at: endedAt };
-        if (matchedLead.status === 'new') {
-          updatePayload.status = outcomeType === 'VOICEMAIL' ? 'voicemail' : (outcomeType === 'NO_ANSWER' ? 'no_answer' : 'contacted');
+        if (nextStatus) {
+          updatePayload.status = nextStatus;
         }
         await supabase
           .from('leads')

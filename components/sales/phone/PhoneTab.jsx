@@ -1,14 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import {
   fetchSalesContacts,
-  updateLeadStatus,
   updateLeadContact,
   createNewPhoneLead,
   logCallEvent,
   getTodayCallStats,
   normalizeRepName,
-  CALL_OUTCOMES
 } from '@/lib/sales/phoneService';
+import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
+import { toast } from 'sonner';
+
 import {
   Building2,
   Plus,
@@ -149,6 +150,18 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [showDossierModal, setShowDossierModal] = useState(false);
   const [dossierModalContact, setDossierModalContact] = useState(null);
 
+  // Follow-up & capture modals (spec 0.4, 0.5, Phase 4)
+  const [activeCaptureLead, setActiveCaptureLead] = useState(null);
+  const [showPickupModal, setShowPickupModal] = useState(false);
+  const [showCallbackModal, setShowCallbackModal] = useState(false);
+  const [showNotInterestedModal, setShowNotInterestedModal] = useState(false);
+  const [showJobWonModal, setShowJobWonModal] = useState(false);
+  const [showContactedDropMenu, setShowContactedDropMenu] = useState(false);
+  const [followupBoardData, setFollowupBoardData] = useState(null);
+  const [followupMeta, setFollowupMeta] = useState({ mailingAddressSet: false });
+  const [followupAuthError, setFollowupAuthError] = useState(false);
+
+
   // Data states
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -229,13 +242,35 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     if (!isActive) return;
     loadContacts();
     refreshStats();
+    fetchFollowupBoard();
 
     const handleSync = () => {
       refreshStats();
+      fetchFollowupBoard();
     };
     window.addEventListener('sync-local-events', handleSync);
     return () => window.removeEventListener('sync-local-events', handleSync);
   }, [isActive, filter]);
+
+  async function fetchFollowupBoard() {
+    try {
+      const res = await fetch('/api/sales/followups/board');
+      if (res.status === 401) {
+        setFollowupAuthError(true);
+        return;
+      }
+      if (!res.ok) return;
+      const data = await res.json();
+      setFollowupBoardData(data);
+      if (data?.meta) {
+        setFollowupMeta(data.meta);
+      }
+      setFollowupAuthError(false);
+    } catch (e) {
+      console.warn('[PhoneTab] Error fetching followup board:', e);
+    }
+  }
+
 
   // Synchronize dossier edit fields when selected contact changes
   useEffect(() => {
@@ -395,34 +430,124 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     }
   }
 
-  // Kanban Handlers (Any change/action made automatically counts as a Dial)
-  async function handleKanbanUpdateStatus(contactId, newStatus) {
-    try {
-      await updateLeadStatus(contactId, newStatus);
-      const contact = contacts.find(c => c.id === contactId);
+  // Shared outcome logger (spec 0.5)
+  async function logOutcome(contact, outcomeKey, capture = {}) {
+    if (!contact) return;
+    const explicitStatus = capture?.leadStatus || null;
+    const computedStatus = nextLeadStatus(contact.status, outcomeKey, explicitStatus);
+    const newStatus = explicitStatus || computedStatus || contact.status;
+    const notes = capture?.notes || (outcomeKey === 'STATUS_MOVE' ? `Pipeline status moved to ${explicitStatus}` : `Outcome: ${outcomeKey}`);
+    const callbackTime = capture?.callbackTime || null;
+    const saleDetails = capture?.saleDetails || null;
+    const duration = capture?.durationSeconds || (outcomeKey === 'CONVO' ? 60 : outcomeKey === 'VOICEMAIL' ? 25 : outcomeKey === 'STATUS_MOVE' ? 15 : 0);
 
-      // Universal Dial Rule: Any change logs an event and increments Dials
-      await logCallEvent({
-        contactId: contactId,
-        contactName: contact?.name || 'Contact',
-        companyName: contact?.company || 'Company',
-        phoneNumber: contact?.phone || '',
-        city: contact?.city || 'GTA',
+    try {
+      const res = await logCallEvent({
+        contactId: contact.id,
+        contactName: contact.name,
+        companyName: contact.company,
+        phoneNumber: contact.phone,
+        city: contact.city,
         callType: 'OUTBOUND',
-        outcomeType: newStatus === 'won' ? 'JOB_WON' : newStatus === 'quoted' ? 'INFO_SENT' : newStatus === 'no_answer' ? 'NO_ANSWER' : 'CONVO',
-        durationSeconds: 15,
-        notes: `Pipeline status moved to ${newStatus}`,
+        outcomeType: outcomeKey,
+        durationSeconds: duration,
+        notes: notes,
+        callbackTime: callbackTime,
+        saleDetails: saleDetails,
         repId: activeRepId,
         repName: activeRepName,
+        leadStatus: explicitStatus,
+        followup: capture?.followup || null,
       });
 
-      setContacts(prev => prev.map(c => c.id === contactId ? { ...c, status: newStatus } : c));
-      if (selectedContact?.id === contactId) {
-        setSelectedContact(prev => ({ ...prev, status: newStatus }));
+      // Update local contact state
+      setContacts(prev => prev.map(c => {
+        if (c.id === contact.id) {
+          return {
+            ...c,
+            status: newStatus,
+            times_contacted: (c.times_contacted || 0) + 1,
+            last_outcome: outcomeKey,
+            last_contacted_at: new Date().toISOString()
+          };
+        }
+        return c;
+      }));
+
+      if (selectedContact?.id === contact.id) {
+        setSelectedContact(prev => ({
+          ...prev,
+          status: newStatus,
+          times_contacted: (prev.times_contacted || 0) + 1,
+          last_outcome: outcomeKey,
+          last_contacted_at: new Date().toISOString()
+        }));
       }
+
+      if (dossierModalContact?.id === contact.id) {
+        setDossierModalContact(prev => ({
+          ...prev,
+          status: newStatus,
+          times_contacted: (prev.times_contacted || 0) + 1,
+          last_outcome: outcomeKey,
+          last_contacted_at: new Date().toISOString()
+        }));
+      }
+
       refreshStats();
+
+      if (typeof fetchFollowupBoard === 'function') {
+        fetchFollowupBoard();
+      }
+
+      if (res?.followup?.toast) {
+        const t = res.followup.toast;
+        if (typeof t === 'string') {
+          toast(t);
+        } else if (t.title) {
+          toast(t.title, { description: t.description });
+        }
+      }
+
+      return res;
     } catch (err) {
-      console.error('[PhoneTab] Kanban status update failed:', err);
+      console.error('[PhoneTab] logOutcome error:', err);
+    }
+  }
+
+  // Kanban Drag Handlers (spec 0.4)
+  async function handleKanbanUpdateStatus(contactId, targetColKey) {
+    const contact = contacts.find(c => c.id === contactId);
+    if (!contact) return;
+
+    if (targetColKey === 'no_answer') {
+      return await logOutcome(contact, 'NO_ANSWER', { leadStatus: 'no_answer', notes: 'Outbound call: No Answer / Rang out' });
+    }
+    if (targetColKey === 'new') {
+      return await logOutcome(contact, 'STATUS_MOVE', { leadStatus: 'new' });
+    }
+    if (targetColKey === 'quoted') {
+      return await logOutcome(contact, 'INFO_SENT', { leadStatus: 'quoted', notes: 'Pricing spec sheet / information sent' });
+    }
+    if (targetColKey === 'walkthrough_booked') {
+      setSelectedContact(contact);
+      setShowWalkthroughModal(true);
+      return;
+    }
+    if (targetColKey === 'won') {
+      setActiveCaptureLead(contact);
+      setShowJobWonModal(true);
+      return;
+    }
+    if (targetColKey === 'lost') {
+      setActiveCaptureLead(contact);
+      setShowNotInterestedModal(true);
+      return;
+    }
+    if (targetColKey === 'contacted') {
+      setActiveCaptureLead(contact);
+      setShowContactedDropMenu(true);
+      return;
     }
   }
 
@@ -458,98 +583,46 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
   async function handleKanbanOneClickOutcome(contact, outcomeType) {
     if (!contact) return;
-    
-    let newStatus = contact.status;
-    let duration = 0;
-    let notes = `Outcome: ${outcomeType}`;
 
+    if (outcomeType === 'CONVO') {
+      setActiveCaptureLead(contact);
+      setShowPickupModal(true);
+      return { pending: true };
+    }
+    if (outcomeType === 'CALLBACK') {
+      setActiveCaptureLead(contact);
+      setShowCallbackModal(true);
+      return { pending: true };
+    }
+    if (outcomeType === 'NOT_INTERESTED') {
+      setActiveCaptureLead(contact);
+      setShowNotInterestedModal(true);
+      return { pending: true };
+    }
+    if (outcomeType === 'JOB_WON' || outcomeType === 'SALE') {
+      setActiveCaptureLead(contact);
+      setShowJobWonModal(true);
+      return { pending: true };
+    }
+    if (outcomeType === 'WALKTHROUGH') {
+      setSelectedContact(contact);
+      setShowWalkthroughModal(true);
+      return { pending: true };
+    }
+
+    let notes = `Outcome: ${outcomeType}`;
+    let duration = 0;
     if (outcomeType === 'NO_ANSWER') {
-      duration = 0;
-      newStatus = 'no_answer';
       notes = 'Outbound call: No Answer / Rang out';
     } else if (outcomeType === 'VOICEMAIL') {
-      duration = 25;
-      newStatus = 'no_answer';
       notes = 'Outbound call: Left capabilities voicemail';
-    } else if (outcomeType === 'CONVO') {
-      duration = 60;
-      newStatus = 'contacted';
-      notes = 'Connected with prospect / In discussion';
+      duration = 25;
     } else if (outcomeType === 'INFO_SENT' || outcomeType === 'SEND_QUOTE') {
-      duration = 45;
-      newStatus = 'quoted';
       notes = 'Pricing spec sheet / information sent';
-    } else if (outcomeType === 'WALKTHROUGH') {
-      newStatus = 'walkthrough_booked';
-      notes = 'Jobsite walkthrough requested';
-    } else if (outcomeType === 'JOB_WON' || outcomeType === 'SALE') {
-      newStatus = 'won';
-      notes = 'Contract won / Commercial job closed';
-    } else if (outcomeType === 'NOT_INTERESTED') {
-      newStatus = 'lost';
-      notes = 'Prospect declined / not interested';
-    } else if (outcomeType === 'CALLBACK') {
-      newStatus = 'contacted';
-      notes = 'Callback scheduled';
+      duration = 45;
     }
 
-    try {
-      // 1. Update lead status in state & DB
-      await updateLeadContact(contact.id, { status: newStatus });
-
-      // 2. Log call event (This guarantees DIALS increments automatically!)
-      await logCallEvent({
-        contactId: contact.id,
-        contactName: contact.name,
-        companyName: contact.company,
-        phoneNumber: contact.phone,
-        city: contact.city,
-        callType: 'OUTBOUND',
-        outcomeType: outcomeType,
-        durationSeconds: duration,
-        notes: notes,
-        repId: activeRepId,
-        repName: activeRepName,
-      });
-
-      // 3. Update local state
-      setContacts(prev => prev.map(c => {
-        if (c.id === contact.id) {
-          return {
-            ...c,
-            status: newStatus,
-            times_contacted: (c.times_contacted || 0) + 1,
-            last_outcome: outcomeType,
-            last_contacted_at: new Date().toISOString()
-          };
-        }
-        return c;
-      }));
-
-      if (selectedContact?.id === contact.id) {
-        setSelectedContact(prev => ({
-          ...prev,
-          status: newStatus,
-          times_contacted: (prev.times_contacted || 0) + 1,
-          last_outcome: outcomeType,
-          last_contacted_at: new Date().toISOString()
-        }));
-      }
-
-      if (dossierModalContact?.id === contact.id) {
-        setDossierModalContact(prev => ({
-          ...prev,
-          status: newStatus,
-          times_contacted: (prev.times_contacted || 0) + 1,
-          last_outcome: outcomeType,
-          last_contacted_at: new Date().toISOString()
-        }));
-      }
-
-      refreshStats();
-    } catch (err) {
-      console.error('[PhoneTab] One-click outcome error:', err);
-    }
+    return await logOutcome(contact, outcomeType, { notes, durationSeconds: duration });
   }
 
   // Delete lead permanently when confirmed Out of Service

@@ -213,9 +213,11 @@ export default function LeadDossierModal({
     }
 
     if (onUpdateOutcome) {
-      await onUpdateOutcome(contact, outcomeKey);
-      setOutcomeFeedback(`Logged: ${outcomeLabel} (+1 Dial)`);
-      setTimeout(() => setOutcomeFeedback(null), 3500);
+      const res = await onUpdateOutcome(contact, outcomeKey);
+      if (!res?.pending) {
+        setOutcomeFeedback(`Logged: ${outcomeLabel} (+1 Dial)`);
+        setTimeout(() => setOutcomeFeedback(null), 3500);
+      }
     }
   }
 

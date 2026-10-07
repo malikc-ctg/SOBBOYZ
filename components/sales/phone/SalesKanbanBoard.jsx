@@ -688,7 +688,6 @@ export default function SalesKanbanBoard({
                                 onClick={e => {
                                   e.stopPropagation();
                                   setOpenSectorMenuId(openSectorMenuId === contact.id ? null : contact.id);
-                                  setOpenMoreActionsId(null);
                                 }}
                                 className="px-2 py-1 rounded-md bg-slate-950 border border-slate-800 hover:border-slate-700 text-slate-300 hover:text-white text-[11px] font-semibold flex items-center gap-1.5 transition"
                                 title="Click to reassign sector"

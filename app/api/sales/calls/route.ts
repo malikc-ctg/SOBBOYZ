@@ -1,6 +1,16 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
+import { parseTorontoLocal, TORONTO_TZ } from '@/lib/sales/followups/tz';
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const TORONTO_DATE_FMT = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TORONTO_TZ,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
 
 /**
  * Normalizes company names for fuzzy grouping across calls
@@ -143,13 +153,19 @@ export async function POST(request: NextRequest) {
       sale_details = null,
       rep_id,
       rep_name,
+      lead_status = null,
+      followup = null,
     } = body;
 
     // Attribute dynamically from auth session
     const finalRepId = rep_id || auth.id;
     const finalRepName = rep_name || auth.full_name || auth.email?.split('@')[0] || 'Sales Rep';
 
-    const eventId = crypto.randomUUID();
+    // Accept the client's event id when it is a valid UUID so offline retries stay idempotent.
+    const eventId =
+      typeof body.event_id === 'string' && UUID_RE.test(body.event_id)
+        ? body.event_id
+        : crypto.randomUUID();
     const timestamp = new Date().toISOString();
 
     const payload = {
@@ -167,10 +183,12 @@ export async function POST(request: NextRequest) {
       sale_details,
       rep_id: finalRepId,
       rep_name: finalRepName,
+      lead_status,
+      followup,
       timestamp,
     };
 
-    // 1. Insert into events table
+    // 1. Insert into events table. A unique violation means this event was already processed.
     const { error: eventError } = await supabase.from('events').insert({
       event_id: eventId,
       rep_id: finalRepId,
@@ -180,31 +198,32 @@ export async function POST(request: NextRequest) {
     });
 
     if (eventError) {
+      if ((eventError as any).code === '23505') {
+        return NextResponse.json({ success: true, duplicate: true, event_id: eventId }, { status: 200 });
+      }
       console.warn('[API /api/sales/calls] Events insert error:', eventError);
     }
 
     // 2. Update lead status in CRM leads table and record outreach_tasks
     if (contact_id) {
       const rawLeadId = String(contact_id).replace(/^lead_/, '');
-      let dbStatus = outcome_type.toLowerCase();
-      if (outcome_type === 'WALKTHROUGH') dbStatus = 'walkthrough_booked';
-      if (outcome_type === 'SEND_QUOTE') dbStatus = 'quoted';
-      if (outcome_type === 'CALLBACK') dbStatus = 'contacted';
-      if (outcome_type === 'SALE') dbStatus = 'won';
-      if (outcome_type === 'NOT_INTERESTED') dbStatus = 'lost';
-      if (outcome_type === 'NO_ANSWER') dbStatus = 'no_answer';
-      if (outcome_type === 'VOICEMAIL') dbStatus = 'voicemail';
 
-      const updatePayload: any = {
-        status: dbStatus,
-        updated_at: timestamp
-      };
-      if (notes) {
-        updatePayload.notes = notes;
-      }
-      if (callback_time) {
-        // Safe DATE column value to prevent timestamp truncation errors
-        updatePayload.preferred_date = callback_time.split('T')[0];
+      const { data: currentLead } = await supabase
+        .from('leads')
+        .select('status')
+        .eq('id', rawLeadId)
+        .maybeSingle();
+
+      const newStatus = nextLeadStatus(currentLead?.status, outcome_type, lead_status);
+
+      // Call notes live in the event payload. Never overwrite leads.notes (rep notes and Apollo intel).
+      const updatePayload: any = { updated_at: timestamp };
+      if (newStatus) updatePayload.status = newStatus;
+
+      const callbackInstant = callback_time ? parseTorontoLocal(callback_time) : null;
+      if (callbackInstant) {
+        // Safe DATE column value (Toronto calendar date) to prevent timestamp truncation errors
+        updatePayload.preferred_date = TORONTO_DATE_FMT.format(callbackInstant);
 
         // 3. Create outreach_tasks record to preserve full timestamp with time of day
         try {
@@ -213,7 +232,7 @@ export async function POST(request: NextRequest) {
             rep_id: finalRepId,
             task_type: 'callback',
             status: 'pending',
-            due_at: new Date(callback_time).toISOString(),
+            due_at: callbackInstant.toISOString(),
             notes: notes ? `Callback scheduled: ${notes}` : 'Scheduled callback',
           });
         } catch (taskErr) {
