@@ -102,7 +102,7 @@ const SEED_EQUIPMENT: EquipmentAsset[] = [
   },
 ];
 
-let inMemoryEquipment = [...SEED_EQUIPMENT];
+const inMemoryEquipment = [...SEED_EQUIPMENT];
 
 export async function getEquipmentAssets(zoneId?: string): Promise<EquipmentAsset[]> {
   const supabase = await createServiceClient();

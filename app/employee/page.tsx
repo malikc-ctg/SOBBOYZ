@@ -515,7 +515,7 @@ export default function EmployeeDashboard() {
       {/* Today's Jobs */}
       <div className="space-y-4 pt-2">
           <h2 className="text-sm font-bold text-slate-800 tracking-wide flex items-center gap-2 px-1">
-            <CalendarDays className="h-5 w-5 text-indigo-500" /> Today's Schedule
+            <CalendarDays className="h-5 w-5 text-indigo-500" /> Today&apos;s Schedule
           </h2>
           
           {todaysJobs.length === 0 ? (

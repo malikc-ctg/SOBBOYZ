@@ -2,26 +2,39 @@ import React, { useState } from 'react';
 import { Calendar, Clock, MapPin, User, HardHat, FileText, CheckCircle2, X, DollarSign } from 'lucide-react';
 
 export default function WalkthroughModal({ isOpen, onClose, contact, onConfirm }) {
-  if (!isOpen || !contact) return null;
-
-  // Tomorrow 10 AM default
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const defaultDate = tomorrow.toISOString().split('T')[0];
 
   const [walkDate, setWalkDate] = useState(defaultDate);
   const [walkTime, setWalkTime] = useState('10:00');
-  const [siteAddress, setSiteAddress] = useState(contact.city ? `${contact.city} Job Site` : '');
-  const [siteContactName, setSiteContactName] = useState(contact.name || '');
-  const [siteContactPhone, setSiteContactPhone] = useState(contact.phone || '');
+  const [siteAddress, setSiteAddress] = useState(contact?.city ? `${contact.city} Job Site` : '');
+  const [siteContactName, setSiteContactName] = useState(contact?.name || '');
+  const [siteContactPhone, setSiteContactPhone] = useState(contact?.phone || '');
   const [scopePhase, setScopePhase] = useState(
-    contact.service_type?.toLowerCase().includes('construction')
+    contact?.service_type?.toLowerCase().includes('construction')
       ? 'Final Turnover & HEPA Dust Extraction'
       : 'Dumpster Pad & Exterior Plaza Assessment'
   );
-  const [estimatedValue, setEstimatedValue] = useState(contact.estimated_value || '2500');
+  const [estimatedValue, setEstimatedValue] = useState(contact?.estimated_value || '2500');
   const [siteNotes, setSiteNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  React.useEffect(() => {
+    if (contact) {
+      setSiteAddress(contact.city ? `${contact.city} Job Site` : '');
+      setSiteContactName(contact.name || '');
+      setSiteContactPhone(contact.phone || '');
+      setScopePhase(
+        contact.service_type?.toLowerCase().includes('construction')
+          ? 'Final Turnover & HEPA Dust Extraction'
+          : 'Dumpster Pad & Exterior Plaza Assessment'
+      );
+      setEstimatedValue(contact.estimated_value || '2500');
+    }
+  }, [contact]);
+
+  if (!isOpen || !contact) return null;
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -5,7 +5,6 @@ import {
   calculateNextStepDue,
   toTorontoDate,
   isTaskOverdue,
-  getDueBucket,
   formatWhenFuture,
   formatWhenPast,
 } from './schedule';

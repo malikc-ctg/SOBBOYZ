@@ -9,7 +9,6 @@ import {
   PlannerAction,
   FollowupEnrollment,
   FollowupTask,
-  SalesLeadFlags,
 } from './types';
 import { planForOutcome, planForTaskAction, planForSignal } from './rules';
 import { companyKey } from './company';
@@ -108,7 +107,6 @@ export async function loadPlannerState(
   let companyActiveLeadName: string | null = null;
   const cKey = companyKey(lead.company_name);
   if (cKey) {
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
     const { data: companyEnrs } = await supabase
       .from('sales_followup_enrollments')
       .select('lead_id, leads(customer_name)')

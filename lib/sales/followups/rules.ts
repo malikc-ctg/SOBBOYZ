@@ -10,7 +10,6 @@ import {
   PlannerInputState,
   PlannerResult,
   PlannerAction,
-  TaskKind,
 } from './types';
 import {
   calculateDayNDue,
@@ -19,7 +18,6 @@ import {
   addBusinessDaysAt,
   prevBusinessDayAt,
   formatWhenFuture,
-  formatWhenPast,
   formatTorontoShortDay,
   formatTorontoDay,
   formatTorontoTime,
@@ -82,7 +80,6 @@ export function planForOutcome(input: PlanOutcomeInput): PlannerResult {
   // Identify open enrollments by lane
   const prospectEnr = state.openEnrollments.find((e) => e.lane === 'prospect');
   const callbackEnr = state.openEnrollments.find((e) => e.lane === 'callback');
-  const customerEnrs = state.openEnrollments.filter((e) => e.lane === 'customer');
 
   const isConnected = [
     'CONVO',
@@ -915,7 +912,6 @@ export function planForTaskAction(input: PlanTaskActionInput): PlannerResult {
   const actions: PlannerAction[] = [];
   const now = input.now || new Date();
   const { task, enrollment, action, payload = {} } = input;
-  const seqDef = SEQUENCES[enrollment.sequence_key];
   const anchor = new Date(enrollment.anchor_at);
 
   let toast: string | { title: string; description?: string } | null = null;

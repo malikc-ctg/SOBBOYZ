@@ -1,6 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
+import { recordInboundSignal } from '@/lib/sales/followups/executor';
 import crypto from 'crypto';
 
 /**
@@ -309,17 +310,33 @@ export async function POST(request: NextRequest) {
         console.error('[Quo Webhook] Event insert error:', eventError);
       }
 
-      // If matched lead, auto-update lead status
+      // If matched lead, handle inbound signal or auto-update lead status
       if (matchedLead) {
-        const nextStatus = nextLeadStatus(matchedLead.status, outcomeType);
-        const updatePayload: any = { updated_at: endedAt };
-        if (nextStatus) {
-          updatePayload.status = nextStatus;
+        if (direction === 'inbound') {
+          // Inbound call (any status) records inbound signal; never start drip from Quo missed calls
+          try {
+            await recordInboundSignal(matchedLead.id, 'inbound_call', eventId);
+          } catch (sigErr) {
+            console.error('[Quo Webhook] Inbound call signal error:', sigErr);
+          }
+          if (outcomeType === 'CONVO' && matchedLead.status === 'new') {
+            await supabase
+              .from('leads')
+              .update({ status: 'contacted', updated_at: endedAt })
+              .eq('id', matchedLead.id);
+          }
+        } else {
+          // Outbound call from Quo
+          const nextStatus = nextLeadStatus(matchedLead.status, outcomeType);
+          const updatePayload: any = { updated_at: endedAt };
+          if (nextStatus) {
+            updatePayload.status = nextStatus;
+          }
+          await supabase
+            .from('leads')
+            .update(updatePayload)
+            .eq('id', matchedLead.id);
         }
-        await supabase
-          .from('leads')
-          .update(updatePayload)
-          .eq('id', matchedLead.id);
       }
 
       return NextResponse.json({
@@ -451,11 +468,20 @@ export async function POST(request: NextRequest) {
         created_at: createdAt,
       });
 
-      if (matchedLead && matchedLead.status === 'new') {
-        await supabase
-          .from('leads')
-          .update({ status: 'contacted', updated_at: createdAt })
-          .eq('id', matchedLead.id);
+      if (matchedLead) {
+        if (isIncoming) {
+          try {
+            await recordInboundSignal(matchedLead.id, 'inbound_sms', eventId);
+          } catch (sigErr) {
+            console.error('[Quo Webhook] Inbound SMS signal error:', sigErr);
+          }
+        }
+        if (matchedLead.status === 'new') {
+          await supabase
+            .from('leads')
+            .update({ status: 'contacted', updated_at: createdAt })
+            .eq('id', matchedLead.id);
+        }
       }
 
       return NextResponse.json({

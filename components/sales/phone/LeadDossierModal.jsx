@@ -194,8 +194,6 @@ export default function LeadDossierModal({
   onOpenQuoteDetailsModal,
   onTriggerRefresh,
 }) {
-  if (!isOpen || !contact) return null;
-
   const [isEditing, setIsEditing] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [copiedName, setCopiedName] = useState(false);
@@ -275,19 +273,19 @@ export default function LeadDossierModal({
   }
 
   // Form state for editing
-  const [editName, setEditName] = useState(contact.name || '');
-  const [editTitle, setEditTitle] = useState(contact.position || '');
-  const [editCompany, setEditCompany] = useState(contact.company || '');
-  const [editPhone, setEditPhone] = useState(contact.phone || '');
-  const [editDirect, setEditDirect] = useState(contact.work_direct_phone || '');
-  const [editMobile, setEditMobile] = useState(contact.mobile_phone || '');
-  const [editEmail, setEditEmail] = useState(contact.email || '');
-  const [editCity, setEditCity] = useState(contact.city || '');
-  const [editValue, setEditValue] = useState(contact.estimated_value || '2500');
-  const [editNotes, setEditNotes] = useState(contact.notes || '');
+  const [editName, setEditName] = useState(contact?.name || '');
+  const [editTitle, setEditTitle] = useState(contact?.position || '');
+  const [editCompany, setEditCompany] = useState(contact?.company || '');
+  const [editPhone, setEditPhone] = useState(contact?.phone || '');
+  const [editDirect, setEditDirect] = useState(contact?.work_direct_phone || '');
+  const [editMobile, setEditMobile] = useState(contact?.mobile_phone || '');
+  const [editEmail, setEditEmail] = useState(contact?.email || '');
+  const [editCity, setEditCity] = useState(contact?.city || '');
+  const [editValue, setEditValue] = useState(contact?.estimated_value || '2500');
+  const [editNotes, setEditNotes] = useState(contact?.notes || '');
 
   // Live Rep Notes & Intel State
-  const [liveNoteText, setLiveNoteText] = useState(contact.notes || '');
+  const [liveNoteText, setLiveNoteText] = useState(contact?.notes || '');
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteSavedFeedback, setNoteSavedFeedback] = useState(false);
   const [isEditingLiveNote, setIsEditingLiveNote] = useState(false);
@@ -298,30 +296,34 @@ export default function LeadDossierModal({
 
   // Synchronize state when selected contact updates
   useEffect(() => {
-    setLiveNoteText(contact.notes || '');
-    setEditNotes(contact.notes || '');
-    setEditName(contact.name || '');
-    setEditTitle(contact.position || '');
-    setEditCompany(contact.company || '');
-    setEditPhone(contact.phone || '');
-    setEditDirect(contact.work_direct_phone || '');
-    setEditMobile(contact.mobile_phone || '');
-    setEditEmail(contact.email || '');
-    setEditCity(contact.city || '');
-    setEditValue(contact.estimated_value || '2500');
-    setIsEditingLiveNote(false);
+    if (contact) {
+      setLiveNoteText(contact.notes || '');
+      setEditNotes(contact.notes || '');
+      setEditName(contact.name || '');
+      setEditTitle(contact.position || '');
+      setEditCompany(contact.company || '');
+      setEditPhone(contact.phone || '');
+      setEditDirect(contact.work_direct_phone || '');
+      setEditMobile(contact.mobile_phone || '');
+      setEditEmail(contact.email || '');
+      setEditCity(contact.city || '');
+      setEditValue(contact.estimated_value || '2500');
+      setIsEditingLiveNote(false);
+    }
   }, [
-    contact.id,
-    contact.phone,
-    contact.work_direct_phone,
-    contact.mobile_phone,
-    contact.email,
-    contact.name,
-    contact.company,
-    contact.position,
-    contact.city,
-    contact.notes
+    contact?.id,
+    contact?.phone,
+    contact?.work_direct_phone,
+    contact?.mobile_phone,
+    contact?.email,
+    contact?.name,
+    contact?.company,
+    contact?.position,
+    contact?.city,
+    contact?.notes
   ]);
+
+  if (!isOpen || !contact) return null;
 
   // Calculate Company Colleagues & Hierarchy
   const normComp = normalizeCompanyName(contact.company);
@@ -857,7 +859,7 @@ export default function LeadDossierModal({
                           </div>
                           {log.notes && (
                             <p className="text-slate-300 text-[11px] italic">
-                              "{log.notes}"
+                              &ldquo;{log.notes}&rdquo;
                             </p>
                           )}
                           {log.ai_summary && (

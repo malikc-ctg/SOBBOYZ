@@ -347,7 +347,7 @@ export function CommercialCleaningSection({
                 2. Complexity Tier
               </h3>
               <p className="text-[10px] text-muted-foreground mt-0.5">
-                Layout matters more than raw size — select based on the office's physical complexity, not sqft alone.
+                Layout matters more than raw size — select based on the office&apos;s physical complexity, not sqft alone.
               </p>
             </div>
             <div className="flex flex-col gap-2">

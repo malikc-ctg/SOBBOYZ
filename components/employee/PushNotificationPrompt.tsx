@@ -135,7 +135,7 @@ export default function PushNotificationPrompt() {
             Enable Push Notifications
           </p>
           <p className="text-[11px] text-muted-foreground">
-            Get instant alerts when you're assigned to jobs
+            Get instant alerts when you&apos;re assigned to jobs
           </p>
         </div>
         <span className="text-xs px-2 py-1 rounded-full bg-blue-500/20 text-blue-300 font-medium">

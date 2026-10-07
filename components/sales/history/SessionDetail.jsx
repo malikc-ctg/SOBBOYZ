@@ -171,7 +171,7 @@ export default function SessionDetail({ session, onBack, user }) {
                   )}
                   {e.notes && (
                     <div className="t-notes" style={{ marginTop: 6, fontSize: 13, color: '#d1d5db', background: 'rgba(255,255,255,0.05)', padding: '6px 10px', borderRadius: 6, fontStyle: 'italic' }}>
-                      "{e.notes}"
+                      &ldquo;{e.notes}&rdquo;
                     </div>
                   )}
                 </div>

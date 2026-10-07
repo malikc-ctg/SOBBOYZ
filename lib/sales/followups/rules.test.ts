@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { planForOutcome, planForTaskAction, planForSignal } from './rules';
+import { planForOutcome, planForSignal } from './rules';
 import { PlannerInputState } from './types';
 import { TZDate } from '@date-fns/tz';
 

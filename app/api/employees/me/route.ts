@@ -103,11 +103,13 @@ export async function PATCH(request: Request) {
     const serviceClient = await createServiceClient();
 
     // First fetch current employee to get notes
-    let { data: currentEmployee, error: fetchError } = await serviceClient
+    const { data: initialEmp } = await serviceClient
       .from('employees')
       .select('id, notes')
       .eq('profile_id', user.id)
       .maybeSingle();
+
+    let currentEmployee = initialEmp;
 
     if (!currentEmployee && user.email) {
       let { data: empByEmail } = await serviceClient

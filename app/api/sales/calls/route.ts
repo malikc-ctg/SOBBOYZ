@@ -3,6 +3,7 @@ import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
 import { parseTorontoLocal, TORONTO_TZ } from '@/lib/sales/followups/tz';
+import { runEngineForEvent } from '@/lib/sales/followups/executor';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TORONTO_DATE_FMT = new Intl.DateTimeFormat('en-CA', {
@@ -205,6 +206,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Update lead status in CRM leads table and record outreach_tasks
+    let engineSummary: any = null;
     if (contact_id) {
       const rawLeadId = String(contact_id).replace(/^lead_/, '');
 
@@ -244,12 +246,34 @@ export async function POST(request: NextRequest) {
         .from('leads')
         .update(updatePayload)
         .eq('id', rawLeadId);
+
+      // 4. Run follow-up engine
+      try {
+        const eventRow = {
+          event_id: eventId,
+          rep_id: finalRepId,
+          type: 'PHONE_CALL',
+          payload,
+          created_at: timestamp,
+        };
+        engineSummary = await runEngineForEvent(eventRow, { sessionUserId: finalRepId });
+        if (engineSummary?.statusOverride) {
+          await supabase
+            .from('leads')
+            .update({ status: engineSummary.statusOverride, updated_at: timestamp })
+            .eq('id', rawLeadId);
+        }
+      } catch (engineErr) {
+        console.error('[API /api/sales/calls] Follow-up engine error:', engineErr);
+      }
     }
 
     return NextResponse.json({
       success: true,
       event_id: eventId,
-      call: payload
+      call: payload,
+      followup: engineSummary,
+      toast: engineSummary?.toast || null,
     }, { status: 201 });
   } catch (err: any) {
     console.error('[API /api/sales/calls] POST Exception:', err);

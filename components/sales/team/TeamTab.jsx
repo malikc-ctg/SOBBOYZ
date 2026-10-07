@@ -914,7 +914,7 @@ export default function TeamTab({
                       </div>
                       {lead.notes && (
                         <div style={{ marginTop: 8, fontSize: 12, color: 'var(--text-muted)', fontStyle: 'italic', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: 6 }}>
-                          "{lead.notes}"
+                          &ldquo;{lead.notes}&rdquo;
                         </div>
                       )}
                     </div>
