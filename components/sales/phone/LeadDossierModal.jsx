@@ -181,7 +181,9 @@ export default function LeadDossierModal({
   onSaveContact,
   onUpdateOutcome,
   onDeleteLead,
-  onOpenWalkthrough
+  onOpenWalkthrough,
+  activeRepName = 'Sales Rep',
+  activeRepTitle = 'Account Executive'
 }) {
   if (!isOpen || !contact) return null;
 
@@ -326,7 +328,7 @@ export default function LeadDossierModal({
 
   // Determine Last Touch Rep Name
   const lastDirectCall = directCallLogs[0];
-  const rawLastRep = lastDirectCall?.rep_name || contact.last_rep_name || (directCallLogs.length > 0 || (contact.times_contacted || 0) > 0 ? (contact.rep_name || 'Malik Campbell') : null);
+  const rawLastRep = lastDirectCall?.rep_name || contact.last_rep_name || (directCallLogs.length > 0 || (contact.times_contacted || 0) > 0 ? (contact.rep_name || 'Sales Rep') : null);
   const lastTouchRep = rawLastRep ? normalizeRepName(rawLastRep) : null;
 
   // Comprehensive Transcripts & Sona AI Aggregation
@@ -519,6 +521,12 @@ export default function LeadDossierModal({
                     <span className="text-slate-300 font-medium">Untouched</span>
                   </span>
                 )}
+                <span className="text-[11px] font-bold tracking-wider px-2.5 py-0.5 rounded bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 flex items-center gap-1.5 shrink-0" title={`Active Rep Session: ${activeRepName} (${activeRepTitle})`}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-slate-400 font-semibold uppercase text-[10px]">Rep:</span>
+                  <span className="text-white font-bold">{activeRepName}</span>
+                  <span className="text-emerald-400/80 text-[10px] font-normal font-mono">• {activeRepTitle}</span>
+                </span>
                 {saveSuccess && (
                   <span className="text-xs font-bold text-emerald-400 flex items-center gap-1">
                     <Check size={13} /> Updated
@@ -865,7 +873,7 @@ export default function LeadDossierModal({
                             </div>
                           )}
                           <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                            <span>Rep: {log.rep_name || 'Malik'}</span>
+                            <span>Rep: {log.rep_name || 'Sales Rep'}</span>
                             {log.phone_number && <span>• Dialed: {log.phone_number}</span>}
                           </div>
                         </div>

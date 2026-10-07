@@ -89,7 +89,7 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
           <Badge variant="outline" className="h-9 px-3 text-xs gap-2 border-border bg-card font-sans">
             <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block animate-pulse" />
             <span className="text-muted-foreground">Rep:</span>
-            <span className="font-bold text-foreground">{repName || 'Malik'}</span>
+            <span className="font-bold text-foreground">{repName || 'Sales Rep'}</span>
           </Badge>
         </div>
       </div>

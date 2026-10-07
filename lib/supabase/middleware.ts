@@ -51,20 +51,20 @@ export async function updateSession(request: NextRequest) {
   const isPartnerRoute = pathname.startsWith('/partner');
   const isPartnerLogin = pathname === '/partner/login'; // assuming this exists or will exist
 
-  // Admin auth redirect bypassed — auto-load admin console without login
-  // if (isAdminRoute && !isAdminLogin && !isAdminApi && !user) {
-  //   const loginUrl = request.nextUrl.clone();
-  //   loginUrl.pathname = '/sobadmin/login';
-  //   loginUrl.searchParams.set('redirect', pathname);
-  //   return NextResponse.redirect(loginUrl);
-  // }
+  // Protect admin & sales routes: redirect unauthenticated users to admin login
+  if ((isAdminRoute || pathname === '/sales') && !isAdminLogin && !isAdminApi && !user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/sobadmin/login';
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
-  // if (isEmployeeRoute && !isEmployeeLogin && !isEmployeeOnboarding && !user) {
-  //   const loginUrl = request.nextUrl.clone();
-  //   loginUrl.pathname = '/employee/login';
-  //   loginUrl.searchParams.set('redirect', pathname);
-  //   return NextResponse.redirect(loginUrl);
-  // }
+  if (isEmployeeRoute && !isEmployeeLogin && !isEmployeeOnboarding && !user) {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = '/employee/login';
+    loginUrl.searchParams.set('redirect', pathname);
+    return NextResponse.redirect(loginUrl);
+  }
 
   if (isPartnerRoute && !isPartnerLogin && !user) {
     const loginUrl = request.nextUrl.clone();

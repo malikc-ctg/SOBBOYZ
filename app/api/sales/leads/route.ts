@@ -1,8 +1,9 @@
 import { createServiceClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
-function normalizeRepName(name: string) {
-  if (!name) return 'Malik Campbell';
+function cleanRepName(name: string | null | undefined): string {
+  if (!name) return 'Sales Rep';
   const clean = String(name).trim();
   const lower = clean.toLowerCase();
   if (lower === 'malik' || lower === 'malik campbell') return 'Malik Campbell';
@@ -11,14 +12,25 @@ function normalizeRepName(name: string) {
   return clean;
 }
 
+const normalizeComp = (name: string) => {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/\b(inc|incorporated|ltd|limited|corp|corporation|group|llc|gsc|co)\b/gi, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+};
+
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const supabase = await createServiceClient();
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || 'all'; // all, hot, construction, callbacks, walkthroughs, missing_info
 
-    // Fetch B2B Commercial Phone & Imported leads
-    // Specifically include Apex Edge Builders and all contact_import/phone_sales_os leads
+    // 1. Fetch B2B Commercial Phone & Imported leads
     const { data: leads, error: leadsError } = await supabase
       .from('leads')
       .select('*')
@@ -29,48 +41,84 @@ export async function GET(request: NextRequest) {
       console.error('[API /api/sales/leads] B2B Leads query error:', leadsError);
     }
 
-    // Fetch all phone call events to compute exact contact history and company-wide touchpoints
-    const { data: callEvents } = await supabase
-      .from('events')
-      .select('*')
-      .eq('type', 'PHONE_CALL')
-      .order('created_at', { ascending: false });
+    // 2. Fetch outreach tasks indexed on lead_id to preserve callback time of day
+    const { data: tasks } = await supabase
+      .from('outreach_tasks')
+      .select('id, lead_id, rep_id, due_at, task_type, status, notes')
+      .eq('status', 'pending')
+      .order('due_at', { ascending: true });
 
-    const parsedCalls = (callEvents || []).map((e: any) => {
+    const tasksByLeadId = new Map<string, any[]>();
+    for (const t of (tasks || [])) {
+      const lId = String(t.lead_id);
+      const list = tasksByLeadId.get(lId) || [];
+      list.push(t);
+      tasksByLeadId.set(lId, list);
+    }
+
+    // 3. Scalable Call Event Fetch:
+    // Only select necessary fields and limit to recent calls to avoid OOM / slow JSON parsing
+    const { data: callEvents, error: callsError } = await supabase
+      .from('events')
+      .select('event_id, rep_id, created_at, payload')
+      .eq('type', 'PHONE_CALL')
+      .order('created_at', { ascending: false })
+      .limit(5000);
+
+    if (callsError) {
+      console.error('[API /api/sales/leads] Calls query error:', callsError);
+    }
+
+    // 4. Pre-index calls into O(1) Maps by contact_id, phone, and company
+    const callsByContactId = new Map<string, any[]>();
+    const callsByPhone = new Map<string, any[]>();
+    const callsByCompany = new Map<string, any[]>();
+
+    for (const e of (callEvents || [])) {
       let p = e.payload;
       if (typeof p === 'string') {
         try { p = JSON.parse(p); } catch { p = {}; }
       }
-      return {
-        event_id: e.event_id || e.id,
+
+      const contactId = p.contact_id ? String(p.contact_id).replace(/^lead_/, '') : null;
+      const rawPhone = p.phone_number || '';
+      const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+      const rawCompany = p.company_name || '';
+      const normCompany = normalizeComp(rawCompany);
+
+      const callSummary = {
+        event_id: e.event_id || p.event_id,
         created_at: e.created_at || p.timestamp,
-        contact_id: p.contact_id ? String(p.contact_id).replace(/^lead_/, '') : null,
+        contact_id: contactId,
         contact_name: p.contact_name,
         company_name: p.company_name,
         phone_number: p.phone_number,
         outcome_type: p.outcome_type,
         duration_seconds: p.duration_seconds || 0,
         notes: p.notes || '',
-        rep_name: normalizeRepName(p.rep_name || 'Malik Campbell'),
+        rep_name: cleanRepName(p.rep_name),
         callback_time: p.callback_time,
         source: p.source || 'manual',
-        ai_summary: p.ai_summary || null,
-        transcript: p.transcript || null,
-        recording_url: p.recording_url || null,
-        quo_call_id: p.quo_call_id || null,
       };
-    });
 
-    const normalizeComp = (name: string) => {
-      if (!name) return '';
-      return name
-        .toLowerCase()
-        .replace(/\b(inc|incorporated|ltd|limited|corp|corporation|group|llc|gsc|co)\b/gi, '')
-        .replace(/[^a-z0-9]/g, '')
-        .trim();
-    };
+      if (contactId) {
+        const arr = callsByContactId.get(contactId) || [];
+        arr.push(callSummary);
+        callsByContactId.set(contactId, arr);
+      }
+      if (cleanPhone) {
+        const arr = callsByPhone.get(cleanPhone) || [];
+        arr.push(callSummary);
+        callsByPhone.set(cleanPhone, arr);
+      }
+      if (normCompany) {
+        const arr = callsByCompany.get(normCompany) || [];
+        arr.push(callSummary);
+        callsByCompany.set(normCompany, arr);
+      }
+    }
 
-    // Format into B2B tele-sales contacts with rich hierarchy & contact intelligence
+    // 5. Format into B2B tele-sales contacts with O(1) hash map lookups
     let b2bQueue = (leads || []).map((l: any) => {
       let intel: any = {};
       if (l.notes) {
@@ -78,25 +126,27 @@ export async function GET(request: NextRequest) {
           if (l.notes.startsWith('{') && l.notes.endsWith('}')) {
             intel = JSON.parse(l.notes);
           }
-        } catch (e) {
-          // Plain text notes fallback
-        }
+        } catch {}
       }
 
       const primaryPhone = l.customer_phone || intel.work_direct_phone || intel.mobile_phone || intel.corporate_phone || '';
+      const cleanLeadPhone = primaryPhone.replace(/[^0-9]/g, '');
       const leadCompany = l.company_name || 'Commercial Prospect';
       const normCompany = normalizeComp(leadCompany);
+      const leadIdStr = String(l.id);
 
-      // Direct calls made to this specific contact
-      const directCalls = parsedCalls.filter((c: any) => 
-        (c.contact_id && c.contact_id === String(l.id)) ||
-        (primaryPhone && c.phone_number && c.phone_number.replace(/[^0-9]/g, '') === primaryPhone.replace(/[^0-9]/g, ''))
-      );
+      // Direct calls made to this specific contact (O(1) lookup)
+      const directCalls = callsByContactId.get(leadIdStr) || 
+                          (cleanLeadPhone ? callsByPhone.get(cleanLeadPhone) : null) || 
+                          [];
 
-      // All calls made to ANY colleague at this firm
-      const companyCalls = parsedCalls.filter((c: any) => 
-        c.company_name && normalizeComp(c.company_name) === normCompany
-      );
+      // Company-wide touchpoints (O(1) lookup)
+      const companyCalls = normCompany ? (callsByCompany.get(normCompany) || []) : [];
+
+      // Pending outreach task / callback with preserved time of day
+      const leadTasks = tasksByLeadId.get(leadIdStr) || [];
+      const pendingTask = leadTasks[0] || null;
+      const callbackDueAt = pendingTask?.due_at || null;
 
       const rawSector = (l.service_type || intel.industry || intel.sector || '').toLowerCase();
       let sector = 'post_construction';
@@ -137,11 +187,12 @@ export async function GET(request: NextRequest) {
         service_type: l.service_type || 'post_construction_clean',
         sector: sector,
         estimated_value: l.quoted_price ? Number(l.quoted_price) : 2500,
-        status: l.status || 'new', // new, contacted, walkthrough_booked, quoted, won, lost
+        status: l.status || 'new', // new, contacted, no_answer, voicemail, walkthrough_booked, quoted, won, lost
         notes: cleanNotes || '',
         transcript: intel.transcript || null,
         ai_summary: intel.ai_summary || null,
         preferred_date: l.preferred_date || null,
+        callback_due_at: callbackDueAt, // Preserves exact time of day
         created_at: l.created_at,
         priority: 'HIGH',
         // Outreach & Call History Intelligence
@@ -149,8 +200,8 @@ export async function GET(request: NextRequest) {
         last_contacted_at: directCalls[0]?.created_at || null,
         last_outcome: directCalls[0]?.outcome_type || null,
         last_notes: directCalls[0]?.notes || null,
-        last_rep_name: directCalls[0]?.rep_name ? normalizeRepName(directCalls[0].rep_name) : null,
-        call_logs: directCalls,
+        last_rep_name: directCalls[0]?.rep_name ? cleanRepName(directCalls[0].rep_name) : null,
+        call_logs: directCalls.slice(0, 10), // Limit payload size for scale
         company_times_contacted: companyCalls.length,
         company_last_contacted_at: companyCalls[0]?.created_at || null,
         company_last_contacted_name: companyCalls[0]?.contact_name || null,
@@ -186,7 +237,7 @@ export async function GET(request: NextRequest) {
         (c.company || '').toLowerCase().includes('apex edge')
       );
     } else if (filter === 'callbacks') {
-      b2bQueue = b2bQueue.filter((c: any) => c.status === 'contacted');
+      b2bQueue = b2bQueue.filter((c: any) => c.status === 'contacted' || Boolean(c.callback_due_at));
     } else if (filter === 'walkthroughs') {
       b2bQueue = b2bQueue.filter((c: any) => c.status === 'walkthrough_booked');
     } else if (filter === 'missing_info') {
@@ -212,6 +263,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const supabase = await createServiceClient();
     const body = await request.json();
     const { 
@@ -263,7 +317,6 @@ export async function PATCH(request: NextRequest) {
         parsedNotes.corporate_phone = corporate_phone;
       }
       if (effectivePhone !== undefined) {
-        // If work_direct_phone was not explicitly set, keep it in sync with primary line
         if (work_direct_phone === undefined && (!parsedNotes.work_direct_phone || parsedNotes.work_direct_phone === existingLead?.customer_phone)) {
           parsedNotes.work_direct_phone = effectivePhone;
         }
@@ -283,7 +336,27 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (status !== undefined) updatePayload.status = status;
-    if (callback_time !== undefined) updatePayload.preferred_date = callback_time;
+    
+    if (callback_time !== undefined) {
+      updatePayload.preferred_date = callback_time ? callback_time.split('T')[0] : null;
+
+      // Persist full callback timestamp into outreach_tasks
+      if (callback_time) {
+        try {
+          await supabase.from('outreach_tasks').insert({
+            lead_id: rawId,
+            rep_id: auth.id,
+            task_type: 'callback',
+            status: 'pending',
+            due_at: new Date(callback_time).toISOString(),
+            notes: notes ? `Callback: ${notes}` : 'Scheduled callback',
+          });
+        } catch (taskErr) {
+          console.warn('[API /api/sales/leads PATCH] outreach_task creation error:', taskErr);
+        }
+      }
+    }
+
     if (customer_name !== undefined) updatePayload.customer_name = customer_name;
     if (company_name !== undefined) updatePayload.company_name = company_name;
     if (contact_title !== undefined) updatePayload.contact_title = contact_title;
@@ -314,6 +387,9 @@ export async function PATCH(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const supabase = await createServiceClient();
     const body = await request.json();
 
@@ -372,6 +448,9 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const supabase = await createServiceClient();
     const { searchParams } = new URL(request.url);
     const clearAll = searchParams.get('all') === 'true' || searchParams.get('clear_all') === 'true';
@@ -381,12 +460,7 @@ export async function DELETE(request: NextRequest) {
       try {
         const body = await request.json();
         leadId = body.lead_id || body.id;
-        if (body.all || body.clear_all) {
-          // Flag clearAll from body if passed
-        }
-      } catch {
-        // no body
-      }
+      } catch {}
     }
 
     if (clearAll) {
@@ -417,4 +491,3 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 }
-

@@ -1,5 +1,99 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
+
+/**
+ * Verifies Quo / OpenPhone webhook signature or secret header
+ */
+function verifyQuoWebhook(request: NextRequest, rawBody: string): { isValid: boolean; error?: string } {
+  const secret = process.env.QUO_WEBHOOK_SECRET || process.env.OPENPHONE_WEBHOOK_SECRET;
+
+  if (!secret) {
+    console.error('[Quo Webhook] QUO_WEBHOOK_SECRET is not configured on server');
+    return { isValid: false, error: 'QUO_WEBHOOK_SECRET is not configured' };
+  }
+
+  // 1. Standard-Webhooks headers (webhook-id, webhook-timestamp, webhook-signature)
+  const webhookId = request.headers.get('webhook-id');
+  const webhookTimestamp = request.headers.get('webhook-timestamp');
+  const webhookSignature = request.headers.get('webhook-signature');
+
+  if (webhookSignature && webhookTimestamp) {
+    const timestampNum = parseInt(webhookTimestamp, 10);
+    const nowSec = Math.floor(Date.now() / 1000);
+    const tsSec = timestampNum > 1e11 ? Math.floor(timestampNum / 1000) : timestampNum;
+    if (!isNaN(tsSec) && Math.abs(nowSec - tsSec) > 300) {
+      return { isValid: false, error: 'Webhook timestamp expired (replay attack protection)' };
+    }
+
+    const cleanSecret = secret.startsWith('whsec_') ? secret.slice(6) : secret;
+    let keyBuffer: Buffer;
+    try {
+      keyBuffer = Buffer.from(cleanSecret, 'base64');
+      if (keyBuffer.length === 0) keyBuffer = Buffer.from(cleanSecret, 'utf-8');
+    } catch {
+      keyBuffer = Buffer.from(cleanSecret, 'utf-8');
+    }
+
+    const toSign = `${webhookId || ''}.${webhookTimestamp}.${rawBody}`;
+    const hmac = crypto.createHmac('sha256', keyBuffer).update(toSign).digest('base64');
+
+    const signatures = webhookSignature.split(' ').flatMap(s => s.split(','));
+    for (const sig of signatures) {
+      const cleanSig = sig.startsWith('v1=') ? sig.slice(3) : sig;
+      try {
+        if (crypto.timingSafeEqual(Buffer.from(cleanSig), Buffer.from(hmac))) {
+          return { isValid: true };
+        }
+      } catch {}
+    }
+  }
+
+  // 2. Legacy OpenPhone header: "hmac;1;<timestamp>;<base64-signature>"
+  const legacySigHeader = request.headers.get('openphone-signature');
+  if (legacySigHeader) {
+    const parts = legacySigHeader.split(';');
+    if (parts.length >= 4) {
+      const ts = parts[2];
+      const sigToMatch = parts[3];
+      const toSign = `${ts}.${rawBody}`;
+
+      let key: Buffer;
+      try {
+        key = Buffer.from(secret, 'base64');
+        if (key.length === 0) key = Buffer.from(secret, 'utf-8');
+      } catch {
+        key = Buffer.from(secret, 'utf-8');
+      }
+
+      const hmac = crypto.createHmac('sha256', key).update(toSign).digest('base64');
+      try {
+        if (crypto.timingSafeEqual(Buffer.from(sigToMatch), Buffer.from(hmac))) {
+          return { isValid: true };
+        }
+      } catch {}
+    }
+  }
+
+  // 3. Custom secret / signature header
+  const directSecret = request.headers.get('x-webhook-secret') || 
+                       request.headers.get('x-quo-signature') ||
+                       request.headers.get('x-quo-secret');
+  if (directSecret && (directSecret === secret || directSecret === `whsec_${secret}`)) {
+    return { isValid: true };
+  }
+
+  // 4. Bearer token in Authorization header
+  const authHeader = request.headers.get('authorization');
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const token = authHeader.slice(7).trim();
+    if (token === secret) {
+      return { isValid: true };
+    }
+  }
+
+  return { isValid: false, error: 'Invalid webhook signature or secret' };
+}
 
 /**
  * Normalizes phone numbers to standard 10-digit format for robust matching
@@ -77,8 +171,21 @@ function extractQuoContactName(call: any, eventData: any, body: any): string | n
  */
 export async function POST(request: NextRequest) {
   try {
+    const rawBody = await request.text();
+    const verification = verifyQuoWebhook(request, rawBody);
+    if (!verification.isValid) {
+      console.warn('[Quo Webhook] Authentication failure:', verification.error);
+      return NextResponse.json({ error: verification.error || 'Unauthorized' }, { status: 401 });
+    }
+
+    let body: any;
+    try {
+      body = JSON.parse(rawBody);
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
+    }
+
     const supabase = await createServiceClient();
-    const body = await request.json();
 
     const eventType = body.type;
     const eventData = body.data?.object || body.data || {};
@@ -191,7 +298,7 @@ export async function POST(request: NextRequest) {
       // Record in public.events
       const { error: eventError } = await supabase.from('events').insert({
         event_id: eventId,
-        rep_id: '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+        rep_id: matchedLead?.rep_id || matchedLead?.assigned_to || null,
         type: 'PHONE_CALL',
         payload: callPayload,
         created_at: endedAt,
@@ -201,11 +308,11 @@ export async function POST(request: NextRequest) {
         console.error('[Quo Webhook] Event insert error:', eventError);
       }
 
-      // If matched lead, auto-update lead status to contacted
+      // If matched lead, auto-update lead status
       if (matchedLead) {
         const updatePayload: any = { updated_at: endedAt };
         if (matchedLead.status === 'new') {
-          updatePayload.status = 'contacted';
+          updatePayload.status = outcomeType === 'VOICEMAIL' ? 'voicemail' : (outcomeType === 'NO_ANSWER' ? 'no_answer' : 'contacted');
         }
         await supabase
           .from('leads')
@@ -336,7 +443,7 @@ export async function POST(request: NextRequest) {
 
       await supabase.from('events').insert({
         event_id: eventId,
-        rep_id: '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
+        rep_id: matchedLead?.rep_id || matchedLead?.assigned_to || null,
         type: 'PHONE_CALL',
         payload: smsPayload,
         created_at: createdAt,

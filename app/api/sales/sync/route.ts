@@ -1,8 +1,12 @@
 import { createServiceClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const supabase = await createServiceClient();
     const body = await request.json();
     const events = Array.isArray(body) ? body : body.events;
@@ -11,15 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, synced: 0 });
     }
 
-    let defaultRepId: string | null = null;
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user?.id) defaultRepId = user.id;
-    } catch {}
+    const authenticatedRepId = auth.id;
 
     const payload = events.map((e: any) => {
       const p = typeof e.payload === 'string' ? JSON.parse(e.payload) : (e.payload || {});
-      const repId = e.rep_id || p.rep_id || defaultRepId || 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5';
+      const repId = e.rep_id || p.rep_id || authenticatedRepId;
       return {
         event_id: e.event_id || crypto.randomUUID(),
         rep_id: repId,

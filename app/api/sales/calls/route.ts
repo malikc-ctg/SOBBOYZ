@@ -1,4 +1,5 @@
 import { createServiceClient } from '@/lib/supabase/server';
+import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
@@ -14,10 +15,10 @@ function normalizeCompanyName(name: string) {
 }
 
 /**
- * Normalizes rep names across calls
+ * Formats rep name cleanly without hardcoding defaults
  */
-function normalizeRepName(name: string) {
-  if (!name) return 'Malik Campbell';
+function cleanRepName(name: string | null | undefined): string {
+  if (!name) return 'Sales Rep';
   const clean = String(name).trim();
   const lower = clean.toLowerCase();
   if (lower === 'malik' || lower === 'malik campbell') return 'Malik Campbell';
@@ -28,20 +29,30 @@ function normalizeRepName(name: string) {
 
 /**
  * GET /api/sales/calls
- * Fetches phone call history logs with optional contact or company filtering
+ * Fetches phone call history logs with authenticated session check
  */
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const supabase = await createServiceClient();
     const { searchParams } = new URL(request.url);
     const contactId = searchParams.get('contact_id');
     const company = searchParams.get('company');
 
-    const { data: events, error } = await supabase
+    let query = supabase
       .from('events')
       .select('*')
       .eq('type', 'PHONE_CALL')
       .order('created_at', { ascending: false });
+
+    if (contactId) {
+      const rawContactId = String(contactId).replace(/^lead_/, '');
+      query = query.filter('payload->>contact_id', 'eq', rawContactId);
+    }
+
+    const { data: events, error } = await query;
 
     if (error) {
       console.error('[API /api/sales/calls] GET error:', error);
@@ -61,7 +72,7 @@ export async function GET(request: NextRequest) {
         event_id: e.event_id || e.id,
         created_at: e.created_at || payload.timestamp,
         rep_id: e.rep_id || payload.rep_id,
-        rep_name: normalizeRepName(payload.rep_name || 'Malik Campbell'),
+        rep_name: cleanRepName(payload.rep_name),
         contact_id: payload.contact_id,
         contact_name: payload.contact_name,
         company_name: payload.company_name,
@@ -107,11 +118,14 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/sales/calls
- * Logs a phone call event with server service client (guaranteed permissions),
- * and updates the lead status in CRM table
+ * Logs a phone call event under the authenticated user's session,
+ * persists full due_at callback time to outreach_tasks, and updates lead status in CRM.
  */
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
+
     const supabase = await createServiceClient();
     const body = await request.json();
 
@@ -127,17 +141,13 @@ export async function POST(request: NextRequest) {
       notes = '',
       callback_time = null,
       sale_details = null,
-      rep_id = '07853cdf-ed2c-4f3b-b713-cde7c40e20a1',
-      rep_name = 'Malik Campbell',
+      rep_id,
+      rep_name,
     } = body;
 
-    const finalRepName = normalizeRepName(rep_name);
-    let finalRepId = rep_id;
-    if (finalRepName === 'Raahim Ahmed') {
-      finalRepId = 'fa039375-1c07-4579-890a-6c7000cc0be8';
-    } else if (finalRepName === 'Malik Campbell') {
-      finalRepId = finalRepId || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1';
-    }
+    // Attribute dynamically from auth session
+    const finalRepId = rep_id || auth.id;
+    const finalRepName = rep_name || auth.full_name || auth.email?.split('@')[0] || 'Sales Rep';
 
     const eventId = crypto.randomUUID();
     const timestamp = new Date().toISOString();
@@ -173,7 +183,7 @@ export async function POST(request: NextRequest) {
       console.warn('[API /api/sales/calls] Events insert error:', eventError);
     }
 
-    // 2. Update lead status in CRM leads table
+    // 2. Update lead status in CRM leads table and record outreach_tasks
     if (contact_id) {
       const rawLeadId = String(contact_id).replace(/^lead_/, '');
       let dbStatus = outcome_type.toLowerCase();
@@ -182,6 +192,8 @@ export async function POST(request: NextRequest) {
       if (outcome_type === 'CALLBACK') dbStatus = 'contacted';
       if (outcome_type === 'SALE') dbStatus = 'won';
       if (outcome_type === 'NOT_INTERESTED') dbStatus = 'lost';
+      if (outcome_type === 'NO_ANSWER') dbStatus = 'no_answer';
+      if (outcome_type === 'VOICEMAIL') dbStatus = 'voicemail';
 
       const updatePayload: any = {
         status: dbStatus,
@@ -191,7 +203,22 @@ export async function POST(request: NextRequest) {
         updatePayload.notes = notes;
       }
       if (callback_time) {
-        updatePayload.preferred_date = callback_time;
+        // Safe DATE column value to prevent timestamp truncation errors
+        updatePayload.preferred_date = callback_time.split('T')[0];
+
+        // 3. Create outreach_tasks record to preserve full timestamp with time of day
+        try {
+          await supabase.from('outreach_tasks').insert({
+            lead_id: rawLeadId,
+            rep_id: finalRepId,
+            task_type: 'callback',
+            status: 'pending',
+            due_at: new Date(callback_time).toISOString(),
+            notes: notes ? `Callback scheduled: ${notes}` : 'Scheduled callback',
+          });
+        } catch (taskErr) {
+          console.warn('[API /api/sales/calls] Failed to insert outreach_task:', taskErr);
+        }
       }
 
       await supabase

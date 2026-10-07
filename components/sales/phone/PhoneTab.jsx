@@ -127,12 +127,13 @@ function getSeniorityLabel(rank, title = '') {
   return title || 'Team Member';
 }
 
-export default function PhoneTab({ user, repName, isActive }) {
-  // Resolve unified rep name and ID (e.g. Raahim / Ryan -> Raahim Ahmed)
+export default function PhoneTab({ user, repName, repTitle, isActive }) {
+  // Resolve rep name, ID, and title dynamically from authenticated session
   const activeRepName = normalizeRepName(
-    repName || (user?.email?.includes('raahim') ? 'Raahim Ahmed' : 'Malik Campbell')
+    repName || user?.full_name || user?.email?.split('@')[0] || 'Sales Rep'
   );
-  const activeRepId = user?.id || (activeRepName === 'Raahim Ahmed' ? 'fa039375-1c07-4579-890a-6c7000cc0be8' : '07853cdf-ed2c-4f3b-b713-cde7c40e20a1');
+  const activeRepId = user?.id || null;
+  const activeRepTitle = repTitle || user?.title || 'Account Executive';
 
   // Navigation
   // 'kanban' (Primary Full Console) | 'queue' (Dialer View) | 'miro' (Mind Map) | 'logs'
@@ -1149,9 +1150,9 @@ export default function PhoneTab({ user, repName, isActive }) {
                       {/* Metadata Row */}
                       <div className="phone-lead-meta">
                         <span className="text-[10px] text-slate-400">{getSeniorityLabel(cRank, c.position)}</span>
-                        <span className="phone-lead-val">{c.last_rep_name ? normalizeRepName(c.last_rep_name) : (c.call_logs && c.call_logs[0]?.rep_name ? normalizeRepName(c.call_logs[0].rep_name) : (c.times_contacted > 0 ? normalizeRepName(c.rep_name || 'Malik Campbell') : 'Untouched'))}</span>
+                        <span className="phone-lead-val">{c.last_rep_name ? normalizeRepName(c.last_rep_name) : (c.call_logs && c.call_logs[0]?.rep_name ? normalizeRepName(c.call_logs[0].rep_name) : (c.times_contacted > 0 ? normalizeRepName(c.rep_name || 'Sales Rep') : 'Untouched'))}</span>
                         <span className="uppercase text-[10px] font-bold text-slate-400">
-                          {c.status === 'walkthrough_booked' ? 'Walkthrough' : c.status === 'no_answer' ? 'No Answer' : c.status || 'New'}
+                          {c.status === 'walkthrough_booked' ? 'Walkthrough' : (c.status === 'no_answer' || c.status === 'voicemail') ? 'No Answer / VM' : c.status || 'New'}
                         </span>
                       </div>
                     </div>
@@ -1608,6 +1609,8 @@ export default function PhoneTab({ user, repName, isActive }) {
         isOpen={showDossierModal}
         contact={dossierModalContact || selectedContact}
         allContacts={contacts}
+        activeRepName={activeRepName}
+        activeRepTitle={activeRepTitle}
         onClose={() => setShowDossierModal(false)}
         onSelectContact={(c) => {
           setSelectedContact(c);

@@ -11,45 +11,39 @@ import { NextResponse } from 'next/server';
  *   const user = auth; // authenticated user
  */
 export async function requireAuth(): Promise<
-  { id: string; email?: string; role?: string; [key: string]: any } | NextResponse
+  { id: string; email?: string; role?: string; full_name?: string; title?: string; [key: string]: any } | NextResponse
 > {
   try {
     const supabase = await createClient();
     const { data: { user }, error } = await supabase.auth.getUser();
 
-    if (!error && user) {
-      return user;
+    if (error || !user) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Authentication required' },
+        { status: 401 }
+      );
     }
 
-    // Fallback: When accessing the admin console where auth is auto-loaded
+    // Attach role and profile info if available
     const { createServiceClient } = await import('@/lib/supabase/server');
     const serviceClient = await createServiceClient();
-    const { data: adminProfile } = await serviceClient
+    const { data: profile } = await serviceClient
       .from('profiles')
-      .select('id, email, role')
-      .eq('role', 'admin')
-      .limit(1)
+      .select('role, full_name, title')
+      .eq('id', user.id)
       .maybeSingle();
 
-    if (adminProfile) {
-      return {
-        id: adminProfile.id,
-        email: adminProfile.email || 'admin@seaofblue.app',
-        role: 'admin',
-      };
-    }
-
     return {
-      id: 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
-      email: 'admin@seaofblue.app',
-      role: 'admin',
+      ...user,
+      role: profile?.role || user.app_metadata?.role || user.user_metadata?.role || 'authenticated',
+      full_name: profile?.full_name || user.user_metadata?.full_name || null,
+      title: profile?.title || null,
     };
   } catch {
-    return {
-      id: 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
-      email: 'admin@seaofblue.app',
-      role: 'admin',
-    };
+    return NextResponse.json(
+      { error: 'Unauthorized: Authentication required' },
+      { status: 401 }
+    );
   }
 }
 
@@ -63,7 +57,7 @@ export async function requireRole(allowedRoles: string[]): Promise<
   const auth = await requireAuth();
   if (auth instanceof NextResponse) return auth;
 
-  // If already identified as an allowed role (e.g. admin fallback)
+  // If already identified as an allowed role
   if (auth.role && allowedRoles.includes(auth.role)) {
     return auth as any;
   }
@@ -73,28 +67,22 @@ export async function requireRole(allowedRoles: string[]): Promise<
     const supabase = await createServiceClient();
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, full_name, title')
       .eq('id', auth.id)
       .single();
 
     if (!profile || !allowedRoles.includes(profile.role)) {
-      if (allowedRoles.includes('admin')) {
-        return { ...auth, role: 'admin' };
-      }
       return NextResponse.json(
         { error: 'Forbidden: insufficient permissions' },
         { status: 403 }
       );
     }
 
-    return { ...auth, role: profile.role };
+    return { ...auth, role: profile.role, full_name: profile.full_name, title: profile.title };
   } catch {
-    if (allowedRoles.includes('admin')) {
-      return { ...auth, role: 'admin' };
-    }
     return NextResponse.json(
-      { error: 'Authorization check failed' },
-      { status: 500 }
+      { error: 'Forbidden: insufficient permissions' },
+      { status: 403 }
     );
   }
 }

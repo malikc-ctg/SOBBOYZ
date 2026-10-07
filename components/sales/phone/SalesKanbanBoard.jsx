@@ -452,7 +452,7 @@ export default function SalesKanbanBoard({
             {STAGES.map(stage => {
               const count = filteredContacts.filter(c => {
                 const s = (c.status || 'new').toLowerCase();
-                if (stage.key === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable';
+                if (stage.key === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable' || s === 'voicemail' || s === 'left_voicemail';
                 if (stage.key === 'contacted') return s === 'contacted' || s === 'convo';
                 return s === stage.key;
               }).length;
@@ -550,7 +550,7 @@ export default function SalesKanbanBoard({
               const colKey = col.key;
               const colLeads = filteredContacts.filter(c => {
                 const s = (c.status || 'new').toLowerCase();
-                if (colKey === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable';
+                if (colKey === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable' || s === 'voicemail' || s === 'left_voicemail';
                 if (colKey === 'contacted') return s === 'contacted' || s === 'convo';
                 return s === colKey;
               });

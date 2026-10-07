@@ -42,8 +42,9 @@ export default function AdminSalesOSPage() {
   const initialApp = searchParams.get('app') || searchParams.get('mode') || null;
   const [activeApp, setActiveApp] = useState<string | null>(initialApp);
   const [fieldTab, setFieldTab] = useState<'KNOCK' | 'MAP' | 'TEAM' | 'HISTORY'>('KNOCK');
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
-  const [repName, setRepName] = useState('Admin');
+  const [user, setUser] = useState<{ id: string; email: string; full_name?: string; title?: string } | null>(null);
+  const [repName, setRepName] = useState('Sales Rep');
+  const [repTitle, setRepTitle] = useState('Account Executive');
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
@@ -57,23 +58,29 @@ export default function AdminSalesOSPage() {
         const supabase = createClient();
         const { data: { user: authUser } } = await supabase.auth.getUser();
         if (authUser) {
-          setUser({ id: authUser.id, email: authUser.email || '' });
-          const { data: profile } = await supabase.from('profiles').select('full_name').eq('id', authUser.id).single();
-          if (profile?.full_name) {
-            setRepName(profile.full_name);
-          } else if (authUser.user_metadata?.full_name) {
-            setRepName(authUser.user_metadata.full_name);
-          }
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, title, role')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          const name = profile?.full_name || authUser.user_metadata?.full_name || authUser.email?.split('@')[0] || 'Sales Rep';
+          const title = profile?.title || (profile?.role === 'admin' ? 'Managing Partner' : 'Account Executive');
+
+          setUser({ 
+            id: authUser.id, 
+            email: authUser.email || '',
+            full_name: name,
+            title: title
+          });
+          setRepName(name);
+          setRepTitle(title);
         } else {
-          const fallbackId = (typeof window !== 'undefined' && localStorage.getItem('knocklog_last_user_id')) || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1';
-          setUser({ id: fallbackId, email: 'admin@seaofblue.ca' });
-          setRepName('Malik');
+          setUser(null);
         }
       } catch (err) {
         console.error('Failed to load user in Sales OS:', err);
-        const fallbackId = (typeof window !== 'undefined' && localStorage.getItem('knocklog_last_user_id')) || '07853cdf-ed2c-4f3b-b713-cde7c40e20a1';
-        setUser({ id: fallbackId, email: 'admin@seaofblue.ca' });
-        setRepName('Malik');
+        setUser(null);
       } finally {
         setAuthLoading(false);
       }
@@ -243,6 +250,7 @@ export default function AdminSalesOSPage() {
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
               <span className="text-muted-foreground hidden sm:inline">Rep:</span>
               <span className="font-bold text-foreground">{repName}</span>
+              <span className="text-muted-foreground hidden md:inline">• {repTitle}</span>
             </Badge>
           </div>
         )}
@@ -280,7 +288,7 @@ export default function AdminSalesOSPage() {
 
       {activeApp === 'phone' && (
         <div className="w-full">
-          <PhoneTab user={user} repName={repName} isActive={activeApp === 'phone'} />
+          <PhoneTab user={user} repName={repName} repTitle={repTitle} isActive={activeApp === 'phone'} />
         </div>
       )}
     </div>

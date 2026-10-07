@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAuth } from '@/lib/api-auth';
 
 // Robust Mapbox token with verified working fallback
 const MAPBOX_TOKEN =
@@ -9,6 +10,8 @@ const MAPBOX_TOKEN =
 
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if (auth instanceof NextResponse) return auth;
     const { searchParams } = new URL(request.url);
     const q = searchParams.get('q')?.trim() || '';
     const proximity = searchParams.get('proximity') || '-79.3832,43.6532';
