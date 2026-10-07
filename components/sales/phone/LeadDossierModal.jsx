@@ -37,6 +37,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { CALL_OUTCOMES, normalizeRepName } from '@/lib/sales/phoneService';
+import FollowupPanel from './followups/FollowupPanel';
 
 const OUTCOME_OPTIONS = [
   {
@@ -183,7 +184,15 @@ export default function LeadDossierModal({
   onDeleteLead,
   onOpenWalkthrough,
   activeRepName = 'Sales Rep',
-  activeRepTitle = 'Account Executive'
+  activeRepTitle = 'Account Executive',
+  // Followup handlers
+  onOpenReplyModal,
+  onOpenOutOfOfficeModal,
+  onOpenVisitResultModal,
+  onOpenJobResultModal,
+  onOpenCallbackModal,
+  onOpenQuoteDetailsModal,
+  onTriggerRefresh,
 }) {
   if (!isOpen || !contact) return null;
 
@@ -801,6 +810,19 @@ export default function LeadDossierModal({
                 </div>
               </div>
             </div>
+
+            {/* Follow-Up Engine Panel (Spec 7.5) */}
+            <FollowupPanel
+              leadId={contact.id}
+              contact={contact}
+              onOpenReplyModal={onOpenReplyModal}
+              onOpenOutOfOfficeModal={onOpenOutOfOfficeModal}
+              onOpenVisitResultModal={onOpenVisitResultModal}
+              onOpenJobResultModal={onOpenJobResultModal}
+              onOpenCallbackModal={onOpenCallbackModal}
+              onOpenQuoteDetailsModal={onOpenQuoteDetailsModal}
+              onTriggerRefresh={onTriggerRefresh}
+            />
 
             {/* Detailed Interaction Log Timeline */}
             {allRelatedLogs.length > 0 ? (

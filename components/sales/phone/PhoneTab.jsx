@@ -51,6 +51,18 @@ import WalkthroughModal from './WalkthroughModal';
 import LeadDossierModal from './LeadDossierModal';
 import SalesKanbanBoard from './SalesKanbanBoard';
 import RepStatsView from './RepStatsView';
+import PickupModal from './followups/PickupModal';
+import CallbackModal from './followups/CallbackModal';
+import NotInterestedModal from './followups/NotInterestedModal';
+import JobWonModal from './followups/JobWonModal';
+import ReplyModal from './followups/ReplyModal';
+import ReferralModal from './followups/ReferralModal';
+import VisitResultModal from './followups/VisitResultModal';
+import QuoteDetailsModal from './followups/QuoteDetailsModal';
+import JobResultModal from './followups/JobResultModal';
+import OutOfOfficeModal from './followups/OutOfOfficeModal';
+import FollowupSettingsModal from './followups/FollowupSettingsModal';
+import ContactedChoiceModal from './followups/ContactedChoiceModal';
 import './phoneStyles.css';
 
 /**
@@ -160,6 +172,30 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [followupBoardData, setFollowupBoardData] = useState(null);
   const [followupMeta, setFollowupMeta] = useState({ mailingAddressSet: false });
   const [followupAuthError, setFollowupAuthError] = useState(false);
+
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyModalContact, setReplyModalContact] = useState(null);
+
+  const [showReferralModal, setShowReferralModal] = useState(false);
+  const [referralModalContact, setReferralModalContact] = useState(null);
+
+  const [showVisitResultModal, setShowVisitResultModal] = useState(false);
+  const [visitResultContact, setVisitResultContact] = useState(null);
+  const [visitResultTask, setVisitResultTask] = useState(null);
+
+  const [showQuoteDetailsModal, setShowQuoteDetailsModal] = useState(false);
+  const [quoteDetailsContact, setQuoteDetailsContact] = useState(null);
+  const [quoteDetailsTask, setQuoteDetailsTask] = useState(null);
+  const [quoteDetailsEnrollment, setQuoteDetailsEnrollment] = useState(null);
+
+  const [showJobResultModal, setShowJobResultModal] = useState(false);
+  const [jobResultContact, setJobResultContact] = useState(null);
+  const [jobResultTask, setJobResultTask] = useState(null);
+
+  const [showOutOfOfficeModal, setShowOutOfOfficeModal] = useState(false);
+  const [oooContact, setOooContact] = useState(null);
+
+  const [showFollowupSettingsModal, setShowFollowupSettingsModal] = useState(false);
 
 
   // Data states
@@ -624,6 +660,233 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
     return await logOutcome(contact, outcomeType, { notes, durationSeconds: duration });
   }
+
+  // Follow-up modal submit handlers
+  const handlePickupSubmit = async (formData) => {
+    if (!activeCaptureLead) return;
+    try {
+      if (formData.email && formData.email !== activeCaptureLead.email) {
+        await updateLeadContact(activeCaptureLead.id, { email: formData.email });
+      }
+      await logOutcome(activeCaptureLead, 'CONVO', {
+        followup: {
+          callNote: formData.callNote,
+          nextStep: formData.nextStep,
+          projectName: formData.projectName,
+          sendRecap: formData.sendRecap,
+          referral: formData.referral,
+        },
+        leadStatus: 'contacted',
+      });
+    } catch (e) {
+      toast.error(e?.message || 'Failed to log pick-up outcome');
+    }
+  };
+
+  const handleCallbackSubmit = async ({ date, time, note, sendConfirmation }) => {
+    if (!activeCaptureLead) return;
+    try {
+      const callbackTime = `${date} ${time}`;
+      const callbackAt = `${date}T${time}:00`;
+      await logOutcome(activeCaptureLead, 'CALLBACK', {
+        callbackTime,
+        notes: note || 'Callback scheduled',
+        followup: {
+          callbackAt,
+          sendConfirmation,
+          note,
+        },
+        leadStatus: 'contacted',
+      });
+    } catch (e) {
+      toast.error(e?.message || 'Failed to schedule callback');
+    }
+  };
+
+  const handleNotInterestedSubmit = async ({ choice, note }) => {
+    if (!activeCaptureLead) return;
+    try {
+      await logOutcome(activeCaptureLead, 'NOT_INTERESTED', {
+        notes: note || `Not interested (${choice})`,
+        followup: {
+          subchoice: choice,
+          note,
+        },
+        leadStatus: 'lost',
+      });
+    } catch (e) {
+      toast.error(e?.message || 'Failed to log not interested');
+    }
+  };
+
+  const handleJobWonSubmit = async (saleDetails) => {
+    if (!activeCaptureLead) return;
+    try {
+      await logOutcome(activeCaptureLead, 'JOB_WON', {
+        saleDetails,
+        leadStatus: 'won',
+      });
+    } catch (e) {
+      toast.error(e?.message || 'Failed to log job won');
+    }
+  };
+
+  const handleReplySelect = async (optionId) => {
+    if (!replyModalContact) return;
+    try {
+      if (optionId === 'want_to_talk') {
+        const res = await fetch(`/api/sales/followups/lead/${replyModalContact.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'replied', content: 'wants_to_talk' }),
+        });
+        if (!res.ok) throw new Error('Failed to record reply');
+        toast.success('Reply recorded. Follow-up emails stopped.');
+        fetchFollowupBoard();
+      } else if (optionId === 'asked_for_info') {
+        const res = await fetch(`/api/sales/followups/lead/${replyModalContact.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'replied', content: 'asked_for_info' }),
+        });
+        if (!res.ok) throw new Error('Failed to record reply');
+        toast.success('Reply recorded. Follow-up emails stopped.');
+        fetchFollowupBoard();
+      } else if (optionId === 'booked_walkthrough') {
+        setSelectedContact(replyModalContact);
+        setShowWalkthroughModal(true);
+      } else if (optionId === 'gave_referral') {
+        setReferralModalContact(replyModalContact);
+        setShowReferralModal(true);
+      } else if (optionId === 'not_right_now') {
+        setActiveCaptureLead(replyModalContact);
+        setShowNotInterestedModal(true);
+      } else if (optionId === 'not_interested') {
+        const res = await fetch(`/api/sales/followups/lead/${replyModalContact.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'replied', content: 'not_interested' }),
+        });
+        if (!res.ok) throw new Error('Failed to record reply');
+        toast.success('Reply recorded. Follow-ups stopped.');
+        fetchFollowupBoard();
+      } else if (optionId === 'stop_emailing') {
+        const res = await fetch(`/api/sales/followups/lead/${replyModalContact.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'unsubscribe' }),
+        });
+        if (!res.ok) throw new Error('Failed to unsubscribe lead');
+        toast.success('Unsubscribed. Follow-ups stopped.');
+        fetchFollowupBoard();
+      } else if (optionId === 'out_of_office') {
+        setOooContact(replyModalContact);
+        setShowOutOfOfficeModal(true);
+      } else if (optionId === 'something_else') {
+        const res = await fetch(`/api/sales/followups/lead/${replyModalContact.id}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'replied', content: 'other' }),
+        });
+        if (!res.ok) throw new Error('Failed to record reply');
+        toast.success('Reply recorded. Follow-up emails stopped.');
+        fetchFollowupBoard();
+      }
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleReferralSubmit = async (referral) => {
+    if (!referralModalContact) return;
+    try {
+      const res = await fetch(`/api/sales/followups/lead/${referralModalContact.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_referral', referral }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to add referral');
+      }
+      toast.success('Referred contact added');
+      fetchFollowupBoard();
+      loadContacts();
+    } catch (err) {
+      toast.error(err.message);
+      throw err;
+    }
+  };
+
+  const handleVisitResultSubmit = async (result) => {
+    if (!visitResultTask) return;
+    try {
+      const res = await fetch(`/api/sales/followups/tasks/${visitResultTask.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'done', result }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to submit visit result');
+      }
+      toast.success('Walkthrough result recorded');
+      fetchFollowupBoard();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleJobResultSubmit = async ({ result, rescheduledDate }) => {
+    if (!jobResultTask) return;
+    try {
+      const res = await fetch(`/api/sales/followups/tasks/${jobResultTask.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'done', result, rescheduledDate }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to submit job result');
+      }
+      toast.success('Job result recorded');
+      fetchFollowupBoard();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleOutOfOfficeSubmit = async (backOnDate) => {
+    if (!oooContact) return;
+    try {
+      const res = await fetch(`/api/sales/followups/lead/${oooContact.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'pause', resume_at: `${backOnDate}T09:00:00` }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to pause follow-ups');
+      }
+      toast.success('Follow-ups paused');
+      fetchFollowupBoard();
+    } catch (err) {
+      toast.error(err.message);
+      throw err;
+    }
+  };
+
+  const handleQuoteDetailsSubmit = async ({ quote_amount, scope_phase }) => {
+    if (!quoteDetailsContact) return;
+    try {
+      await fetch(`/api/sales/followups/lead/${quoteDetailsContact.id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'quote_details', quote_amount, scope_phase }),
+      });
+      fetchFollowupBoard();
+    } catch {}
+  };
 
   // Delete lead permanently when confirmed Out of Service
   async function handleKanbanDeleteLead(contactId) {
@@ -1448,6 +1711,40 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
                     setShowWalkthroughModal(true);
                   }}
                   user={user}
+                  followupsByLeadId={followupBoardData?.leads || {}}
+                  followupMeta={followupMeta}
+                  followupAuthError={followupAuthError}
+                  onRefreshFollowups={fetchFollowupBoard}
+                  onOpenFollowupSettings={() => setShowFollowupSettingsModal(true)}
+                  onOpenReplyModal={contact => {
+                    setReplyModalContact(contact);
+                    setShowReplyModal(true);
+                  }}
+                  onOpenOutOfOfficeModal={contact => {
+                    setOooContact(contact);
+                    setShowOutOfOfficeModal(true);
+                  }}
+                  onOpenVisitResultModal={(contact, task) => {
+                    setVisitResultContact(contact);
+                    setVisitResultTask(task);
+                    setShowVisitResultModal(true);
+                  }}
+                  onOpenJobResultModal={(contact, task) => {
+                    setJobResultContact(contact);
+                    setJobResultTask(task);
+                    setShowJobResultModal(true);
+                  }}
+                  onOpenCallbackModal={contact => {
+                    setActiveCaptureLead(contact);
+                    setShowCallbackModal(true);
+                  }}
+                  onOpenQuoteDetailsModal={(contact, task, enr) => {
+                    setQuoteDetailsContact(contact);
+                    setQuoteDetailsTask(task);
+                    setQuoteDetailsEnrollment(enr);
+                    setShowQuoteDetailsModal(true);
+                  }}
+                  onStartCall={(contact, phone) => startCall(contact, phone)}
                 />
               </div>
             )}
@@ -1700,6 +1997,142 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
           setSelectedContact(c);
           setShowDossierModal(false);
           setShowWalkthroughModal(true);
+        }}
+        onOpenReplyModal={contact => {
+          setReplyModalContact(contact);
+          setShowReplyModal(true);
+        }}
+        onOpenOutOfOfficeModal={contact => {
+          setOooContact(contact);
+          setShowOutOfOfficeModal(true);
+        }}
+        onOpenVisitResultModal={(contact, task) => {
+          setVisitResultContact(contact);
+          setVisitResultTask(task);
+          setShowVisitResultModal(true);
+        }}
+        onOpenJobResultModal={(contact, task) => {
+          setJobResultContact(contact);
+          setJobResultTask(task);
+          setShowJobResultModal(true);
+        }}
+        onOpenCallbackModal={contact => {
+          setActiveCaptureLead(contact);
+          setShowCallbackModal(true);
+        }}
+        onOpenQuoteDetailsModal={(contact, task, enr) => {
+          setQuoteDetailsContact(contact);
+          setQuoteDetailsTask(task);
+          setQuoteDetailsEnrollment(enr);
+          setShowQuoteDetailsModal(true);
+        }}
+        onTriggerRefresh={fetchFollowupBoard}
+      />
+
+      {/* Follow-up & Outcome Capture Modals (Phase 4) */}
+      <PickupModal
+        isOpen={showPickupModal}
+        contact={activeCaptureLead}
+        onClose={() => setShowPickupModal(false)}
+        onSubmit={handlePickupSubmit}
+      />
+
+      <CallbackModal
+        isOpen={showCallbackModal}
+        contact={activeCaptureLead}
+        onClose={() => setShowCallbackModal(false)}
+        onSubmit={handleCallbackSubmit}
+      />
+
+      <NotInterestedModal
+        isOpen={showNotInterestedModal}
+        contact={activeCaptureLead}
+        onClose={() => setShowNotInterestedModal(false)}
+        onSubmit={handleNotInterestedSubmit}
+      />
+
+      <JobWonModal
+        isOpen={showJobWonModal}
+        contact={activeCaptureLead}
+        onClose={() => setShowJobWonModal(false)}
+        onSubmit={handleJobWonSubmit}
+      />
+
+      <ContactedChoiceModal
+        isOpen={showContactedDropMenu}
+        contact={activeCaptureLead}
+        onClose={() => setShowContactedDropMenu(false)}
+        onChoosePickup={() => setShowPickupModal(true)}
+        onChooseCallback={() => setShowCallbackModal(true)}
+      />
+
+      <ReplyModal
+        isOpen={showReplyModal}
+        contact={replyModalContact}
+        onClose={() => setShowReplyModal(false)}
+        onSelectOption={handleReplySelect}
+      />
+
+      <ReferralModal
+        isOpen={showReferralModal}
+        contact={referralModalContact}
+        onClose={() => setShowReferralModal(false)}
+        onSubmit={handleReferralSubmit}
+      />
+
+      <VisitResultModal
+        isOpen={showVisitResultModal}
+        contact={visitResultContact}
+        onClose={() => setShowVisitResultModal(false)}
+        onSubmit={handleVisitResultSubmit}
+        onReschedule={() => {
+          if (visitResultContact) {
+            setSelectedContact(visitResultContact);
+            setShowWalkthroughModal(true);
+          }
+        }}
+      />
+
+      <QuoteDetailsModal
+        isOpen={showQuoteDetailsModal}
+        contact={quoteDetailsContact}
+        task={quoteDetailsTask}
+        enrollment={quoteDetailsEnrollment}
+        repSettings={followupMeta?.repSettings}
+        mailingAddressSet={followupMeta?.mailingAddressSet}
+        onClose={() => setShowQuoteDetailsModal(false)}
+        onSubmitDetails={handleQuoteDetailsSubmit}
+        onOpenFired={() => {
+          if (quoteDetailsTask) {
+            fetch(`/api/sales/followups/tasks/${quoteDetailsTask.id}`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'open' }),
+            }).then(() => fetchFollowupBoard()).catch(() => {});
+          }
+        }}
+      />
+
+      <JobResultModal
+        isOpen={showJobResultModal}
+        contact={jobResultContact}
+        onClose={() => setShowJobResultModal(false)}
+        onSubmit={handleJobResultSubmit}
+      />
+
+      <OutOfOfficeModal
+        isOpen={showOutOfOfficeModal}
+        contact={oooContact}
+        onClose={() => setShowOutOfOfficeModal(false)}
+        onSubmit={handleOutOfOfficeSubmit}
+      />
+
+      <FollowupSettingsModal
+        isOpen={showFollowupSettingsModal}
+        onClose={() => setShowFollowupSettingsModal(false)}
+        onSaved={() => {
+          fetchFollowupBoard();
+          refreshStats();
         }}
       />
 

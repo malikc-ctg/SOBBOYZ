@@ -10,8 +10,11 @@ import {
   Copy,
   Check,
   Plus,
-  Upload
+  Upload,
+  Settings
 } from 'lucide-react';
+import FollowupStrip from './followups/FollowupStrip';
+import { getDueBucket } from '@/lib/sales/followups/schedule';
 
 export const SECTORS = [
   { key: 'post_construction', label: 'Post-Construction', shortLabel: 'Construction', color: 'blue', description: 'General Contractors, Builders, Developers, Site Supers' },
@@ -31,6 +34,14 @@ export const STAGES = [
   { key: 'quoted', label: 'Quote Sent', shortLabel: 'Quoted', color: '#06b6d4', bg: 'bg-cyan-950/20', border: 'border-cyan-900/40' },
   { key: 'won', label: 'Contract Won', shortLabel: 'Won', color: '#10b981', bg: 'bg-emerald-950/20', border: 'border-emerald-900/40' },
   { key: 'lost', label: 'Lost / Follow Up', shortLabel: 'Lost', color: '#ef4444', bg: 'bg-rose-950/20', border: 'border-rose-950/40' }
+];
+
+export const FOLLOWUP_STAGES = [
+  { key: 'overdue', label: 'Overdue', shortLabel: 'Overdue', color: '#ef4444', bg: 'bg-rose-950/20', border: 'border-rose-950/40' },
+  { key: 'due_today', label: 'Due today', shortLabel: 'Due today', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-950/40' },
+  { key: 'upcoming', label: 'Upcoming', shortLabel: 'Upcoming', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-950/40' },
+  { key: 'later', label: 'Later', shortLabel: 'Later', color: '#64748b', bg: 'bg-slate-900/60', border: 'border-slate-800' },
+  { key: 'needs_attention', label: 'Needs attention', shortLabel: 'Needs attn', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-900/40' }
 ];
 
 function formatDateRelative(dateStr) {
@@ -63,8 +74,51 @@ export default function SalesKanbanBoard({
   onOpenWalkthrough,
   onDeleteLead,
   onOpenImporter,
-  user
+  user,
+  // Followup props
+  followupsByLeadId = {},
+  followupMeta = null,
+  followupAuthError = false,
+  onRefreshFollowups,
+  onOpenFollowupSettings,
+  onOpenReplyModal,
+  onOpenOutOfOfficeModal,
+  onOpenVisitResultModal,
+  onOpenJobResultModal,
+  onOpenCallbackModal,
+  onOpenQuoteDetailsModal,
+  onStartCall,
 }) {
+  const [boardView, setBoardView] = useState(() => {
+    try {
+      return localStorage.getItem('sob_sales_board_view') || 'pipeline';
+    } catch {
+      return 'pipeline';
+    }
+  });
+
+  const [repFilter, setRepFilter] = useState(() => {
+    try {
+      return localStorage.getItem('sob_sales_followups_rep') || 'mine';
+    } catch {
+      return 'mine';
+    }
+  });
+
+  const handleViewChange = (v) => {
+    setBoardView(v);
+    try {
+      localStorage.setItem('sob_sales_board_view', v);
+    } catch {}
+  };
+
+  const handleRepFilterChange = (r) => {
+    setRepFilter(r);
+    try {
+      localStorage.setItem('sob_sales_followups_rep', r);
+    } catch {}
+  };
+
   const [activeSectorFilter, setActiveSectorFilter] = useState('all');
   const [isSectorDropdownOpen, setIsSectorDropdownOpen] = useState(false);
   const sectorDropdownRef = useRef(null);
@@ -74,6 +128,33 @@ export default function SalesKanbanBoard({
   const [copiedId, setCopiedId] = useState(null);
   const [copiedNameId, setCopiedNameId] = useState(null);
   const [openSectorMenuId, setOpenSectorMenuId] = useState(null);
+
+  const getLeadFollowupBucket = (contact, followupData) => {
+    if (!followupData) return null;
+    const openEnrs = (followupData.enrollments || []).filter(e => ['active', 'held', 'paused'].includes(e.status));
+    const nextTask = followupData.nextTask;
+    const flags = followupData.flags || {};
+
+    const hasHeld = openEnrs.some(e => e.status === 'held');
+    const hasPaused = openEnrs.some(e => e.status === 'paused');
+    const hasBounced = Boolean(flags.bounced_email || flags.bounced_at);
+    const hasNeedsEmail = Boolean(flags.needs_email_since && !flags.email_opt_out_at);
+    const hasOpenedUnsent = nextTask?.kind === 'email' && Boolean(nextTask.opened_at);
+
+    if (hasHeld || hasPaused || hasBounced || hasNeedsEmail || hasOpenedUnsent) {
+      return 'needs_attention';
+    }
+
+    if (nextTask) {
+      try {
+        return getDueBucket(nextTask);
+      } catch {
+        return 'later';
+      }
+    }
+
+    return null;
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -233,14 +314,28 @@ export default function SalesKanbanBoard({
     return counts;
   }, [contacts]);
 
+  const dueTodayCount = useMemo(() => {
+    if (followupMeta?.bucketCounts) {
+      return repFilter === 'mine'
+        ? followupMeta.bucketCounts.mine?.due_today ?? 0
+        : followupMeta.bucketCounts.all?.due_today ?? 0;
+    }
+    return contacts.filter(c => {
+      const fData = followupsByLeadId?.[c.id];
+      return fData?.nextTask && getLeadFollowupBucket(c, fData) === 'due_today';
+    }).length;
+  }, [followupMeta, repFilter, contacts, followupsByLeadId]);
+
   // Drag-and-drop handlers
   const handleDragStart = (e, contactId) => {
+    if (boardView === 'followups') return;
     setDraggedContactId(contactId);
     e.dataTransfer.setData('text/plain', contactId);
     e.dataTransfer.effectAllowed = 'move';
   };
 
   const handleDragOver = (e, colKey) => {
+    if (boardView === 'followups') return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
     if (dragOverColumn !== colKey) {
@@ -253,6 +348,7 @@ export default function SalesKanbanBoard({
   };
 
   const handleDrop = (e, targetColKey) => {
+    if (boardView === 'followups') return;
     e.preventDefault();
     setDragOverColumn(null);
     const contactId = e.dataTransfer.getData('text/plain') || draggedContactId;
@@ -262,6 +358,38 @@ export default function SalesKanbanBoard({
       onUpdateStatus(contactId, targetColKey);
     }
     setDraggedContactId(null);
+  };
+
+  const activeStages = boardView === 'followups' ? FOLLOWUP_STAGES : STAGES;
+
+  const getColLeads = (colKey) => {
+    if (boardView === 'followups') {
+      return filteredContacts.filter(c => {
+        const fData = followupsByLeadId?.[c.id];
+        if (!fData) return false;
+        if (repFilter === 'mine' && user?.id) {
+          const isMine = fData.nextTask?.assigned_rep_id === user.id ||
+            (!fData.nextTask && fData.enrollments?.some(e => e.owner_rep_id === user.id)) ||
+            c.assigned_to === user.id;
+          if (!isMine) return false;
+        }
+        return getLeadFollowupBucket(c, fData) === colKey;
+      }).sort((a, b) => {
+        const tA = followupsByLeadId?.[a.id]?.nextTask?.due_at;
+        const tB = followupsByLeadId?.[b.id]?.nextTask?.due_at;
+        if (!tA && !tB) return 0;
+        if (!tA) return 1;
+        if (!tB) return -1;
+        return new Date(tA).getTime() - new Date(tB).getTime();
+      });
+    }
+
+    return filteredContacts.filter(c => {
+      const s = (c.status || 'new').toLowerCase();
+      if (colKey === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable' || s === 'voicemail' || s === 'left_voicemail';
+      if (colKey === 'contacted') return s === 'contacted' || s === 'convo';
+      return s === colKey;
+    });
   };
 
   return (
@@ -397,8 +525,75 @@ export default function SalesKanbanBoard({
             </div>
           </div>
 
-          {/* Quick Metrics & Import Action */}
-          <div className="flex items-center gap-3.5 text-xs text-slate-400 font-mono shrink-0 justify-end">
+          {/* View Toggles & Metrics */}
+          <div className="flex flex-wrap items-center gap-2.5 text-xs text-slate-400 font-mono shrink-0 justify-end">
+            {/* View Selector: Pipeline | Follow-ups */}
+            <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => handleViewChange('pipeline')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer ${
+                  boardView === 'pipeline'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                Pipeline
+              </button>
+              <button
+                type="button"
+                onClick={() => handleViewChange('followups')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                  boardView === 'followups'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <span>Follow-ups</span>
+              </button>
+            </div>
+
+            {/* In Follow-ups view: Mine | All reps & Due today chip & Settings */}
+            {boardView === 'followups' && (
+              <>
+                <div className="flex items-center bg-slate-950 p-0.5 rounded-xl border border-slate-800">
+                  <button
+                    type="button"
+                    onClick={() => handleRepFilterChange('mine')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      repFilter === 'mine' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    Mine
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRepFilterChange('all')}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition cursor-pointer ${
+                      repFilter === 'all' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    All reps
+                  </button>
+                </div>
+
+                <span className="px-2.5 py-1.5 rounded-xl text-xs font-mono font-bold bg-blue-950/80 text-blue-300 border border-blue-800/80">
+                  Due today: {dueTodayCount}
+                </span>
+
+                {onOpenFollowupSettings && (
+                  <button
+                    type="button"
+                    onClick={onOpenFollowupSettings}
+                    className="p-2 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition cursor-pointer"
+                    title="Follow-up settings"
+                  >
+                    <Settings size={14} />
+                  </button>
+                )}
+              </>
+            )}
+
             <div>
               <span className="text-white font-bold text-sm">{filteredContacts.length}</span> leads shown
             </div>
@@ -449,13 +644,8 @@ export default function SalesKanbanBoard({
             <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1 hidden sm:inline">
               Jump:
             </span>
-            {STAGES.map(stage => {
-              const count = filteredContacts.filter(c => {
-                const s = (c.status || 'new').toLowerCase();
-                if (stage.key === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable' || s === 'voicemail' || s === 'left_voicemail';
-                if (stage.key === 'contacted') return s === 'contacted' || s === 'convo';
-                return s === stage.key;
-              }).length;
+            {activeStages.map(stage => {
+              const count = getColLeads(stage.key).length;
 
               return (
                 <button
@@ -546,14 +736,9 @@ export default function SalesKanbanBoard({
             onWheel={handleBoardWheel}
             className="flex gap-5 overflow-x-auto pb-6 pt-2 items-start min-h-[550px] kanban-horizontal-scroll"
           >
-            {STAGES.map(col => {
+            {activeStages.map(col => {
               const colKey = col.key;
-              const colLeads = filteredContacts.filter(c => {
-                const s = (c.status || 'new').toLowerCase();
-                if (colKey === 'no_answer') return s === 'no_answer' || s === 'no_answers' || s === 'unreachable' || s === 'voicemail' || s === 'left_voicemail';
-                if (colKey === 'contacted') return s === 'contacted' || s === 'convo';
-                return s === colKey;
-              });
+              const colLeads = getColLeads(colKey);
               const isDragTarget = dragOverColumn === colKey;
 
               return (
@@ -589,7 +774,7 @@ export default function SalesKanbanBoard({
                   <div className="p-3 space-y-4 max-h-[660px] overflow-y-auto no-scrollbar scrollbar-none column-card-list">
                   {colLeads.length === 0 ? (
                     <div className="py-10 text-center text-xs text-slate-500 font-mono border border-dashed border-slate-800/80 rounded-xl">
-                      No leads in this stage
+                      {boardView === 'followups' ? 'Nothing here' : 'No leads in this stage'}
                     </div>
                   ) : (
                     colLeads.map(contact => {
@@ -599,10 +784,12 @@ export default function SalesKanbanBoard({
                       return (
                         <div
                           key={contact.id}
-                          draggable
+                          draggable={boardView === 'pipeline'}
                           onDragStart={e => handleDragStart(e, contact.id)}
                           onDoubleClick={() => onOpenDossier && onOpenDossier(contact)}
-                          className="p-4 rounded-xl bg-[#01162b] border border-blue-950/70 hover:border-blue-700/60 hover:bg-[#021d38] shadow-sm hover:shadow-md transition-all duration-150 space-y-3.5 cursor-grab active:cursor-grabbing group select-none"
+                          className={`p-4 rounded-xl bg-[#01162b] border border-blue-950/70 hover:border-blue-700/60 hover:bg-[#021d38] shadow-sm hover:shadow-md transition-all duration-150 space-y-3.5 group select-none ${
+                            boardView === 'pipeline' ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+                          }`}
                           title="Double-click to open full lead dossier"
                         >
                           {/* Top: Name, Position, Company & City */}
@@ -729,6 +916,24 @@ export default function SalesKanbanBoard({
                               {formatDateRelative(contact.last_contacted_at)}
                             </span>
                           </div>
+
+                          {/* Follow-up strip (Spec 7.2) */}
+                          <FollowupStrip
+                            contact={contact}
+                            followupData={followupsByLeadId?.[contact.id]}
+                            repSettings={followupMeta?.repSettings}
+                            mailingAddressSet={followupMeta?.mailingAddressSet}
+                            authError={followupAuthError}
+                            onOpenDossier={() => onOpenDossier && onOpenDossier(contact)}
+                            onStartCall={onStartCall}
+                            onRefresh={onRefreshFollowups}
+                            onOpenReplyModal={() => onOpenReplyModal && onOpenReplyModal(contact)}
+                            onOpenOutOfOfficeModal={() => onOpenOutOfOfficeModal && onOpenOutOfOfficeModal(contact)}
+                            onOpenVisitResultModal={(task) => onOpenVisitResultModal && onOpenVisitResultModal(contact, task)}
+                            onOpenJobResultModal={(task) => onOpenJobResultModal && onOpenJobResultModal(contact, task)}
+                            onOpenCallbackModal={() => onOpenCallbackModal && onOpenCallbackModal(contact)}
+                            onOpenQuoteDetailsModal={(task, enr) => onOpenQuoteDetailsModal && onOpenQuoteDetailsModal(contact, task, enr)}
+                          />
                         </div>
                       );
                     })
