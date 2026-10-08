@@ -38,6 +38,7 @@ import {
 } from 'lucide-react';
 import { CALL_OUTCOMES, normalizeRepName } from '@/lib/sales/phoneService';
 import FollowupPanel from './followups/FollowupPanel';
+import DossierFooterGmailButton from './followups/DossierFooterGmailButton';
 
 const OUTCOME_OPTIONS = [
   {
@@ -200,14 +201,12 @@ export default function LeadDossierModal({
   const [copiedKey, setCopiedKey] = useState(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [openOutcomeDropdown, setOpenOutcomeDropdown] = useState(false);
-  const [openFooterDropdown, setOpenFooterDropdown] = useState(false);
   const [showOosConfirm, setShowOosConfirm] = useState(false);
   const [isDeletingLead, setIsDeletingLead] = useState(false);
   const [outcomeFeedback, setOutcomeFeedback] = useState(null);
 
   async function handleSelectOutcome(outcomeKey, outcomeLabel) {
     setOpenOutcomeDropdown(false);
-    setOpenFooterDropdown(false);
 
     if (outcomeKey === 'OUT_OF_SERVICE') {
       setShowOosConfirm(true);
@@ -1620,64 +1619,11 @@ export default function LeadDossierModal({
           </div>
 
           <div className="flex items-center gap-2.5">
-            {/* CALL OUTCOME DROPDOWN IN FOOTER */}
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setOpenFooterDropdown(!openFooterDropdown)}
-                className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-emerald-950/40 transition"
-                title="Log Call Outcome"
-              >
-                <PhoneIncoming size={13} />
-                <span>Log Outcome</span>
-                <ChevronDown size={12} className={`transition-transform duration-200 ${openFooterDropdown ? 'rotate-180' : ''}`} />
-              </button>
-
-              {openFooterDropdown && (
-                <>
-                  <div
-                    className="fixed inset-0 z-40"
-                    onClick={() => setOpenFooterDropdown(false)}
-                  />
-                  <div
-                    className="absolute right-0 bottom-full mb-2 w-72 rounded-2xl bg-slate-900 border border-slate-700 shadow-2xl p-1.5 z-50 space-y-0.5 text-xs animate-in fade-in slide-in-from-bottom-1 duration-150"
-                    onClick={e => e.stopPropagation()}
-                  >
-                    <div className="text-[10px] font-bold text-slate-400 px-2.5 py-1.5 uppercase tracking-wider flex items-center justify-between border-b border-slate-800 pb-1.5 mb-1">
-                      <span>Record Call Outcome</span>
-                      <span className="text-[9px] text-emerald-400 font-mono">+1 Dial Rule</span>
-                    </div>
-
-                    <div className="max-h-[340px] overflow-y-auto space-y-0.5 pr-0.5">
-                      {OUTCOME_OPTIONS.map(opt => {
-                        const Icon = opt.icon;
-                        return (
-                          <button
-                            key={opt.key}
-                            type="button"
-                            onClick={() => handleSelectOutcome(opt.key, opt.label)}
-                            className={`w-full text-left px-2.5 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition ${opt.color}`}
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="w-6 h-6 rounded-lg bg-slate-950/70 border border-slate-800 flex items-center justify-center shrink-0">
-                                <Icon size={13} className={opt.iconColor} />
-                              </div>
-                              <div className="min-w-0">
-                                <div className="font-bold text-white text-[12px] truncate">{opt.label}</div>
-                                <div className="text-[10px] text-slate-400 truncate">{opt.subtext}</div>
-                              </div>
-                            </div>
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-slate-800 text-slate-300 font-mono shrink-0 ml-1">
-                              {opt.badge}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
+            {/* OPEN GMAIL BUTTON IN FOOTER (WITH EXTENDED FUNCTIONALITY) */}
+            <DossierFooterGmailButton
+              contact={contact}
+              onTriggerRefresh={onTriggerRefresh}
+            />
 
             <button
               type="button"
