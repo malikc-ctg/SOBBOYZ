@@ -2,7 +2,7 @@ export const FOLLOWUP_CONFIG = {
   timezone: 'America/Toronto',
   company: {
     legalName: 'Sea of Blue Inc.',
-    mailingAddress: process.env.NEXT_PUBLIC_COMPANY_MAILING_ADDRESS || process.env.COMPANY_MAILING_ADDRESS || '', // REQUIRED. Ask the owner. Sending is disabled while this is empty.
+    mailingAddress: process.env.NEXT_PUBLIC_COMPANY_MAILING_ADDRESS || process.env.COMPANY_MAILING_ADDRESS || '1108 Bonin Cres, Milton, ON',
     website: 'seaofblue.ca',
     defaultPhone: '(437) 475-1622',
   },

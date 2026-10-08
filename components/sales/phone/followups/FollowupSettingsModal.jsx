@@ -14,6 +14,7 @@ export default function FollowupSettingsModal({
   const [signaturePhone, setSignaturePhone] = useState('(437) 475-1622');
   const [gmailAddress, setGmailAddress] = useState('');
   const [mailingAddressSet, setMailingAddressSet] = useState(false);
+  const [mailingAddress, setMailingAddress] = useState('');
 
   // Backfill launch tools state
   const [backfillLoading, setBackfillLoading] = useState(false);
@@ -35,6 +36,7 @@ export default function FollowupSettingsModal({
         setSignaturePhone(s.signature_phone || '(437) 475-1622');
         setGmailAddress(s.gmail_address || '');
         setMailingAddressSet(!!data.mailingAddressSet);
+        setMailingAddress(data.mailingAddress || '');
       })
       .catch((err) => {
         toast.error(err?.message || 'Failed to load follow-up settings');
@@ -202,7 +204,7 @@ export default function FollowupSettingsModal({
                 <>
                   <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
                   <span className="text-emerald-300 font-medium">
-                    Company mailing address: set
+                    Company mailing address: {mailingAddress || 'Set'}
                   </span>
                 </>
               ) : (
