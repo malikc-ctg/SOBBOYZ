@@ -29,6 +29,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DatePicker } from '@/components/ui/date-picker';
 import {
   Clock,
   CheckCircle2,
@@ -803,10 +804,9 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
 
               <div>
                 <Label className="text-xs font-semibold">Work Date *</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={manualForm.work_date}
-                  onChange={(e) => setManualForm({ ...manualForm, work_date: e.target.value })}
+                  onChange={(date) => setManualForm({ ...manualForm, work_date: date })}
                   className="mt-1"
                   required
                 />
