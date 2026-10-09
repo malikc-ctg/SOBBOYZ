@@ -4,6 +4,7 @@ import {
   calculateMonthlyMRR,
   formatRecurrenceSchedule,
   generateDatesForSchedule,
+  generateDatesBetween,
 } from './recurring-utils';
 
 describe('Recurring Services Utilities', () => {
@@ -43,4 +44,37 @@ describe('Recurring Services Utilities', () => {
     const nextDate = calculateNextRunDate(monday, 'weekly', ['monday', 'wednesday', 'friday']);
     expect(nextDate).toBe('2026-09-16'); // Wednesday
   });
+
+  it('generates dates between start and end for monthly recurring (e.g. 20th of every month)', () => {
+    const dates = generateDatesBetween('2026-07-20', '2026-10-25', 'monthly');
+    expect(dates).toEqual(['2026-07-20', '2026-08-20', '2026-09-20', '2026-10-20']);
+  });
+
+  it('generates dates between start and end for monthly recurring (e.g. 8th of every month)', () => {
+    const dates = generateDatesBetween('2026-06-08', '2026-10-10', 'monthly');
+    expect(dates).toEqual([
+      '2026-06-08',
+      '2026-07-08',
+      '2026-08-08',
+      '2026-09-08',
+      '2026-10-08',
+    ]);
+  });
+
+  it('generates dates between start and end for biweekly recurring', () => {
+    const dates = generateDatesBetween('2026-10-07', '2026-11-05', 'biweekly');
+    expect(dates).toEqual(['2026-10-07', '2026-10-21', '2026-11-04']);
+  });
+
+  it('generates dates between start and end for weekly Mondays (e.g. PS740)', () => {
+    const dates = generateDatesBetween('2026-07-06', '2026-08-03', 'weekly', ['monday']);
+    expect(dates).toEqual([
+      '2026-07-06',
+      '2026-07-13',
+      '2026-07-20',
+      '2026-07-27',
+      '2026-08-03',
+    ]);
+  });
 });
+

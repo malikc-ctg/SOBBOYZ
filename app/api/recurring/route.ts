@@ -103,6 +103,18 @@ export async function POST(request: NextRequest) {
 
     if (error) throw error;
 
+    // Immediately materialize upcoming jobs for the new contract
+    try {
+      const { materializeRecurringJobs } = await import('@/lib/recurring-runner');
+      await materializeRecurringJobs({
+        bookingId: data.id,
+        lookaheadDays: 14,
+        backfillFromStart: true,
+      });
+    } catch (matErr) {
+      console.warn('Failed to immediately materialize jobs for new contract:', matErr);
+    }
+
     return NextResponse.json(data, { status: 201 });
   } catch (err: unknown) {
     console.error('POST /api/recurring error:', err);

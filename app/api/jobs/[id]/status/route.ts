@@ -201,6 +201,23 @@ export async function PATCH(
       // 2. If job status progressed
       if (newStatus && newStatus !== job.status) {
          if (newStatus === 'completed') {
+           // Auto-advance recurring contract schedule and maintain upcoming window
+           if (job.recurring_booking_id) {
+             try {
+               const { materializeRecurringJobs } = await import('@/lib/recurring-runner');
+               await supabase
+                 .from('recurring_bookings')
+                 .update({ last_job_date: job.scheduled_date })
+                 .eq('id', job.recurring_booking_id);
+               await materializeRecurringJobs({
+                 bookingId: job.recurring_booking_id,
+                 lookaheadDays: 14,
+               });
+             } catch (recAdvErr) {
+               console.error('Failed to advance recurring contract on completion:', recAdvErr);
+             }
+           }
+
            // Auto-sync completed job to QuickBooks Online
            try {
              const { syncJobToQBO } = await import('@/lib/quickbooks/sync');

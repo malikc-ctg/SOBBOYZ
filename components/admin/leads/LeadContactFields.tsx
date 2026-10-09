@@ -118,9 +118,12 @@ export function LeadContactFields({
               <AddressAutocomplete
                 value={contact.address}
                 onChange={(e) => onChange('address', e.target.value)}
-                onAddressSelect={(addr) =>
-                  onChange('address', `${addr.address_line1}, ${addr.city}`)
-                }
+                onAddressSelect={(addr) => {
+                  const formatted = addr.city && !addr.address_line1.toLowerCase().includes(addr.city.toLowerCase())
+                    ? `${addr.address_line1}, ${addr.city}`
+                    : addr.address_line1 || addr.full_address || '';
+                  onChange('address', formatted);
+                }}
               />
             </div>
           </>
@@ -180,9 +183,12 @@ export function LeadContactFields({
               <AddressAutocomplete
                 value={contact.address}
                 onChange={(e) => onChange('address', e.target.value)}
-                onAddressSelect={(addr) =>
-                  onChange('address', `${addr.address_line1}, ${addr.city}`)
-                }
+                onAddressSelect={(addr) => {
+                  const formatted = addr.city && !addr.address_line1.toLowerCase().includes(addr.city.toLowerCase())
+                    ? `${addr.address_line1}, ${addr.city}`
+                    : addr.address_line1 || addr.full_address || '';
+                  onChange('address', formatted);
+                }}
               />
             </div>
           </>

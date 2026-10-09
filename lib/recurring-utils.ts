@@ -1,9 +1,9 @@
 // ============================================================
-// Sea of Blue — Recurring Services Utility Engine
+// Sea of Blue - Recurring Services Utility Engine
 // Pure functions for schedule calculations, MRR, and job generation
 // ============================================================
 
-import { addDays, format, isBefore, isAfter, parseISO, startOfDay } from 'date-fns';
+import { addDays, addMonths, format, isBefore, isAfter, parseISO, startOfDay } from 'date-fns';
 import type { DayOfWeek, RecurringFrequency } from '@/types';
 import { format12Hour } from './time-utils';
 
@@ -40,7 +40,7 @@ export function calculateNextRunDate(
   fromDate: Date | string,
   frequency: RecurringFrequency,
   daysOfWeek: string[] = [],
-  preferredDay?: string
+  preferredDay?: string | null
 ): string {
   const base = typeof fromDate === 'string' ? parseISO(fromDate) : fromDate;
   const start = startOfDay(base);
@@ -79,7 +79,7 @@ export function calculateNextRunDate(
     return format(addDays(start, 14), 'yyyy-MM-dd');
   }
   if (frequency === 'monthly') {
-    return format(addDays(start, 28), 'yyyy-MM-dd');
+    return format(addMonths(start, 1), 'yyyy-MM-dd');
   }
 
   return format(addDays(start, 7), 'yyyy-MM-dd');
@@ -139,22 +139,48 @@ export function formatRecurrenceSchedule(
 }
 
 /**
- * Generates all candidate job dates (YYYY-MM-DD) between startDate and lookahead window for a recurring schedule.
+ * Generates all candidate job dates (YYYY-MM-DD) between startDate and endDate.
  */
-export function generateDatesForSchedule(
-  startDate: Date,
-  lookaheadDays: number,
+export function generateDatesBetween(
+  startDate: Date | string,
+  endDate: Date | string,
   frequency: RecurringFrequency,
   daysOfWeek: string[] = [],
   preferredDay?: string | null
 ): string[] {
+  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
+  const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
   const dates: string[] = [];
-  const end = addDays(startDate, lookaheadDays);
-  let current = startOfDay(startDate);
 
+  let current = startOfDay(start);
+  const boundary = startOfDay(end);
+
+  if (isAfter(current, boundary)) {
+    return [];
+  }
+
+  // Monthly: anchor to the same calendar day each month (e.g. 8th or 20th)
+  if (frequency === 'monthly') {
+    while (!isAfter(current, boundary)) {
+      dates.push(format(current, 'yyyy-MM-dd'));
+      current = addMonths(current, 1);
+    }
+    return dates;
+  }
+
+  // Bi-weekly: step 14 days from start
+  if (frequency === 'biweekly') {
+    while (!isAfter(current, boundary)) {
+      dates.push(format(current, 'yyyy-MM-dd'));
+      current = addDays(current, 14);
+    }
+    return dates;
+  }
+
+  // Weekly with multiple days of week
   if (daysOfWeek.length > 0) {
     const targetDays = daysOfWeek.map(d => d.toLowerCase());
-    while (!isAfter(current, end)) {
+    while (!isAfter(current, boundary)) {
       const dayName = DAY_NAMES[current.getDay()];
       if (targetDays.includes(dayName)) {
         dates.push(format(current, 'yyyy-MM-dd'));
@@ -164,12 +190,41 @@ export function generateDatesForSchedule(
     return dates;
   }
 
-  // Interval-based
-  const stepDays = frequency === 'weekly' ? 7 : frequency === 'biweekly' ? 14 : 28;
-  while (!isAfter(current, end)) {
+  // Weekly with single preferred day
+  if (preferredDay) {
+    const targetDay = preferredDay.toLowerCase();
+    // Advance current until it hits targetDay
+    while (DAY_NAMES[current.getDay()] !== targetDay && !isAfter(current, boundary)) {
+      current = addDays(current, 1);
+    }
+    while (!isAfter(current, boundary)) {
+      dates.push(format(current, 'yyyy-MM-dd'));
+      current = addDays(current, 7);
+    }
+    return dates;
+  }
+
+  // Standard weekly step
+  while (!isAfter(current, boundary)) {
     dates.push(format(current, 'yyyy-MM-dd'));
-    current = addDays(current, stepDays);
+    current = addDays(current, 7);
   }
 
   return dates;
 }
+
+/**
+ * Generates all candidate job dates (YYYY-MM-DD) between startDate and lookahead window for a recurring schedule.
+ */
+export function generateDatesForSchedule(
+  startDate: Date | string,
+  lookaheadDays: number,
+  frequency: RecurringFrequency,
+  daysOfWeek: string[] = [],
+  preferredDay?: string | null
+): string[] {
+  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
+  const end = addDays(startOfDay(start), lookaheadDays);
+  return generateDatesBetween(start, end, frequency, daysOfWeek, preferredDay);
+}
+

@@ -320,7 +320,7 @@ export default function RecurringPage() {
                   <Label className="text-xs">Select Customer / Client</Label>
                   <Select value={formCustomer} onValueChange={handleSelectCustomer}>
                     <SelectTrigger className="text-xs h-9">
-                      <SelectValue placeholder="— Select Customer or Enter Address Below —" />
+                      <SelectValue placeholder="Select Customer or Enter Address Below" />
                     </SelectTrigger>
                     <SelectContent>
                       {customers.map((c) => (
@@ -448,11 +448,11 @@ export default function RecurringPage() {
                   <Label className="text-xs">Assigned Primary Cleaner</Label>
                   <Select value={formEmployee} onValueChange={setFormEmployee}>
                     <SelectTrigger className="text-xs h-9">
-                      <SelectValue placeholder="— Auto-dispatch / Unassigned —" />
+                      <SelectValue placeholder="Auto-dispatch / Unassigned" />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="" className="text-xs text-muted-foreground">
-                        — Unassigned (Dispatch Queue) —
+                        Unassigned (Dispatch Queue)
                       </SelectItem>
                       {employees.map((e) => (
                         <SelectItem key={e.id} value={e.id} className="text-xs">
@@ -724,7 +724,7 @@ export default function RecurringPage() {
                           <span>{b.next_job_date}</span>
                         </div>
                       ) : (
-                        <span className="text-muted-foreground">—</span>
+                        <span className="text-muted-foreground">-</span>
                       )}
                     </td>
 

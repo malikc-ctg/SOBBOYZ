@@ -29,6 +29,13 @@ export async function createClient() {
 }
 
 export async function createServiceClient() {
+  if (typeof globalThis.WebSocket === 'undefined') {
+    try {
+      // Polyfill WebSocket for Node.js runtimes < 22
+      globalThis.WebSocket = require('ws');
+    } catch {}
+  }
+
   return createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -40,3 +47,4 @@ export async function createServiceClient() {
     }
   );
 }
+

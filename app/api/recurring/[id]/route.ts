@@ -36,6 +36,19 @@ export async function PATCH(
       .single();
 
     if (error) throw error;
+
+    if (updates.is_active === true) {
+      try {
+        const { materializeRecurringJobs } = await import('@/lib/recurring-runner');
+        await materializeRecurringJobs({
+          bookingId: params.id,
+          lookaheadDays: 14,
+        });
+      } catch (matErr) {
+        console.warn('Failed to materialize jobs upon contract reactivation:', matErr);
+      }
+    }
+
     return NextResponse.json(data);
   } catch (err: unknown) {
     console.error('PATCH /api/recurring/[id] error:', err);

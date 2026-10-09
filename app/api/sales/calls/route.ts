@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
 import { parseTorontoLocal, TORONTO_TZ } from '@/lib/sales/followups/tz';
 import { runEngineForEvent } from '@/lib/sales/followups/executor';
+import { autoLogWonSale } from '@/lib/sales/autoJobLogging';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TORONTO_DATE_FMT = new Intl.DateTimeFormat('en-CA', {
@@ -266,6 +267,20 @@ export async function POST(request: NextRequest) {
       } catch (engineErr) {
         console.error('[API /api/sales/calls] Follow-up engine error:', engineErr);
       }
+
+      // 5. Auto Job and Customer Logging if won deal
+      let autoSaleResult: any = null;
+      if (outcome_type === 'JOB_WON' || outcome_type === 'SALE') {
+        try {
+          autoSaleResult = await autoLogWonSale(supabase, {
+            rawLeadId,
+            saleDetails,
+            repId: finalRepId,
+          });
+        } catch (saleErr) {
+          console.error('[API /api/sales/calls] Auto log won sale error:', saleErr);
+        }
+      }
     }
 
     return NextResponse.json({
@@ -274,6 +289,7 @@ export async function POST(request: NextRequest) {
       call: payload,
       followup: engineSummary,
       toast: engineSummary?.toast || null,
+      auto_sale: autoSaleResult,
     }, { status: 201 });
   } catch (err: any) {
     console.error('[API /api/sales/calls] POST Exception:', err);
