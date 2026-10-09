@@ -47,7 +47,6 @@ import {
   Sparkles,
   RefreshCw,
 } from 'lucide-react';
-import MiroScriptEmbed, { DEFAULT_MIRO_URL } from './MiroScriptEmbed';
 import LeadImporterModal from './LeadImporterModal';
 import WalkthroughModal from './WalkthroughModal';
 import LeadDossierModal from './LeadDossierModal';
@@ -306,7 +305,6 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [isCalling, setIsCalling] = useState(false);
   const [callNotes, setCallNotes] = useState('');
   const [callbackDateTime, setCallbackDateTime] = useState('');
-  const [inCallMiroOpen, setInCallMiroOpen] = useState(false);
 
   // Sale Modal state
   const [saleAmount, setSaleAmount] = useState('2500');
@@ -1657,7 +1655,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
             </div>
 
             {/* Sub-view Nav Pills */}
-            <div className="phone-subtabs" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="phone-subtabs" style={{ gridTemplateColumns: 'repeat(3, 1fr)' }}>
               <button
                 className={`phone-subtab-btn ${subView === 'kanban' ? 'active' : ''}`}
                 onClick={() => setSubView('kanban')}
@@ -1673,14 +1671,6 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
               >
                 <BarChart3 size={13} className="text-blue-400" />
                 <span>Rep Tracking</span>
-              </button>
-              <button
-                className={`phone-subtab-btn ${subView === 'miro' ? 'active' : ''}`}
-                onClick={() => setSubView('miro')}
-                title="Interactive Miro Mind Map Script"
-              >
-                <Map size={13} className="text-blue-400" />
-                <span>Miro Mind Map</span>
               </button>
               <button
                 className={`phone-subtab-btn ${subView === 'touches' ? 'active' : ''}`}
@@ -1709,14 +1699,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
               </div>
             )}
 
-            {/* VIEW 2: DEDICATED MIRO MIND MAP SCRIPT VIEW */}
-            {subView === 'miro' && (
-              <div className="phone-scripts-card" style={{ padding: 12 }}>
-                <MiroScriptEmbed />
-              </div>
-            )}
-
-            {/* VIEW 3: TOUCH CENTRE - DAILY HIGH-VELOCITY FOLLOW-UPS & SMART TOUCHES */}
+            {/* VIEW 2: TOUCH CENTRE - DAILY HIGH-VELOCITY FOLLOW-UPS & SMART TOUCHES */}
             {subView === 'touches' && (
               <TouchCentreView
                 contacts={contacts}
@@ -1754,13 +1737,13 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
                   setShowJobResultModal(true);
                 }}
                 onOpenCallbackModal={(contact) => {
-                  setCallbackModalContact(contact);
+                  setActiveCaptureLead(contact);
                   setShowCallbackModal(true);
                 }}
                 onOpenQuoteDetailsModal={(contact, task, enr) => {
-                  setQuoteModalContact(contact);
-                  setQuoteModalTask(task);
-                  setQuoteModalEnr(enr);
+                  setQuoteDetailsContact(contact);
+                  setQuoteDetailsTask(task);
+                  setQuoteDetailsEnrollment(enr);
                   setShowQuoteDetailsModal(true);
                 }}
               />
