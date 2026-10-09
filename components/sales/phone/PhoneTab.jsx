@@ -48,6 +48,7 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import LeadImporterModal from './LeadImporterModal';
+import AddLeadModal from './AddLeadModal';
 import WalkthroughModal from './WalkthroughModal';
 import LeadDossierModal from './LeadDossierModal';
 import SalesKanbanBoard from './SalesKanbanBoard';
@@ -227,6 +228,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [showWalkthroughModal, setShowWalkthroughModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [addLeadInitialStage, setAddLeadInitialStage] = useState('new');
   const [showDossierModal, setShowDossierModal] = useState(false);
   const [dossierModalContact, setDossierModalContact] = useState(null);
   const [isSyncingQuo, setIsSyncingQuo] = useState(false);
@@ -331,16 +333,6 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [editEmail, setEditEmail] = useState('');
   const [editCity, setEditCity] = useState('');
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
-
-  // New Lead Form State
-  const [newLeadCompany, setNewLeadCompany] = useState('');
-  const [newLeadName, setNewLeadName] = useState('');
-  const [newLeadTitle, setNewLeadTitle] = useState('Project Manager');
-  const [newLeadPhone, setNewLeadPhone] = useState('');
-  const [newLeadEmail, setNewLeadEmail] = useState('');
-  const [newLeadCity, setNewLeadCity] = useState('');
-  const [newLeadPrice, setNewLeadPrice] = useState('2500');
-  const [newLeadNotes, setNewLeadNotes] = useState('');
 
   // Call timer interval
   const timerRef = useRef(null);
@@ -1174,36 +1166,6 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     loadContacts();
   }
 
-  // Add new lead form submission
-  async function handleAddNewLead(e) {
-    e.preventDefault();
-    if (!newLeadCompany && !newLeadPhone) return;
-
-    const res = await createNewPhoneLead({
-      company_name: newLeadCompany,
-      customer_name: newLeadName || 'Decision Maker',
-      contact_title: newLeadTitle,
-      customer_phone: newLeadPhone,
-      customer_email: newLeadEmail,
-      city: newLeadCity || 'GTA',
-      service_type: 'post_construction_clean',
-      quoted_price: newLeadPrice,
-      notes: newLeadNotes,
-      source: 'phone_sales_os'
-    });
-
-    if (res?.success) {
-      setShowAddLeadModal(false);
-      setNewLeadCompany('');
-      setNewLeadName('');
-      setNewLeadPhone('');
-      setNewLeadEmail('');
-      setNewLeadCity('');
-      setNewLeadNotes('');
-      loadContacts();
-    }
-  }
-
   // Filtered contacts based on search
   const filteredContacts = contacts.filter(c => {
     if (!searchQuery) return true;
@@ -1265,7 +1227,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
               <button
                 className="phone-subtab-btn active"
                 style={{ padding: '4px 8px', fontSize: '11px', flex: 'none' }}
-                onClick={() => setShowAddLeadModal(true)}
+                onClick={() => {
+                  setAddLeadInitialStage('new');
+                  setShowAddLeadModal(true);
+                }}
               >
                 <Plus size={12} /> Add Lead
               </button>
@@ -1759,6 +1724,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
                   onOneClickOutcome={handleKanbanOneClickOutcome}
                   onDeleteLead={handleKanbanDeleteLead}
                   onOpenImporter={() => setShowImporterModal(true)}
+                  onOpenAddLead={(stageKey) => {
+                    setAddLeadInitialStage(stageKey || 'new');
+                    setShowAddLeadModal(true);
+                  }}
                   onOpenDossier={contact => {
                     setSelectedContact(contact);
                     setDossierModalContact(contact);
@@ -1883,154 +1852,16 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         </div>
       )}
 
-      {/* Manual Add Lead Modal */}
-      {showAddLeadModal && (
-        <div className="phone-modal-overlay">
-          <div className="phone-modal-content" style={{ maxWidth: 500 }}>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#fff', marginBottom: 4 }}>
-              Add Calling Target
-            </h3>
-            <p style={{ fontSize: '12px', color: '#88a2c0', marginBottom: 16 }}>
-              Add a general contractor, project manager, or commercial account for outbound tele-sales.
-            </p>
-
-            <form onSubmit={handleAddNewLead}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                    Decision Maker Name *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    className="phone-search-input"
-                    style={{ padding: '10px 14px' }}
-                    placeholder="e.g. Dan Miller"
-                    value={newLeadName}
-                    onChange={e => setNewLeadName(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                    Position / Role
-                  </label>
-                  <input
-                    type="text"
-                    className="phone-search-input"
-                    style={{ padding: '10px 14px' }}
-                    placeholder="Project Manager / Owner"
-                    value={newLeadTitle}
-                    onChange={e => setNewLeadTitle(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 10 }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                  Company Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  className="phone-search-input"
-                  style={{ padding: '10px 14px' }}
-                  placeholder="e.g. EllisDon Construction"
-                  value={newLeadCompany}
-                  onChange={e => setNewLeadCompany(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                    Phone Number
-                  </label>
-                  <input
-                    type="tel"
-                    className="phone-search-input"
-                    style={{ padding: '10px 14px' }}
-                    placeholder="(416) 555-0199"
-                    value={newLeadPhone}
-                    onChange={e => setNewLeadPhone(e.target.value)}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                    Direct Email
-                  </label>
-                  <input
-                    type="email"
-                    className="phone-search-input"
-                    style={{ padding: '10px 14px' }}
-                    placeholder="dmiller@builder.ca"
-                    value={newLeadEmail}
-                    onChange={e => setNewLeadEmail(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                    City / Territory
-                  </label>
-                  <input
-                    type="text"
-                    className="phone-search-input"
-                    style={{ padding: '10px 14px' }}
-                    placeholder="Toronto / Mississauga"
-                    value={newLeadCity}
-                    onChange={e => setNewLeadCity(e.target.value)}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                    Target Job Value ($)
-                  </label>
-                  <input
-                    type="number"
-                    className="phone-search-input"
-                    style={{ padding: '10px 14px' }}
-                    placeholder="2500"
-                    value={newLeadPrice}
-                    onChange={e => setNewLeadPrice(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div style={{ marginBottom: 14 }}>
-                <label style={{ fontSize: '11px', fontWeight: 700, color: '#88a2c0', display: 'block', marginBottom: 4 }}>
-                  Notes & Details
-                </label>
-                <textarea
-                  className="phone-search-input"
-                  style={{ padding: '8px 12px', minHeight: 60 }}
-                  placeholder="Direct extension, job site location, project details..."
-                  value={newLeadNotes}
-                  onChange={e => setNewLeadNotes(e.target.value)}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="phone-text-btn"
-                  onClick={() => setShowAddLeadModal(false)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="phone-call-btn"
-                >
-                  Save Lead
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Add Single Lead Modal */}
+      <AddLeadModal
+        isOpen={showAddLeadModal}
+        initialStage={addLeadInitialStage}
+        onClose={() => setShowAddLeadModal(false)}
+        onSuccess={async () => {
+          await loadContacts();
+          if (fetchFollowupBoard) fetchFollowupBoard();
+        }}
+      />
 
       {/* Comprehensive Lead Intel & Colleague Dossier Modal */}
       <LeadDossierModal

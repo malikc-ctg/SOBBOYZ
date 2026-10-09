@@ -74,6 +74,7 @@ export default function SalesKanbanBoard({
   onOpenWalkthrough,
   onDeleteLead,
   onOpenImporter,
+  onOpenAddLead,
   user,
   // Followup props
   followupsByLeadId = {},
@@ -594,16 +595,30 @@ export default function SalesKanbanBoard({
               </>
             )}
 
-            <div>
+            <div className="text-xs text-slate-400">
               <span className="text-white font-bold text-sm">{filteredContacts.length}</span> leads shown
             </div>
+
+            {onOpenAddLead && (
+              <button
+                type="button"
+                onClick={() => onOpenAddLead('new')}
+                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Add a single lead to pipeline"
+              >
+                <Plus size={14} />
+                <span>Add Lead</span>
+              </button>
+            )}
+
             {onOpenImporter && (
               <button
                 type="button"
                 onClick={onOpenImporter}
-                className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-sans text-xs font-bold transition flex items-center gap-1.5 shadow-sm"
+                className="px-3 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 text-slate-200 border border-slate-700/80 font-sans text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer"
+                title="Batch import leads from CSV, XLSX, or TSV"
               >
-                <Plus size={13} />
+                <Upload size={13} />
                 <span>Import Leads</span>
               </button>
             )}
@@ -618,21 +633,33 @@ export default function SalesKanbanBoard({
             <Upload size={24} />
           </div>
           <div className="max-w-md space-y-1">
-            <h3 className="text-base font-bold text-white">Lead Pipeline Ready for Upload</h3>
+            <h3 className="text-base font-bold text-white">Lead Pipeline Ready</h3>
             <p className="text-xs text-slate-400 leading-relaxed">
-              All previous leads have been cleared. Upload your fresh CSV or Excel lead list to populate your cold calling and sector pipeline.
+              Add a new lead manually or upload your CSV or Excel list to populate your cold calling and sector pipeline.
             </p>
           </div>
-          {onOpenImporter && (
-            <button
-              type="button"
-              onClick={onOpenImporter}
-              className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 transition shadow-lg shadow-blue-950/40"
-            >
-              <Plus size={14} />
-              <span>Import New Leads</span>
-            </button>
-          )}
+          <div className="flex items-center gap-2.5">
+            {onOpenAddLead && (
+              <button
+                type="button"
+                onClick={() => onOpenAddLead('new')}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs flex items-center gap-2 transition shadow-lg shadow-blue-950/40 cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>Add Single Lead</span>
+              </button>
+            )}
+            {onOpenImporter && (
+              <button
+                type="button"
+                onClick={onOpenImporter}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs flex items-center gap-2 transition cursor-pointer"
+              >
+                <Upload size={14} />
+                <span>Import Leads</span>
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -768,6 +795,17 @@ export default function SalesKanbanBoard({
                         {colLeads.length}
                       </span>
                     </div>
+
+                    {onOpenAddLead && boardView === 'pipeline' && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenAddLead(colKey)}
+                        className="p-1 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-400 hover:text-white border border-slate-800 transition cursor-pointer"
+                        title={`Add lead directly to ${col.label}`}
+                      >
+                        <Plus size={13} />
+                      </button>
+                    )}
                   </div>
 
                   {/* Column Card List - Generous spacing to eliminate clumping */}
