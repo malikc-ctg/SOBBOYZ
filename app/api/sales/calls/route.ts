@@ -208,6 +208,7 @@ export async function POST(request: NextRequest) {
 
     // 2. Update lead status in CRM leads table and record outreach_tasks
     let engineSummary: any = null;
+    let autoSaleResult: any = null;
     if (contact_id) {
       const rawLeadId = String(contact_id).replace(/^lead_/, '');
 
@@ -269,12 +270,11 @@ export async function POST(request: NextRequest) {
       }
 
       // 5. Auto Job and Customer Logging if won deal
-      let autoSaleResult: any = null;
       if (outcome_type === 'JOB_WON' || outcome_type === 'SALE') {
         try {
           autoSaleResult = await autoLogWonSale(supabase, {
             rawLeadId,
-            saleDetails,
+            saleDetails: sale_details,
             repId: finalRepId,
           });
         } catch (saleErr) {
