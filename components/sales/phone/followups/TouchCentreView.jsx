@@ -237,7 +237,7 @@ export default function TouchCentreView({
 
       return true;
     });
-  }, [allTouchItems, repFilter, statusFilter, typeFilter, searchQuery]);
+  }, [allTouchItems, repFilter, statusFilter, searchQuery]);
 
   // Task actions handlers
   const handleOpenEmail = async (item) => {
