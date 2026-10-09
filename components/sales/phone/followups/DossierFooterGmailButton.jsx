@@ -15,8 +15,10 @@ import { renderEmail } from '@/lib/sales/followups/render';
 import { resolveRepConfig } from '@/lib/sales/followups/config';
 
 const POPULAR_TEMPLATES = [
-  { key: 'drip_1', label: 'No-Answer Drip: Day 0', subject: 'Who handles closeout cleaning?' },
-  { key: 'drip_2', label: 'No-Answer Drip: Day 3', subject: 'Next closeout' },
+  { key: 'drip_1', label: 'No-Answer Drip: Day 1', subject: 'Closeout clean for projects' },
+  { key: 'drip_2', label: 'No-Answer Drip: Day 3', subject: 'Dust after your last trades' },
+  { key: 'drip_3', label: 'No-Answer Drip: Day 7', subject: 'Quote for final clean' },
+  { key: 'drip_4', label: 'No-Answer Drip: Day 14', subject: 'Wrong person?' },
   { key: 'pickup_recap', label: 'Call Recap', subject: 'Following up on our call' },
   { key: 'wt_confirm', label: 'Walkthrough Confirmation', subject: 'Walkthrough confirmed' },
   { key: 'quote_day2', label: 'Quote Follow-up', subject: 'Questions on the quote?' },
@@ -106,6 +108,8 @@ export default function DossierFooterGmailButton({
         lead: {
           customer_name: contact.name,
           company_name: contact.company,
+          city: contact.city,
+          sector: contact.sector,
         },
         rep: {
           signature_name: effectiveRep.name,

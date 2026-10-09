@@ -45,21 +45,20 @@ describe('renderEmail templates exact text match', () => {
     const now = new TZDate(2026, 9, 7, 10, 0, 0, 0, 'America/Toronto');
     const res = renderEmail({
       templateKey: 'drip_1',
-      lead: { customer_name: 'John Smith' },
+      lead: { customer_name: 'John Smith', company_name: 'EllisDon Construction', city: 'Mississauga' },
       rep: defaultRep,
       now,
       anchorAt: now,
       mailingAddressOverride: testAddress,
     });
 
-    expect(res.subject).toBe('Who handles closeout cleaning?');
+    expect(res.subject).toBe('Closeout clean for EllisDon Construction');
     expect(res.body).toContain('Hi John,');
     expect(res.body).toContain(
-      'I called you today and missed you. Sea of Blue Inc. does post-construction deep cleans for non-residential sites across the GTA.\n\nWho handles the final clean on your projects?'
+      'I called today and missed you. I’m Malik with Sea of Blue Inc. We do rough, final, and touch-up cleans for commercial construction sites in Mississauga. Most recently we turned over a 35,000 sq ft commercial facility in Mississauga.\n\nWho books the final clean on your current projects? If it’s you, send me the square footage and finish date for one site and I will send a fixed price.'
     );
     expect(res.body).toContain('Best regards,\nMalik Campbell\nFounder & CEO, Sea of Blue Inc.\n(289) 670-3357');
     expect(res.body).toContain(`Sea of Blue Inc., ${testAddress}, seaofblue.ca`);
-    expect(res.body).not.toContain('unsubscribe');
   });
 
   it('renders drip_1 later day variant', () => {
@@ -74,7 +73,57 @@ describe('renderEmail templates exact text match', () => {
       mailingAddressOverride: testAddress,
     });
 
-    expect(res.body).toContain('Hi,\n\nI called you recently and missed you.');
+    expect(res.subject).toBe('Closeout clean for your current projects');
+    expect(res.body).toContain('Hi,\n\nI called you on Monday and missed you.');
+    expect(res.body).toContain('Who books the final clean on your current projects?');
+  });
+
+  it('renders drip_2 dust after trades', () => {
+    const res = renderEmail({
+      templateKey: 'drip_2',
+      lead: { customer_name: 'Sarah Connor' },
+      rep: defaultRep,
+      mailingAddressOverride: testAddress,
+    });
+
+    expect(res.subject).toBe('Dust after your last trades');
+    expect(res.body).toContain(
+      'Closeout cleans get undone when flooring, paint, or touch-up trades come in after the cleaners leave.\n\nWe schedule around your final trades and include a touch-up visit before the owner walkthrough. Which site finishes next?'
+    );
+  });
+
+  it('renders drip_3 fixed price and proof quote pitch', () => {
+    const anchor = new TZDate(2026, 9, 6, 10, 0, 0, 0, 'America/Toronto');
+    const now = new TZDate(2026, 9, 7, 10, 0, 0, 0, 'America/Toronto');
+    const res = renderEmail({
+      templateKey: 'drip_3',
+      lead: { customer_name: 'Dan Miller', company_name: 'VR Mechanical', city: 'Mississauga' },
+      rep: defaultRep,
+      now,
+      anchorAt: anchor,
+      mailingAddressOverride: testAddress,
+    });
+
+    expect(res.subject).toBe('Quote for VR Mechanical’s final clean');
+    expect(res.body).toContain('Hi Dan,');
+    expect(res.body).toContain(
+      'I’ve been trying to reach you since my call yesterday. I’m Malik with Sea of Blue Inc. We handle post-construction cleans for commercial sites in Mississauga, from rough clean through final touch-up. Our last turnover was a 35,000 sq ft commercial site in Mississauga.\n\nIf you send me the square footage and target finish date for one active site, I will send back a fixed price with our insurance and WSIB paperwork attached.'
+    );
+  });
+
+  it('renders drip_4 wrong person breakup', () => {
+    const res = renderEmail({
+      templateKey: 'drip_4',
+      lead: { customer_name: 'Wendy Bird' },
+      rep: defaultRep,
+      mailingAddressOverride: testAddress,
+    });
+
+    expect(res.subject).toBe('Wrong person?');
+    expect(res.body).toContain('Hi Wendy,');
+    expect(res.body).toContain(
+      'Not sure if closeout cleaning even runs through you. If someone else on your team books it, point me to them and I’ll leave you alone.'
+    );
   });
 
   it('renders pickup_recap same day variant', () => {

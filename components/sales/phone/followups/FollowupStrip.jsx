@@ -57,6 +57,8 @@ export default function FollowupStrip({
         lead: {
           customer_name: contact?.name,
           company_name: contact?.company,
+          city: contact?.city,
+          sector: contact?.sector,
         },
         rep: {
           signature_name: effectiveRep.name,

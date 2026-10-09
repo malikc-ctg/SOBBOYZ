@@ -7,6 +7,7 @@ import {
   formatWhenFuture,
   formatWhenPast,
   isSameTorontoDate,
+  formatPastDaySimple,
 } from './schedule';
 
 /**
@@ -82,6 +83,8 @@ export interface RenderInput {
   lead: {
     customer_name?: string | null;
     company_name?: string | null;
+    city?: string | null;
+    sector?: string | null;
   };
   rep: {
     signature_name?: string | null;
@@ -169,6 +172,12 @@ export function renderEmail(input: RenderInput): RenderResult {
   const referrerFullName = ctx.referrerName || ctx.referrer_full_name || '';
   const referrerFirstName = parseFirstName(referrerFullName) || '';
 
+  const rawCity = input.lead.city || ctx.city || '';
+  const city = cleanSnippet(rawCity, 40);
+  const companyName = cleanSnippet(input.lead.company_name || ctx.companyName || ctx.company_name || '', 60);
+  const repFirstName = parseFirstName(repName) || 'Malik';
+  const callDaySimple = formatPastDaySimple(anchorDate, now);
+
   const tCtx: TemplateContext = {
     service_area: FOLLOWUP_CONFIG.serviceAreaPhrase,
     is_same_day: isSameTorontoDate(now, anchorDate),
@@ -188,6 +197,10 @@ export function renderEmail(input: RenderInput): RenderResult {
     original_month: originalMonth,
     referrer_first_name: referrerFirstName,
     referrer_full_name: referrerFullName,
+    city: city,
+    company_name: companyName,
+    rep_first_name: repFirstName,
+    call_day_simple: callDaySimple,
   };
 
   const rendered = templateFn(tCtx);

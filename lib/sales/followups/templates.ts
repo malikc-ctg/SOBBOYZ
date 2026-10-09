@@ -22,32 +22,80 @@ export interface TemplateContext {
   original_month?: string;
   referrer_first_name?: string;
   referrer_full_name?: string;
+  city?: string;
+  company_name?: string;
+  rep_first_name?: string;
+  call_day_simple?: string;
+  proof_sentence?: string;
 }
 
 export type TemplateFunction = (ctx: TemplateContext) => { subject: string; body: string };
 
 export const TEMPLATES: Record<string, TemplateFunction> = {
   // C.1 No-answer drip
-  drip_1: (ctx) => ({
-    subject: 'Who handles closeout cleaning?',
-    body: ctx.is_same_day
-      ? `I called you today and missed you. Sea of Blue Inc. does post-construction deep cleans for non-residential sites ${ctx.service_area}.\n\nWho handles the final clean on your projects?`
-      : `I called you recently and missed you. Sea of Blue Inc. does post-construction deep cleans for non-residential sites ${ctx.service_area}.\n\nWho handles the final clean on your projects?`,
-  }),
+  drip_1: (ctx) => {
+    const proj = ctx.project_name || (ctx.company_name && !['commercial prospect'].includes(ctx.company_name.toLowerCase()) ? ctx.company_name : '');
+    const subject = proj ? `Closeout clean for ${proj}` : 'Closeout clean for your current projects';
+
+    const callPhrase = ctx.is_same_day
+      ? 'today'
+      : (ctx.call_day_simple === 'yesterday' ? 'yesterday' : ctx.call_day_simple);
+    const callSentence = callPhrase === 'today' || callPhrase === 'yesterday'
+      ? `I called ${callPhrase} and missed you.`
+      : (callPhrase ? `I called you on ${callPhrase} and missed you.` : 'I called you recently and missed you.');
+
+    const rep = ctx.rep_first_name || 'Malik';
+    const inRegion = ctx.city ? `in ${ctx.city}` : ctx.service_area;
+    const proofCity = ctx.city || 'Mississauga';
+    const proof = ctx.proof_sentence || `Most recently we turned over a 35,000 sq ft commercial facility in ${proofCity}.`;
+
+    return {
+      subject,
+      body: [
+        `${callSentence} I’m ${rep} with Sea of Blue Inc. We do rough, final, and touch-up cleans for commercial construction sites ${inRegion}. ${proof}`,
+        'Who books the final clean on your current projects? If it’s you, send me the square footage and finish date for one site and I will send a fixed price.',
+      ].join('\n\n'),
+    };
+  },
 
   drip_2: () => ({
-    subject: 'Next closeout',
-    body: 'Do you hire out the final clean, or does your own crew do it?',
+    subject: 'Dust after your last trades',
+    body: [
+      'Closeout cleans get undone when flooring, paint, or touch-up trades come in after the cleaners leave.',
+      'We schedule around your final trades and include a touch-up visit before the owner walkthrough. Which site finishes next?',
+    ].join('\n\n'),
   }),
 
-  drip_3: () => ({
-    subject: 'Project finishing soon?',
-    body: 'When does your next project finish, and is a cleaner confirmed for it?',
-  }),
+  drip_3: (ctx) => {
+    const proj = ctx.project_name || (ctx.company_name && !['commercial prospect'].includes(ctx.company_name.toLowerCase()) ? ctx.company_name : '');
+    const subject = proj ? `Quote for ${proj}’s final clean` : 'Quote for your project’s final clean';
+
+    const rep = ctx.rep_first_name || 'Malik';
+    const inRegion = ctx.city ? `in ${ctx.city}` : ctx.service_area;
+    const proofCity = ctx.city || 'Mississauga';
+    const proof = ctx.proof_sentence || `Our last turnover was a 35,000 sq ft commercial site in ${proofCity}.`;
+
+    let callRef = 'my call recently';
+    if (ctx.is_same_day) {
+      callRef = 'my call earlier today';
+    } else if (ctx.call_day_simple === 'yesterday') {
+      callRef = 'my call yesterday';
+    } else if (ctx.call_day_simple) {
+      callRef = `my call on ${ctx.call_day_simple}`;
+    }
+
+    return {
+      subject,
+      body: [
+        `I’ve been trying to reach you since ${callRef}. I’m ${rep} with Sea of Blue Inc. We handle post-construction cleans for commercial sites ${inRegion}, from rough clean through final touch-up. ${proof}`,
+        'If you send me the square footage and target finish date for one active site, I will send back a fixed price with our insurance and WSIB paperwork attached.',
+      ].join('\n\n'),
+    };
+  },
 
   drip_4: () => ({
-    subject: 'Right person for closeout cleaning?',
-    body: 'This is my last email. If someone else on your team handles closeout cleaning, send me their name and I will contact them directly.',
+    subject: 'Wrong person?',
+    body: 'Not sure if closeout cleaning even runs through you. If someone else on your team books it, point me to them and I’ll leave you alone.',
   }),
 
   // C.2 Pick-up follow-up

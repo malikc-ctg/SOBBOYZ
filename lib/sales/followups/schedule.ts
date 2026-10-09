@@ -302,3 +302,28 @@ export function formatWhenPast(target: Date | string | number, now: Date = new D
 export function isSameTorontoDate(d1: Date | string | number, d2: Date | string | number): boolean {
   return formatTorontoDateKey(d1) === formatTorontoDateKey(d2);
 }
+
+/**
+ * Returns simple past day string relative to now:
+ * "today", "yesterday", "Monday" .. "Sunday" (2-6 days ago), or "October 8"
+ */
+export function formatPastDaySimple(target: Date | string | number, now: Date = new Date()): string {
+  const tTz = toTorontoDate(target);
+  const nTz = toTorontoDate(now);
+
+  const tStart = new TZDate(tTz.getFullYear(), tTz.getMonth(), tTz.getDate(), 0, 0, 0, 0, TORONTO_TZ);
+  const nStart = new TZDate(nTz.getFullYear(), nTz.getMonth(), nTz.getDate(), 0, 0, 0, 0, TORONTO_TZ);
+  const diffDays = Math.round((nStart.getTime() - tStart.getTime()) / (24 * 60 * 60 * 1000));
+
+  if (diffDays <= 0) {
+    return 'today';
+  }
+  if (diffDays === 1) {
+    return 'yesterday';
+  }
+  if (diffDays >= 2 && diffDays <= 6) {
+    return DAYS[tTz.getDay()];
+  }
+  return formatTorontoDay(target);
+}
+
