@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { z } from 'zod';
 import { runEngineForLeadSignal } from '@/lib/sales/followups/executor';
+import { FOLLOWUP_CONFIG, resolveRepConfig } from '@/lib/sales/followups/config';
 
 export async function GET(
   request: NextRequest,
@@ -62,12 +63,32 @@ export async function GET(
       tasks: (tasks || []).filter((t: any) => t.enrollment_id === e.id),
     }));
 
+    // 4. Fetch signed-in rep's follow-up settings
+    const { data: repSettings } = await supabase
+      .from('sales_rep_followup_settings')
+      .select('*')
+      .eq('rep_id', user.id)
+      .maybeSingle();
+
+    const repFallback = resolveRepConfig(user.id || user.user_metadata?.full_name || user.email);
+    const resolvedRepSettings = repSettings || {
+      rep_id: user.id,
+      signature_name: user.user_metadata?.full_name || repFallback.name,
+      signature_title: repFallback.title,
+      signature_phone: repFallback.phone,
+      gmail_address: repFallback.gmail_address || user.email || null,
+    };
+
     return NextResponse.json({
       success: true,
       leadId: rawLeadId,
       enrollments: enrollmentsWithTasks,
       flags,
       sentEmails,
+      meta: {
+        repSettings: resolvedRepSettings,
+        mailingAddress: FOLLOWUP_CONFIG.company.mailingAddress || '',
+      },
     });
   } catch (err: any) {
     console.error('[API /api/sales/followups/lead/[leadId]] GET error:', err);

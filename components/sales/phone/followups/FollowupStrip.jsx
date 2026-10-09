@@ -10,6 +10,7 @@ import {
 import { toast } from 'sonner';
 import { gmailComposeUrl, gmailSearchUrl } from '@/lib/sales/followups/compose';
 import { renderEmail } from '@/lib/sales/followups/render';
+import { resolveRepConfig } from '@/lib/sales/followups/config';
 import { formatWhenFuture, formatTorontoShortDay, formatTorontoTime, isTaskOverdue, getDueBucket } from '@/lib/sales/followups/schedule';
 
 export default function FollowupStrip({
@@ -37,6 +38,14 @@ export default function FollowupStrip({
   const nextTask = followupData?.nextTask || null;
   const otherCount = followupData?.otherPendingCount || 0;
 
+  // Determine active rep for this lead card
+  const effectiveRep = useMemo(() => {
+    if (nextTask?.assigned_rep_id) return resolveRepConfig(nextTask.assigned_rep_id);
+    if (openEnr?.owner_rep_id) return resolveRepConfig(openEnr.owner_rep_id);
+    if (repSettings?.signature_name) return resolveRepConfig(repSettings.signature_name);
+    return resolveRepConfig('malik');
+  }, [nextTask?.assigned_rep_id, openEnr?.owner_rep_id, repSettings]);
+
   // Pre-render Gmail URL for email tasks
   const composeInfo = useMemo(() => {
     if (!nextTask || nextTask.kind !== 'email' || !nextTask.template_key) return null;
@@ -50,9 +59,9 @@ export default function FollowupStrip({
           company_name: contact?.company,
         },
         rep: {
-          signature_name: repSettings?.signature_name || 'Malik Campbell',
-          signature_title: repSettings?.signature_title,
-          signature_phone: repSettings?.signature_phone,
+          signature_name: effectiveRep.name,
+          signature_title: effectiveRep.title,
+          signature_phone: effectiveRep.phone,
         },
         context: openEnr?.context || {},
         anchorAt: openEnr?.anchor_at,
@@ -62,20 +71,20 @@ export default function FollowupStrip({
       return {
         rendered,
         compose: gmailComposeUrl({
-          from: repSettings?.gmail_address || undefined,
+          from: effectiveRep.gmail_address || undefined,
           to: contact.email,
           subject: rendered.subject,
           body: rendered.body,
         }),
         search: gmailSearchUrl({
-          from: repSettings?.gmail_address || undefined,
+          from: effectiveRep.gmail_address || undefined,
           leadEmail: contact.email,
         }),
       };
     } catch {
       return null;
     }
-  }, [nextTask, contact, repSettings, mailingAddressSet, openEnr]);
+  }, [nextTask, contact, effectiveRep, repSettings, mailingAddressSet, openEnr]);
 
   if (authError) {
     return (

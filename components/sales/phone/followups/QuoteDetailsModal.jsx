@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { X, ExternalLink, Paperclip } from 'lucide-react';
 import { gmailComposeUrl } from '@/lib/sales/followups/compose';
 import { renderEmail } from '@/lib/sales/followups/render';
+import { resolveRepConfig } from '@/lib/sales/followups/config';
 
 export default function QuoteDetailsModal({
   isOpen,
@@ -21,6 +22,13 @@ export default function QuoteDetailsModal({
     enrollment?.context?.scopePhase || 'Final Turnover Clean'
   );
 
+  const effectiveRep = useMemo(() => {
+    if (task?.assigned_rep_id) return resolveRepConfig(task.assigned_rep_id);
+    if (enrollment?.owner_rep_id) return resolveRepConfig(enrollment.owner_rep_id);
+    if (repSettings?.signature_name) return resolveRepConfig(repSettings.signature_name);
+    return resolveRepConfig('malik');
+  }, [task?.assigned_rep_id, enrollment?.owner_rep_id, repSettings]);
+
   const composeUrl = useMemo(() => {
     if (!task || !contact?.email || !mailingAddressSet) return '#';
     try {
@@ -31,9 +39,9 @@ export default function QuoteDetailsModal({
           company_name: contact.company,
         },
         rep: {
-          signature_name: repSettings?.signature_name || 'Malik Campbell',
-          signature_title: repSettings?.signature_title,
-          signature_phone: repSettings?.signature_phone,
+          signature_name: effectiveRep.name,
+          signature_title: effectiveRep.title,
+          signature_phone: effectiveRep.phone,
         },
         context: {
           ...(enrollment?.context || {}),
@@ -45,7 +53,7 @@ export default function QuoteDetailsModal({
       });
 
       const { url } = gmailComposeUrl({
-        from: repSettings?.gmail_address || undefined,
+        from: effectiveRep.gmail_address || undefined,
         to: contact.email,
         subject: rendered.subject,
         body: rendered.body,
@@ -54,7 +62,7 @@ export default function QuoteDetailsModal({
     } catch {
       return '#';
     }
-  }, [task, contact, mailingAddressSet, quoteAmount, scopePhase, repSettings, enrollment]);
+  }, [task, contact, mailingAddressSet, quoteAmount, scopePhase, effectiveRep, repSettings, enrollment]);
 
   if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
-import { FOLLOWUP_CONFIG } from '@/lib/sales/followups/config';
+import { FOLLOWUP_CONFIG, resolveRepConfig } from '@/lib/sales/followups/config';
 import { isTaskOverdue, getDueBucket } from '@/lib/sales/followups/schedule';
 
 export async function GET(request: NextRequest) {
@@ -135,18 +135,22 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const repFallback = resolveRepConfig(user.id || user.user_metadata?.full_name || user.email);
+    const resolvedRepSettings = repSettings || {
+      rep_id: user.id,
+      signature_name: user.user_metadata?.full_name || repFallback.name,
+      signature_title: repFallback.title,
+      signature_phone: repFallback.phone,
+      gmail_address: repFallback.gmail_address || user.email || null,
+    };
+
     return NextResponse.json({
       success: true,
-      repSettings: repSettings || {
-        rep_id: user.id,
-        signature_name: user.user_metadata?.full_name || 'Malik Campbell',
-        signature_title: 'Account Executive',
-        signature_phone: FOLLOWUP_CONFIG.company.defaultPhone,
-        gmail_address: user.email || null,
-      },
+      repSettings: resolvedRepSettings,
       meta: {
         mailingAddressSet: Boolean(FOLLOWUP_CONFIG.company.mailingAddress),
         bucketCounts,
+        repSettings: resolvedRepSettings,
       },
       leads: leadsFollowup,
     });

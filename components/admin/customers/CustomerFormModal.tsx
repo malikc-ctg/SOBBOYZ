@@ -268,15 +268,15 @@ export function CustomerFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="p-6 pb-4 border-b border-slate-100">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto p-0 bg-slate-900 border-slate-800 text-slate-100">
+        <DialogHeader className="p-6 pb-4 border-b border-slate-800">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <div
                 className={`h-9 w-9 rounded-lg flex items-center justify-center ${
                   customerType === 'commercial'
-                    ? 'bg-purple-100 text-purple-700'
-                    : 'bg-blue-100 text-blue-700'
+                    ? 'bg-purple-950/80 text-purple-300 border border-purple-800'
+                    : 'bg-blue-950/80 text-blue-300 border border-blue-800'
                 }`}
               >
                 {customerType === 'commercial' ? (
@@ -286,12 +286,12 @@ export function CustomerFormModal({
                 )}
               </div>
               <div>
-                <DialogTitle className="text-xl">
+                <DialogTitle className="text-xl text-white">
                   {isEditing
                     ? `Edit ${customerType === 'commercial' ? 'Commercial Client' : 'Residential Customer'}`
                     : `Add New ${customerType === 'commercial' ? 'Commercial Client' : 'Residential Customer'}`}
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-slate-400">
                   {customerType === 'commercial'
                     ? 'Manage commercial enterprise account, facility details, and AP billing.'
                     : 'Manage residential home profile, family/pet preferences, and entry specs.'}
@@ -301,14 +301,14 @@ export function CustomerFormModal({
           </div>
 
           {/* Type Switcher Segmented Control */}
-          <div className="grid grid-cols-2 gap-2 mt-4 p-1 bg-slate-100 rounded-lg">
+          <div className="grid grid-cols-2 gap-2 mt-4 p-1 bg-slate-950 border border-slate-800 rounded-lg">
             <button
               type="button"
               onClick={() => setCustomerType('residential')}
               className={`flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all ${
                 customerType === 'residential'
-                  ? 'bg-white text-blue-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-blue-950/80 text-blue-300 border border-blue-800 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Home className="h-3.5 w-3.5" />
@@ -319,8 +319,8 @@ export function CustomerFormModal({
               onClick={() => setCustomerType('commercial')}
               className={`flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-md transition-all ${
                 customerType === 'commercial'
-                  ? 'bg-white text-purple-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-purple-950/80 text-purple-300 border border-purple-800 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
               }`}
             >
               <Building2 className="h-3.5 w-3.5" />
@@ -332,15 +332,15 @@ export function CustomerFormModal({
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* COMMERCIAL HEADER SECTION */}
           {customerType === 'commercial' && (
-            <div className="p-4 bg-purple-50/60 border border-purple-100 rounded-xl space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-900">
-                <Building2 className="h-4 w-4 text-purple-700" />
+            <div className="p-4 bg-purple-950/30 border border-purple-900/50 rounded-xl space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-purple-300">
+                <Building2 className="h-4 w-4 text-purple-400" />
                 Company & Facility Classification
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label className="text-xs font-semibold text-slate-700">
+                  <Label className="text-xs font-semibold text-slate-300">
                     Company / Organization Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
@@ -352,7 +352,7 @@ export function CustomerFormModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">Facility Type</Label>
+                  <Label className="text-xs font-semibold text-slate-300">Facility Type</Label>
                   <Select value={facilityType} onValueChange={setFacilityType}>
                     <SelectTrigger>
                       <SelectValue />
@@ -368,7 +368,7 @@ export function CustomerFormModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">Square Footage (sq ft)</Label>
+                  <Label className="text-xs font-semibold text-slate-300">Square Footage (sq ft)</Label>
                   <Input
                     type="number"
                     placeholder="e.g. 3500"
@@ -382,14 +382,14 @@ export function CustomerFormModal({
 
           {/* PRIMARY CONTACT DETAILS */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
-              <UserCheck className="h-4 w-4 text-slate-600" />
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+              <UserCheck className="h-4 w-4 text-slate-400" />
               {customerType === 'commercial' ? 'On-Site / Primary Contact' : 'Customer Contact Details'}
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label className="text-xs font-semibold text-slate-300">
                   {customerType === 'commercial' ? 'Contact Name / Facility Mgr' : 'Full Name'}{' '}
                   <span className="text-red-500">*</span>
                 </Label>
@@ -402,7 +402,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label className="text-xs font-semibold text-slate-300">
                   Phone Number <span className="text-red-500">*</span>
                 </Label>
                 <Input
@@ -414,7 +414,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-semibold text-slate-700">Email Address</Label>
+                <Label className="text-xs font-semibold text-slate-300">Email Address</Label>
                 <Input
                   type="email"
                   placeholder="name@domain.com"
@@ -427,14 +427,14 @@ export function CustomerFormModal({
 
           {/* LOCATION & SERVICE ZONE */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-800">
-              <MapPin className="h-4 w-4 text-slate-600" />
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+              <MapPin className="h-4 w-4 text-slate-400" />
               Location & Service Zone
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-semibold text-slate-700">Street Address</Label>
+                <Label className="text-xs font-semibold text-slate-300">Street Address</Label>
                 <Input
                   placeholder="123 Queen Street West"
                   value={addressLine1}
@@ -443,7 +443,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label className="text-xs font-semibold text-slate-300">
                   {customerType === 'commercial' ? 'Suite / Floor / Unit' : 'Unit / Apt #'}
                 </Label>
                 <Input
@@ -454,7 +454,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">City</Label>
+                <Label className="text-xs font-semibold text-slate-300">City</Label>
                 <Input
                   placeholder="Toronto, Mississauga, Oakville..."
                   value={city}
@@ -463,7 +463,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Postal Code</Label>
+                <Label className="text-xs font-semibold text-slate-300">Postal Code</Label>
                 <Input
                   placeholder="M5V 2H1"
                   value={postalCode}
@@ -472,7 +472,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Assigned Service Zone</Label>
+                <Label className="text-xs font-semibold text-slate-300">Assigned Service Zone</Label>
                 <Select value={zoneId} onValueChange={setZoneId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select Zone" />
@@ -491,15 +491,15 @@ export function CustomerFormModal({
 
           {/* RESIDENTIAL-SPECIFIC SPECS */}
           {customerType === 'residential' && (
-            <div className="p-4 bg-blue-50/60 border border-blue-100 rounded-xl space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-900">
-                <Home className="h-4 w-4 text-blue-700" />
+            <div className="p-4 bg-blue-950/30 border border-blue-900/50 rounded-xl space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-300">
+                <Home className="h-4 w-4 text-blue-400" />
                 Home Details & Preferences
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">Bedrooms</Label>
+                  <Label className="text-xs font-semibold text-slate-300">Bedrooms</Label>
                   <Select value={homeBedrooms} onValueChange={setHomeBedrooms}>
                     <SelectTrigger>
                       <SelectValue />
@@ -515,7 +515,7 @@ export function CustomerFormModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">Bathrooms</Label>
+                  <Label className="text-xs font-semibold text-slate-300">Bathrooms</Label>
                   <Select value={homeBathrooms} onValueChange={setHomeBathrooms}>
                     <SelectTrigger>
                       <SelectValue />
@@ -531,7 +531,7 @@ export function CustomerFormModal({
                 </div>
 
                 <div className="space-y-1.5 col-span-2">
-                  <Label className="text-xs font-semibold text-slate-700">Pets in Home</Label>
+                  <Label className="text-xs font-semibold text-slate-300">Pets in Home</Label>
                   <Input
                     placeholder="e.g. Golden Retriever (friendly), 1 cat"
                     value={petDetails}
@@ -541,7 +541,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">Special Preferences / Surfaces</Label>
+                <Label className="text-xs font-semibold text-slate-300">Special Preferences / Surfaces</Label>
                 <Input
                   placeholder="e.g. Hardwood floor cleaner only in living room, do not disturb home office"
                   value={specialInstructions}
@@ -553,15 +553,15 @@ export function CustomerFormModal({
 
           {/* COMMERCIAL BILLING & AP TERMS */}
           {customerType === 'commercial' && (
-            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-slate-900">
-                <CreditCard className="h-4 w-4 text-slate-700" />
+            <div className="p-4 bg-slate-900/80 border border-slate-800 rounded-xl space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-white">
+                <CreditCard className="h-4 w-4 text-slate-400" />
                 Commercial Billing & Accounts Payable
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">AP Contact Name</Label>
+                  <Label className="text-xs font-semibold text-slate-300">AP Contact Name</Label>
                   <Input
                     placeholder="e.g. Finance Dept"
                     value={apName}
@@ -570,7 +570,7 @@ export function CustomerFormModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">AP Invoicing Email</Label>
+                  <Label className="text-xs font-semibold text-slate-300">AP Invoicing Email</Label>
                   <Input
                     type="email"
                     placeholder="invoices@company.com"
@@ -580,7 +580,7 @@ export function CustomerFormModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">Payment Terms</Label>
+                  <Label className="text-xs font-semibold text-slate-300">Payment Terms</Label>
                   <Select value={billingTerms} onValueChange={setBillingTerms}>
                     <SelectTrigger>
                       <SelectValue />
@@ -596,7 +596,7 @@ export function CustomerFormModal({
                 </div>
 
                 <div className="space-y-1.5">
-                  <Label className="text-xs font-semibold text-slate-700">Tax / HST # (if registered)</Label>
+                  <Label className="text-xs font-semibold text-slate-300">Tax / HST # (if registered)</Label>
                   <Input
                     placeholder="e.g. 123456789RT0001"
                     value={taxId}
@@ -604,10 +604,10 @@ export function CustomerFormModal({
                   />
                 </div>
 
-                <div className="flex items-center justify-between sm:col-span-2 p-3 bg-white rounded-lg border border-slate-200 mt-auto">
+                <div className="flex items-center justify-between sm:col-span-2 p-3 bg-slate-950 rounded-lg border border-slate-800 mt-auto">
                   <div>
-                    <span className="text-xs font-semibold block text-slate-800">Tax-Exempt Entity</span>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs font-semibold block text-slate-200">Tax-Exempt Entity</span>
+                    <span className="text-[11px] text-slate-400">
                       Enable for certified tax-exempt institutions (schools, reserves)
                     </span>
                   </div>
@@ -618,15 +618,15 @@ export function CustomerFormModal({
           )}
 
           {/* ACCESS & SECURITY SPECS (Shared with context) */}
-          <div className="p-4 bg-amber-50/50 border border-amber-100 rounded-xl space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-900">
-              <Key className="h-4 w-4 text-amber-700" />
+          <div className="p-4 bg-amber-950/30 border border-amber-900/50 rounded-xl space-y-4">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-amber-300">
+              <Key className="h-4 w-4 text-amber-400" />
               Access, Security & Entry Codes
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label className="text-xs font-semibold text-slate-300">
                   {customerType === 'commercial' ? 'Keycard / Master Lockbox PIN' : 'Door / Lockbox Code'}
                 </Label>
                 <Input
@@ -637,7 +637,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label className="text-xs font-semibold text-slate-300">
                   {customerType === 'commercial' ? 'Alarm Panel PIN & Disarm Protocol' : 'Alarm Disarm Instructions'}
                 </Label>
                 <Input
@@ -648,7 +648,7 @@ export function CustomerFormModal({
               </div>
 
               <div className="space-y-1.5 sm:col-span-2">
-                <Label className="text-xs font-semibold text-slate-700">
+                <Label className="text-xs font-semibold text-slate-300">
                   {customerType === 'commercial'
                     ? 'Loading Dock, Janitor Closet & Parking Directions'
                     : 'Parking Directions & Entry Door (Front/Side/Garage)'}
@@ -668,7 +668,7 @@ export function CustomerFormModal({
 
           {/* INTERNAL ADMIN NOTES */}
           <div className="space-y-1.5">
-            <Label className="text-xs font-semibold text-slate-700">Internal Admin Notes</Label>
+            <Label className="text-xs font-semibold text-slate-300">Internal Admin Notes</Label>
             <Textarea
               placeholder="Private team notes regarding customer history, billing agreements, or special arrangements..."
               value={notes}
@@ -677,12 +677,13 @@ export function CustomerFormModal({
             />
           </div>
 
-          <DialogFooter className="pt-4 border-t border-slate-100 flex items-center justify-end gap-2">
+          <DialogFooter className="pt-4 border-t border-slate-800 flex items-center justify-end gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={() => onOpenChange(false)}
               disabled={saving}
+              className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white"
             >
               Cancel
             </Button>

@@ -134,22 +134,104 @@ function normalizeCompanyName(name) {
 }
 
 function getSeniorityRank(seniority = '', title = '') {
-  const s = (seniority || '').toLowerCase();
-  const t = (title || '').toLowerCase();
-  if (s === 'owner' || s === 'c_suite' || s === 'partner' || t.includes('owner') || t.includes('president') || t.includes('ceo') || t.includes('principal') || t.includes('vp')) return 4;
-  if (s === 'director' || s === 'vp' || s === 'head' || t.includes('director') || t.includes('general manager') || t.includes('senior project manager') || t.includes('senior pm')) return 3.5;
-  if (s === 'manager' || t.includes('project manager') || t.includes('superintendent') || t.includes('site super') || t.includes('estimator') || t.includes('pm')) return 3;
-  if (s === 'entry' || s === 'intern' || t.includes('coordinator') || t.includes('assistant') || t.includes('admin')) return 2;
+  const s = String(seniority || '').toLowerCase().trim();
+  const t = String(title || '').toLowerCase().trim();
+  const combined = `${s} ${t}`;
+
+  // 1. Executive / Owner / C-Suite (Rank 5)
+  if (
+    /\b(ceo|coo|cfo|cto|cio|cro|cmo|owner|founder|co-founder|president|principal|partner|chair|chairman)\b/i.test(combined) ||
+    combined.includes('chief executive') ||
+    combined.includes('chief operating') ||
+    combined.includes('chief financial') ||
+    combined.includes('chief technology') ||
+    combined.includes('chief') ||
+    combined.includes('executive') ||
+    combined.includes('c-suite') ||
+    combined.includes('c_suite')
+  ) {
+    return 5;
+  }
+
+  // 2. Director / VP / General Management (Rank 4)
+  if (
+    /\b(vp|evp|svp|avp|gm)\b/i.test(combined) ||
+    combined.includes('vice president') ||
+    combined.includes('director') ||
+    combined.includes('general manager') ||
+    combined.includes('head of')
+  ) {
+    return 4;
+  }
+
+  // 3. Senior Project Management / Senior Leads (Rank 3.5)
+  if (
+    combined.includes('senior project manager') ||
+    combined.includes('senior pm') ||
+    combined.includes('sr. project manager') ||
+    combined.includes('sr project manager') ||
+    combined.includes('sr pm') ||
+    combined.includes('sr. pm') ||
+    combined.includes('senior construction') ||
+    combined.includes('senior superintendent') ||
+    combined.includes('senior estimator') ||
+    (t.includes('senior') && !t.includes('coordinator'))
+  ) {
+    return 3.5;
+  }
+
+  // 4. Senior Coordinator / Assistant PM (Rank 2.0)
+  if (
+    t.includes('senior coordinator') ||
+    t.includes('assistant project manager') ||
+    t.includes('assistant pm') ||
+    /\bapm\b/i.test(t)
+  ) {
+    return 2;
+  }
+
+  // 5. Entry Level / Project Coordinator / Admin / Assistant (Rank 1.0)
+  // Check explicit junior titles before generic 'manager' fallback so assistants aren't promoted to managers
+  if (
+    t.includes('coordinator') ||
+    t.includes('assistant') ||
+    t.includes('admin') ||
+    t.includes('intern') ||
+    t.includes('junior') ||
+    t.includes('entry') ||
+    s === 'entry' ||
+    s === 'intern'
+  ) {
+    return 1;
+  }
+
+  // 6. Project Managers / Superintendents / Estimators (Rank 3.0)
+  if (
+    /\bpm\b/i.test(t) ||
+    combined.includes('project manager') ||
+    combined.includes('superintendent') ||
+    combined.includes('site super') ||
+    combined.includes('site supervisor') ||
+    combined.includes('estimator') ||
+    combined.includes('construction manager') ||
+    combined.includes('operations manager') ||
+    t.includes('manager') ||
+    s === 'manager'
+  ) {
+    return 3;
+  }
+
   return 2.5;
 }
 
 function getSeniorityLabel(rank, title = '') {
-  if (title && (title.toLowerCase().includes('senior') || title.toLowerCase().includes('director'))) return 'Senior Leadership';
-  if (rank >= 4) return 'Executive / Owner';
+  if (rank >= 5) return 'Executive / Owner';
+  if (rank >= 4) return 'Project Director';
   if (rank >= 3.5) return 'Director / Senior PM';
   if (rank >= 3) return 'Project Manager / Super';
-  if (rank <= 2) return 'Project Coordinator';
-  return 'Operations Lead';
+  if (rank >= 2) return 'Senior Coordinator';
+  if (rank <= 1) return 'Project Coordinator';
+  return title || 'Operations Lead';
 }
 
 function formatDateRelative(dateStr) {
@@ -177,6 +259,7 @@ export default function LeadDossierModal({
   contact,
   allContacts = [],
   isOpen,
+  user,
   onClose,
   onSelectContact,
   onStartCall,
@@ -186,6 +269,7 @@ export default function LeadDossierModal({
   onOpenWalkthrough,
   activeRepName = 'Sales Rep',
   activeRepTitle = 'Account Executive',
+  repSettings,
   // Followup handlers
   onOpenReplyModal,
   onOpenOutOfOfficeModal,
@@ -1622,6 +1706,9 @@ export default function LeadDossierModal({
             {/* OPEN GMAIL BUTTON IN FOOTER (WITH EXTENDED FUNCTIONALITY) */}
             <DossierFooterGmailButton
               contact={contact}
+              user={user}
+              activeRepName={activeRepName}
+              repSettings={repSettings}
               onTriggerRefresh={onTriggerRefresh}
             />
 

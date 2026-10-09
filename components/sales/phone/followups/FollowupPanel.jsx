@@ -14,6 +14,7 @@ import {
 import { toast } from 'sonner';
 import { gmailComposeUrl, gmailSearchUrl } from '@/lib/sales/followups/compose';
 import { renderEmail } from '@/lib/sales/followups/render';
+import { resolveRepConfig } from '@/lib/sales/followups/config';
 import {
   formatWhenFuture,
   formatTorontoShortDay,
@@ -82,6 +83,14 @@ export default function FollowupPanel({
     return activeEnrs.find((e) => e.id === nextTask.enrollment_id) || activeEnrs[0] || null;
   }, [nextTask, activeEnrs]);
 
+  // Determine active rep for this lead
+  const effectiveRep = useMemo(() => {
+    if (nextTask?.assigned_rep_id) return resolveRepConfig(nextTask.assigned_rep_id);
+    if (activeEnrForTask?.owner_rep_id) return resolveRepConfig(activeEnrForTask.owner_rep_id);
+    if (repSettings?.signature_name) return resolveRepConfig(repSettings.signature_name);
+    return resolveRepConfig('malik');
+  }, [nextTask?.assigned_rep_id, activeEnrForTask?.owner_rep_id, repSettings]);
+
   // Compose info for next email task
   const composeInfo = useMemo(() => {
     if (!nextTask || nextTask.kind !== 'email' || !nextTask.template_key) return null;
@@ -95,9 +104,9 @@ export default function FollowupPanel({
           company_name: contact?.company,
         },
         rep: {
-          signature_name: repSettings?.signature_name || 'Malik Campbell',
-          signature_title: repSettings?.signature_title,
-          signature_phone: repSettings?.signature_phone,
+          signature_name: effectiveRep.name,
+          signature_title: effectiveRep.title,
+          signature_phone: effectiveRep.phone,
         },
         context: activeEnrForTask?.context || {},
         anchorAt: activeEnrForTask?.anchor_at,
@@ -107,7 +116,7 @@ export default function FollowupPanel({
       return {
         rendered,
         compose: gmailComposeUrl({
-          from: repSettings?.gmail_address || undefined,
+          from: effectiveRep.gmail_address || undefined,
           to: contact?.email,
           subject: rendered.subject,
           body: rendered.body,
@@ -116,7 +125,7 @@ export default function FollowupPanel({
     } catch {
       return null;
     }
-  }, [nextTask, contact, repSettings, activeEnrForTask, mailingAddressSet]);
+  }, [nextTask, contact, effectiveRep, repSettings, activeEnrForTask, mailingAddressSet]);
 
   const searchUrl = useMemo(() => {
     if (!contact?.email) return null;

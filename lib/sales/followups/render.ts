@@ -1,4 +1,4 @@
-import { FOLLOWUP_CONFIG } from './config';
+import { FOLLOWUP_CONFIG, resolveRepConfig } from './config';
 import { TEMPLATES, TemplateContext } from './templates';
 import {
   toTorontoDate,
@@ -113,9 +113,13 @@ export function renderEmail(input: RenderInput): RenderResult {
   const anchorDate = input.anchorAt ? new Date(input.anchorAt) : now;
 
   const firstName = parseFirstName(input.lead.customer_name);
-  const repName = input.rep.signature_name || 'Malik Campbell';
-  const repTitle = input.rep.signature_title ? String(input.rep.signature_title).trim() : '';
-  const repPhone = input.rep.signature_phone || FOLLOWUP_CONFIG.company.defaultPhone;
+  const repConfig = resolveRepConfig(input.rep.signature_name || (input.rep as any)?.rep_id);
+  const repName = input.rep.signature_name || repConfig.name;
+  const repTitle =
+    input.rep.signature_title !== undefined && input.rep.signature_title !== null
+      ? String(input.rep.signature_title).trim()
+      : repConfig.title;
+  const repPhone = input.rep.signature_phone || repConfig.phone;
   const mailingAddress =
     input.mailingAddressOverride !== undefined
       ? input.mailingAddressOverride
@@ -210,7 +214,6 @@ export function renderEmail(input: RenderInput): RenderResult {
     repPhone,
     '',
     `${FOLLOWUP_CONFIG.company.legalName}, ${addressLine}, ${FOLLOWUP_CONFIG.company.website}`,
-    'Reply "unsubscribe" to stop these emails.',
   ].join('\n');
 
   // Validate output (spec 5.3)

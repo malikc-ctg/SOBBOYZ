@@ -4,11 +4,12 @@ import { useEffect, useState, useCallback } from 'react';
 import { format } from 'date-fns';
 import {
   Shield, Search, ChevronDown, ChevronUp, RefreshCw,
-  ArrowLeft, Filter, Clock, User, Briefcase, FileText, Camera,
+  ArrowLeft, Filter, Clock, User, Briefcase, FileText, Camera, PhoneCall,
 } from 'lucide-react';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { PhotoEvidenceTab } from '@/components/admin/audit/PhotoEvidenceTab';
+import { SalesCallLogsTab } from '@/components/admin/audit/SalesCallLogsTab';
 
 interface AuditLog {
   id: string;
@@ -139,6 +140,10 @@ export default function AuditLogPage() {
           <TabsTrigger value="logs" className="flex items-center gap-1.5 font-semibold">
             <Shield className="h-4 w-4 text-slate-600" />
             System Activity Audit Logs
+          </TabsTrigger>
+          <TabsTrigger value="calls" className="flex items-center gap-1.5 font-semibold">
+            <PhoneCall className="h-4 w-4 text-emerald-600" />
+            Sales Call &amp; Dial Logs
           </TabsTrigger>
         </TabsList>
 
@@ -336,6 +341,11 @@ export default function AuditLogPage() {
               </button>
             </div>
           )}
+        </TabsContent>
+
+        {/* Tab 3: Sales Call & Dial Logs */}
+        <TabsContent value="calls" className="space-y-6">
+          <SalesCallLogsTab />
         </TabsContent>
       </Tabs>
     </div>

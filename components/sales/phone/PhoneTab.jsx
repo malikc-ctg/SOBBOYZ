@@ -43,7 +43,9 @@ import {
   Info,
   KanbanSquare,
   BarChart3,
-  Copy
+  Copy,
+  Sparkles,
+  RefreshCw,
 } from 'lucide-react';
 import MiroScriptEmbed, { DEFAULT_MIRO_URL } from './MiroScriptEmbed';
 import LeadImporterModal from './LeadImporterModal';
@@ -51,6 +53,7 @@ import WalkthroughModal from './WalkthroughModal';
 import LeadDossierModal from './LeadDossierModal';
 import SalesKanbanBoard from './SalesKanbanBoard';
 import RepStatsView from './RepStatsView';
+import TouchCentreView from './followups/TouchCentreView';
 import PickupModal from './followups/PickupModal';
 import CallbackModal from './followups/CallbackModal';
 import NotInterestedModal from './followups/NotInterestedModal';
@@ -106,27 +109,93 @@ function formatDateRelative(dateStr) {
  * Calculates seniority ranking from 1 (entry) to 5 (executive/owner)
  */
 function getSeniorityRank(seniority, position = '') {
-  const s = String(seniority || '').toLowerCase();
-  const p = String(position || '').toLowerCase();
+  const s = String(seniority || '').toLowerCase().trim();
+  const p = String(position || '').toLowerCase().trim();
+  const combined = `${s} ${p}`;
 
-  if (s.includes('owner') || p.includes('owner') || p.includes('president') || p.includes('founder') || p.includes('principal')) {
+  // 1. Executive / Owner / C-Suite (Rank 5)
+  if (
+    /\b(ceo|coo|cfo|cto|cio|cro|cmo|owner|founder|co-founder|president|principal|partner|chair|chairman)\b/i.test(combined) ||
+    combined.includes('chief executive') ||
+    combined.includes('chief operating') ||
+    combined.includes('chief financial') ||
+    combined.includes('chief technology') ||
+    combined.includes('chief') ||
+    combined.includes('executive') ||
+    combined.includes('c-suite') ||
+    combined.includes('c_suite')
+  ) {
     return 5;
   }
-  if (s.includes('director') || p.includes('director') || p.includes('vp') || p.includes('vice president') || p.includes('general manager')) {
+
+  // 2. Director / VP / General Management (Rank 4)
+  if (
+    /\b(vp|evp|svp|avp|gm)\b/i.test(combined) ||
+    combined.includes('vice president') ||
+    combined.includes('director') ||
+    combined.includes('general manager') ||
+    combined.includes('head of')
+  ) {
     return 4;
   }
-  if (s.includes('senior') || p.includes('senior project manager') || p.includes('senior construction')) {
+
+  // 3. Senior Project Management / Senior Leads (Rank 3.5)
+  if (
+    combined.includes('senior project manager') ||
+    combined.includes('senior pm') ||
+    combined.includes('sr. project manager') ||
+    combined.includes('sr project manager') ||
+    combined.includes('sr pm') ||
+    combined.includes('sr. pm') ||
+    combined.includes('senior construction') ||
+    combined.includes('senior superintendent') ||
+    combined.includes('senior estimator') ||
+    (p.includes('senior') && !p.includes('coordinator'))
+  ) {
     return 3.5;
   }
-  if (s.includes('manager') || p.includes('project manager') || p.includes('superintendent') || p.includes('site supervisor') || p.includes('estimator')) {
-    return 3;
-  }
-  if (p.includes('senior coordinator')) {
+
+  // 4. Senior Coordinator / Assistant PM (Rank 2.0)
+  if (
+    p.includes('senior coordinator') ||
+    p.includes('assistant project manager') ||
+    p.includes('assistant pm') ||
+    /\bapm\b/i.test(p)
+  ) {
     return 2;
   }
-  if (s.includes('entry') || p.includes('coordinator') || p.includes('assistant')) {
+
+  // 5. Entry Level / Project Coordinator / Admin / Assistant (Rank 1.0)
+  // Check explicit junior titles before generic 'manager' fallback so assistants aren't promoted to managers
+  if (
+    p.includes('coordinator') ||
+    p.includes('assistant') ||
+    p.includes('admin') ||
+    p.includes('intern') ||
+    p.includes('junior') ||
+    p.includes('entry') ||
+    s === 'entry' ||
+    s === 'intern'
+  ) {
     return 1;
   }
+
+  // 6. Project Managers / Superintendents / Estimators (Rank 3.0)
+  if (
+    /\bpm\b/i.test(p) ||
+    combined.includes('project manager') ||
+    combined.includes('superintendent') ||
+    combined.includes('site super') ||
+    combined.includes('site supervisor') ||
+    combined.includes('estimator') ||
+    combined.includes('construction manager') ||
+    combined.includes('operations manager') ||
+    p.includes('manager') ||
+    s === 'manager'
+  ) {
+    return 3;
+  }
+
   return 2.5;
 }
 
@@ -161,6 +230,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
   const [showDossierModal, setShowDossierModal] = useState(false);
   const [dossierModalContact, setDossierModalContact] = useState(null);
+  const [isSyncingQuo, setIsSyncingQuo] = useState(false);
 
   // Follow-up & capture modals (spec 0.4, 0.5, Phase 4)
   const [activeCaptureLead, setActiveCaptureLead] = useState(null);
@@ -172,6 +242,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [followupBoardData, setFollowupBoardData] = useState(null);
   const [followupMeta, setFollowupMeta] = useState({ mailingAddressSet: false });
   const [followupAuthError, setFollowupAuthError] = useState(false);
+
+  const dueTouchesCount =
+    ((followupMeta?.bucketCounts?.mine?.due_today ?? 0) + (followupMeta?.bucketCounts?.mine?.overdue ?? 0)) ||
+    ((followupMeta?.bucketCounts?.all?.due_today ?? 0) + (followupMeta?.bucketCounts?.all?.overdue ?? 0));
 
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyModalContact, setReplyModalContact] = useState(null);
@@ -299,11 +373,30 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       const data = await res.json();
       setFollowupBoardData(data);
       if (data?.meta) {
-        setFollowupMeta(data.meta);
+        setFollowupMeta({
+          ...data.meta,
+          repSettings: data.repSettings || data.meta?.repSettings,
+        });
       }
       setFollowupAuthError(false);
     } catch (e) {
       console.warn('[PhoneTab] Error fetching followup board:', e);
+    }
+  }
+
+  async function handleSyncQuoTranscripts() {
+    setIsSyncingQuo(true);
+    try {
+      const res = await fetch('/api/sales/quo/sync', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to sync Quo transcripts');
+      toast.success(data.message || 'Synced Quo transcripts and summaries successfully!');
+      await refreshStats();
+      await loadContacts();
+    } catch (err) {
+      toast.error(err.message || 'Sync failed');
+    } finally {
+      setIsSyncingQuo(false);
     }
   }
 
@@ -1140,10 +1233,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
   return (
     <div className="phone-workspace-root font-sans">
-      <div className={`phone-grid-layout ${subView === 'kanban' || subView === 'reps' ? 'full-width' : ''}`}>
+      <div className={`phone-grid-layout ${subView === 'kanban' || subView === 'reps' || subView === 'touches' ? 'full-width' : ''}`}>
         
-        {/* LEFT COLUMN: Calling Queue & Leads List (Hidden in full Kanban & Reps view) */}
-        {subView !== 'kanban' && subView !== 'reps' && (
+        {/* LEFT COLUMN: Calling Queue & Leads List (Hidden in full Kanban, Reps, and Touch Centre view) */}
+        {subView !== 'kanban' && subView !== 'reps' && subView !== 'touches' && (
           <div className="phone-panel">
           <div className="phone-panel-header">
             <div className="phone-panel-title">
@@ -1154,6 +1247,15 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
+              <button
+                className="phone-subtab-btn"
+                style={{ padding: '4px 8px', fontSize: '11px', flex: 'none', background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}
+                onClick={handleSyncQuoTranscripts}
+                disabled={isSyncingQuo}
+                title="Sync past transcripts, audio recordings, and Sona AI summaries from Quo"
+              >
+                <RefreshCw size={12} className={isSyncingQuo ? 'animate-spin' : ''} /> {isSyncingQuo ? 'Syncing Quo...' : 'Sync Quo'}
+              </button>
               <button
                 className="phone-subtab-btn"
                 style={{ padding: '4px 8px', fontSize: '11px', flex: 'none', background: 'rgba(59, 130, 246, 0.15)', color: '#60a5fa', border: '1px solid rgba(59, 130, 246, 0.3)' }}
@@ -1581,11 +1683,12 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
                 <span>Miro Mind Map</span>
               </button>
               <button
-                className={`phone-subtab-btn ${subView === 'logs' ? 'active' : ''}`}
-                onClick={() => setSubView('logs')}
-                title="Call History Logs"
+                className={`phone-subtab-btn ${subView === 'touches' ? 'active' : ''}`}
+                onClick={() => setSubView('touches')}
+                title="Touch Centre: Daily High-Velocity Follow-ups & Touches"
               >
-                <span>Logs ({callStats.allCalls?.length || callStats.todayCalls?.length || 0})</span>
+                <Sparkles size={13} className={subView === 'touches' ? 'text-amber-300' : 'text-amber-400'} />
+                <span>Touch Centre {dueTouchesCount > 0 ? `(${dueTouchesCount})` : ''}</span>
               </button>
             </div>
           </div>
@@ -1613,82 +1716,54 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
               </div>
             )}
 
-            {/* VIEW 3: CALL HISTORY LOGS */}
-            {subView === 'logs' && (
-              <div className="phone-scripts-card">
-                <div className="phone-scripts-header flex items-center justify-between">
-                  <span>Today&apos;s Call History</span>
-                  <span className="text-xs text-slate-400">{callStats.todayCalls?.length || 0} Dials Logged</span>
-                </div>
-
-                {callStats.todayCalls.length === 0 ? (
-                  <div style={{ textAlign: 'center', padding: '30px 0', color: '#88a2c0', fontSize: '12px' }}>
-                    No calls recorded yet today. Dial contacts from queue to build history.
-                  </div>
-                ) : (
-                  <table className="phone-logs-table">
-                    <thead>
-                      <tr>
-                        <th>Time</th>
-                        <th>Target</th>
-                        <th>Outcome</th>
-                        <th>Duration</th>
-                        <th>Notes</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {callStats.todayCalls.map((call, idx) => (
-                        <tr key={call.event_id || idx}>
-                          <td>{new Date(call.timestamp || call.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
-                          <td>
-                            <div className="flex items-center gap-1.5">
-                              <strong>{call.contact_name || 'Prospect'}</strong>
-                              {call.source === 'quo_webhook' && (
-                                <span className="px-1.5 py-0.5 rounded bg-emerald-950 text-emerald-400 font-mono text-[9px] border border-emerald-800/40">
-                                  Quo VoIP
-                                </span>
-                              )}
-                            </div>
-                            <div style={{ fontSize: '11px', color: '#88a2c0' }}>{call.phone_number}</div>
-                          </td>
-                          <td>
-                            <span className="phone-lead-type-badge badge-commercial">
-                              {call.outcome_type}
-                            </span>
-                          </td>
-                          <td>{formatDuration(call.duration_seconds || 0)}</td>
-                          <td style={{ fontSize: '11px', color: '#94a3b8' }}>
-                            {call.ai_summary && (
-                              <div className="mt-1 p-2 rounded bg-slate-900 border border-blue-900/40 text-[10px] text-blue-200 space-y-1">
-                                <span className="font-bold text-blue-400 block uppercase text-[9px] tracking-wider">Sona AI Summary</span>
-                                {Array.isArray(call.ai_summary) ? (
-                                  <ul className="list-disc pl-3.5 space-y-0.5">
-                                    {call.ai_summary.map((b, i) => (
-                                      <li key={i}>{b}</li>
-                                    ))}
-                                  </ul>
-                                ) : (
-                                  <div>{call.ai_summary}</div>
-                                )}
-                              </div>
-                            )}
-                            {call.transcript && (
-                              <details className="mt-1.5 p-1.5 rounded bg-slate-950/80 border border-slate-800 text-[10px] text-slate-300">
-                                <summary className="cursor-pointer font-bold text-slate-400 hover:text-slate-200">
-                                  View Full Call Transcript
-                                </summary>
-                                <div className="mt-1.5 p-2 max-h-40 overflow-y-auto font-mono text-[10px] whitespace-pre-wrap text-slate-200 bg-slate-900/90 rounded border border-slate-800/80">
-                                  {call.transcript}
-                                </div>
-                              </details>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+            {/* VIEW 3: TOUCH CENTRE - DAILY HIGH-VELOCITY FOLLOW-UPS & SMART TOUCHES */}
+            {subView === 'touches' && (
+              <TouchCentreView
+                contacts={contacts}
+                followupsByLeadId={followupBoardData?.leads || {}}
+                followupMeta={followupMeta}
+                user={user}
+                onStartCall={startCall}
+                onOpenDossier={(contact) => {
+                  setSelectedContact(contact);
+                  setDossierModalContact(contact);
+                  setShowDossierModal(true);
+                }}
+                onRefreshFollowups={fetchFollowupBoard}
+                onOpenWalkthrough={(contact) => {
+                  setSelectedContact(contact);
+                  setShowWalkthroughModal(true);
+                }}
+                onOpenFollowupSettings={() => setShowFollowupSettingsModal(true)}
+                onOpenReplyModal={(contact) => {
+                  setReplyModalContact(contact);
+                  setShowReplyModal(true);
+                }}
+                onOpenOutOfOfficeModal={(contact) => {
+                  setOooContact(contact);
+                  setShowOutOfOfficeModal(true);
+                }}
+                onOpenVisitResultModal={(contact, task) => {
+                  setVisitResultContact(contact);
+                  setVisitResultTask(task);
+                  setShowVisitResultModal(true);
+                }}
+                onOpenJobResultModal={(contact, task) => {
+                  setJobResultContact(contact);
+                  setJobResultTask(task);
+                  setShowJobResultModal(true);
+                }}
+                onOpenCallbackModal={(contact) => {
+                  setCallbackModalContact(contact);
+                  setShowCallbackModal(true);
+                }}
+                onOpenQuoteDetailsModal={(contact, task, enr) => {
+                  setQuoteModalContact(contact);
+                  setQuoteModalTask(task);
+                  setQuoteModalEnr(enr);
+                  setShowQuoteDetailsModal(true);
+                }}
+              />
             )}
 
             {/* VIEW 4: VISUAL KANBAN PIPELINE & SECTOR BOARD */}
@@ -1979,8 +2054,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         isOpen={showDossierModal}
         contact={dossierModalContact || selectedContact}
         allContacts={contacts}
+        user={user}
         activeRepName={activeRepName}
         activeRepTitle={activeRepTitle}
+        repSettings={followupMeta?.repSettings}
         onClose={() => setShowDossierModal(false)}
         onSelectContact={(c) => {
           setSelectedContact(c);

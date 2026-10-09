@@ -406,23 +406,23 @@ export function AddCustomerServiceModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-slate-900 border-slate-800 text-slate-100">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-blue-600" />
-            <DialogTitle className="text-xl">Add Service for {customer.full_name}</DialogTitle>
+            <Sparkles className="h-5 w-5 text-blue-400" />
+            <DialogTitle className="text-xl text-white">Add Service for {customer.full_name}</DialogTitle>
           </div>
-          <DialogDescription>
+          <DialogDescription className="text-slate-400">
             {customer.phone || 'No phone'} &bull; {customer.email || 'No email'} &bull; {customer.city || 'Toronto'}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full mt-2">
-          <TabsList className="grid grid-cols-2 w-full mb-4">
+          <TabsList className="grid grid-cols-2 w-full mb-4 bg-slate-950 border border-slate-800">
             <TabsTrigger value="recurring" className="flex items-center gap-2">
               <Repeat className="h-4 w-4" />
               <span>Recurring Contract</span>
-              <Badge variant="secondary" className="ml-1 text-[10px] bg-blue-100 text-blue-800">MRR</Badge>
+              <Badge variant="secondary" className="ml-1 text-[10px] bg-blue-950 text-blue-300 border border-blue-800">MRR</Badge>
             </TabsTrigger>
             <TabsTrigger value="one_time" className="flex items-center gap-2">
               <Calendar className="h-4 w-4" />
@@ -432,14 +432,14 @@ export function AddCustomerServiceModal({
 
           {/* ══════════════════ RECURRING TAB ══════════════════ */}
           <TabsContent value="recurring" className="space-y-4">
-            <div className="bg-blue-50/60 border border-blue-100 rounded-lg p-3 text-sm flex items-center justify-between">
+            <div className="bg-blue-950/30 border border-blue-900/50 rounded-lg p-3 text-sm flex items-center justify-between">
               <div>
-                <p className="font-semibold text-blue-900">Subscription & Recurring Clean</p>
-                <p className="text-xs text-blue-700">Creates an ongoing contract with auto-scheduled visits.</p>
+                <p className="font-semibold text-blue-300">Subscription & Recurring Clean</p>
+                <p className="text-xs text-blue-400">Creates an ongoing contract with auto-scheduled visits.</p>
               </div>
               <div className="text-right">
-                <span className="text-[10px] uppercase font-bold text-blue-600 block">Est. Monthly MRR</span>
-                <span className="text-lg font-extrabold text-blue-950">${estimatedMRR.toFixed(2)}</span>
+                <span className="text-[10px] uppercase font-bold text-blue-400 block">Est. Monthly MRR</span>
+                <span className="text-lg font-extrabold text-blue-300">${estimatedMRR.toFixed(2)}</span>
               </div>
             </div>
 
@@ -477,7 +477,7 @@ export function AddCustomerServiceModal({
 
             {/* Days of Week */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-semibold text-slate-700">Scheduled Day(s) of Week</Label>
+              <Label className="text-xs font-semibold text-slate-300">Scheduled Day(s) of Week</Label>
               <div className="flex flex-wrap gap-2">
                 {DAYS_OF_WEEK.map((day) => {
                   const isSelected = recDays.includes(day.id);
@@ -489,7 +489,7 @@ export function AddCustomerServiceModal({
                       className={`px-3 py-1.5 text-xs font-medium rounded-md border transition-all ${
                         isSelected
                           ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                          : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
                       }`}
                     >
                       {day.label}
@@ -575,41 +575,41 @@ export function AddCustomerServiceModal({
             </div>
 
             {/* Address Review */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-2 text-xs">
-              <div className="flex items-center justify-between font-semibold text-slate-700">
+            <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 space-y-2 text-xs">
+              <div className="flex items-center justify-between font-semibold text-slate-200">
                 <div className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5 text-blue-600" />
+                  <MapPin className="h-3.5 w-3.5 text-blue-400" />
                   <span>Service Location</span>
                 </div>
-                <span className="text-[10px] font-normal text-slate-500">Address autofill active</span>
+                <span className="text-[10px] font-normal text-slate-400">Address autofill active</span>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <div className="sm:col-span-2 space-y-1">
-                  <Label className="text-xs text-slate-600">Address Line 1</Label>
+                  <Label className="text-xs text-slate-300">Address Line 1</Label>
                   <AddressAutocomplete
                     placeholder="Start typing service address..."
                     value={addressLine1}
                     onChange={(e) => setAddressLine1(e.target.value)}
                     onAddressSelect={handleAddressSelect}
-                    className="h-8 text-xs bg-white"
+                    className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-600">City</Label>
+                  <Label className="text-xs text-slate-300">City</Label>
                   <Input
                     placeholder="City"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="h-8 text-xs bg-white"
+                    className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-600">Postal Code</Label>
+                  <Label className="text-xs text-slate-300">Postal Code</Label>
                   <Input
                     placeholder="Postal Code"
                     value={postalCode}
                     onChange={(e) => setPostalCode(e.target.value)}
-                    className="h-8 text-xs bg-white"
+                    className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                   />
                 </div>
               </div>
@@ -626,8 +626,8 @@ export function AddCustomerServiceModal({
               />
             </div>
 
-            <DialogFooter className="mt-4 pt-2 border-t">
-              <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+            <DialogFooter className="mt-4 pt-2 border-t border-slate-800">
+              <Button variant="outline" type="button" onClick={() => onOpenChange(false)} className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white">
                 Cancel
               </Button>
               <Button
@@ -728,18 +728,18 @@ export function AddCustomerServiceModal({
             </div>
 
             {/* Home Scope */}
-            <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 space-y-3">
+            <div className="p-3 bg-slate-950/80 rounded-lg border border-slate-800 space-y-3">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-xs">
-                  <Home className="h-3.5 w-3.5 text-blue-600" />
+                <div className="flex items-center gap-1.5 font-semibold text-white text-xs">
+                  <Home className="h-3.5 w-3.5 text-blue-400" />
                   <span>Home Scope & Details</span>
                 </div>
-                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium">
+                <label className="flex items-center gap-2 cursor-pointer text-xs font-medium text-slate-300">
                   <input
                     type="checkbox"
                     checked={onePets}
                     onChange={(e) => setOnePets(e.target.checked)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-slate-700 bg-slate-900 text-blue-600 focus:ring-blue-500"
                   />
                   <span>Pets present (+$20)</span>
                 </label>
@@ -747,9 +747,9 @@ export function AddCustomerServiceModal({
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-600">Bedrooms</Label>
+                  <Label className="text-xs text-slate-300">Bedrooms</Label>
                   <Select value={oneBedrooms} onValueChange={setOneBedrooms}>
-                    <SelectTrigger className="h-8 text-xs bg-white">
+                    <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -763,9 +763,9 @@ export function AddCustomerServiceModal({
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-xs text-slate-600">Bathrooms</Label>
+                  <Label className="text-xs text-slate-300">Bathrooms</Label>
                   <Select value={oneBathrooms} onValueChange={setOneBathrooms}>
-                    <SelectTrigger className="h-8 text-xs bg-white">
+                    <SelectTrigger className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -780,8 +780,8 @@ export function AddCustomerServiceModal({
               </div>
 
               {/* Add-ons */}
-              <div className="pt-2 border-t border-slate-200">
-                <Label className="text-xs text-slate-600 block mb-1.5">Add-Ons</Label>
+              <div className="pt-2 border-t border-slate-800">
+                <Label className="text-xs text-slate-300 block mb-1.5">Add-Ons</Label>
                 <div className="flex flex-wrap gap-2">
                   {ADD_ONS_LIST.map((addon) => {
                     const isChecked = oneAddOns.includes(addon.value);
@@ -792,11 +792,11 @@ export function AddCustomerServiceModal({
                         onClick={() => toggleAddOn(addon.value)}
                         className={`text-xs px-2.5 py-1 rounded-md border flex items-center gap-1.5 transition-all ${
                           isChecked
-                            ? 'bg-blue-100 text-blue-800 border-blue-300 font-semibold'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                            ? 'bg-blue-950/80 text-blue-300 border-blue-800 font-semibold'
+                            : 'bg-slate-900 text-slate-300 border-slate-800 hover:bg-slate-800'
                         }`}
                       >
-                        {isChecked && <Check className="h-3 w-3 text-blue-600" />}
+                        {isChecked && <Check className="h-3 w-3 text-blue-400" />}
                         <span>{addon.label} (+${addon.price})</span>
                       </button>
                     );
@@ -808,31 +808,31 @@ export function AddCustomerServiceModal({
             {/* Address */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
               <div className="sm:col-span-2 space-y-1">
-                <Label className="text-xs">Address Line 1</Label>
+                <Label className="text-xs text-slate-300">Address Line 1</Label>
                 <AddressAutocomplete
                   placeholder="Start typing address..."
                   value={addressLine1}
                   onChange={(e) => setAddressLine1(e.target.value)}
                   onAddressSelect={handleAddressSelect}
-                  className="h-8 text-xs bg-white"
+                  className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">City</Label>
+                <Label className="text-xs text-slate-300">City</Label>
                 <Input
                   placeholder="City"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
-                  className="h-8 text-xs bg-white"
+                  className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Postal Code</Label>
+                <Label className="text-xs text-slate-300">Postal Code</Label>
                 <Input
                   placeholder="Postal Code"
                   value={postalCode}
                   onChange={(e) => setPostalCode(e.target.value)}
-                  className="h-8 text-xs bg-white"
+                  className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                 />
               </div>
             </div>
@@ -840,46 +840,46 @@ export function AddCustomerServiceModal({
             {/* Access & Scope Notes */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs">Access Instructions</Label>
+                <Label className="text-xs text-slate-300">Access Instructions</Label>
                 <Input
                   placeholder="Keycode, buzzer #, hide-a-key"
                   value={oneAccessInstructions}
                   onChange={(e) => setOneAccessInstructions(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                 />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs">Scope Notes / Special Requests</Label>
+                <Label className="text-xs text-slate-300">Scope Notes / Special Requests</Label>
                 <Input
                   placeholder="Focus on kitchen counters, don't touch office"
                   value={oneScopeNotes}
                   onChange={(e) => setOneScopeNotes(e.target.value)}
-                  className="h-8 text-xs"
+                  className="h-8 text-xs bg-slate-900 border-slate-800 text-slate-200"
                 />
               </div>
             </div>
 
             {/* Price Quoted */}
-            <div className="p-3 bg-blue-50/70 rounded-lg border border-blue-200 flex items-center justify-between">
+            <div className="p-3 bg-blue-950/30 rounded-lg border border-blue-900/50 flex items-center justify-between">
               <div>
-                <p className="text-xs font-semibold text-blue-900">Quoted Job Price</p>
-                <p className="text-[11px] text-blue-700">Auto-calculated from specs. Editable for discounts.</p>
+                <p className="text-xs font-semibold text-blue-300">Quoted Job Price</p>
+                <p className="text-[11px] text-blue-400">Auto-calculated from specs. Editable for discounts.</p>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="text-sm font-bold text-blue-950">$</span>
+                <span className="text-sm font-bold text-blue-400">$</span>
                 <Input
                   type="number"
                   min="1"
                   step="0.01"
                   value={onePrice}
                   onChange={(e) => setOnePrice(e.target.value)}
-                  className="w-28 h-8 text-sm font-bold bg-white text-blue-950"
+                  className="w-28 h-8 text-sm font-bold bg-slate-900 border-slate-800 text-blue-300"
                 />
               </div>
             </div>
 
-            <DialogFooter className="mt-4 pt-2 border-t">
-              <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
+            <DialogFooter className="mt-4 pt-2 border-t border-slate-800">
+              <Button variant="outline" type="button" onClick={() => onOpenChange(false)} className="border-slate-700 bg-slate-900 text-slate-200 hover:bg-slate-800 hover:text-white">
                 Cancel
               </Button>
               <Button

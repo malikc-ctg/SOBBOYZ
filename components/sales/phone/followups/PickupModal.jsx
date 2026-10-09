@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Mail } from 'lucide-react';
 import { renderEmail } from '@/lib/sales/followups/render';
+import { resolveRepConfig } from '@/lib/sales/followups/config';
 
 export default function PickupModal({
   isOpen,
@@ -24,6 +25,11 @@ export default function PickupModal({
   const [referredEmail, setReferredEmail] = useState('');
 
   // Live preview of recap email
+  const effectiveRep = useMemo(() => {
+    if (repSettings?.signature_name) return resolveRepConfig(repSettings.signature_name);
+    return resolveRepConfig('malik');
+  }, [repSettings]);
+
   const preview = useMemo(() => {
     if (!targetLead) return null;
     try {
@@ -34,9 +40,9 @@ export default function PickupModal({
           company_name: targetLead.company,
         },
         rep: {
-          signature_name: repSettings?.signature_name || 'Malik Campbell',
-          signature_title: repSettings?.signature_title,
-          signature_phone: repSettings?.signature_phone,
+          signature_name: effectiveRep.name,
+          signature_title: effectiveRep.title,
+          signature_phone: effectiveRep.phone,
         },
         context: {
           callNote: callNote || 'our discussion',
@@ -47,7 +53,7 @@ export default function PickupModal({
     } catch {
       return null;
     }
-  }, [callNote, nextStep, targetLead, repSettings]);
+  }, [callNote, nextStep, targetLead, effectiveRep, repSettings]);
 
   if (!isOpen || !targetLead) return null;
 

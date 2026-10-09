@@ -374,7 +374,7 @@ describe('Appendix F Acceptance Scenarios (1-55)', () => {
       lead: { customer_name: 'JOHN SMITH', company_name: 'Acme' },
       anchorAt: torontoNow,
       now: torontoNow,
-      rep: { signature_name: 'Malik Campbell', signature_title: 'Founder & CEO', signature_phone: '(437) 475-1622' },
+      rep: { signature_name: 'Malik Campbell', signature_title: 'Founder & CEO', signature_phone: '(289) 670-3357' },
       mailingAddressOverride: '123 King St W, Toronto, ON',
     });
     expect(resJohn.body.startsWith('Hi John,\n')).toBe(true);
@@ -384,7 +384,7 @@ describe('Appendix F Acceptance Scenarios (1-55)', () => {
       lead: { customer_name: 'Decision Maker', company_name: 'Acme' },
       anchorAt: torontoNow,
       now: torontoNow,
-      rep: { signature_name: 'Malik Campbell', signature_title: 'Founder & CEO', signature_phone: '(437) 475-1622' },
+      rep: { signature_name: 'Malik Campbell', signature_title: 'Founder & CEO', signature_phone: '(289) 670-3357' },
       mailingAddressOverride: '123 King St W, Toronto, ON',
     });
     expect(resDM.body.startsWith('Hi,\n')).toBe(true);

@@ -11,7 +11,7 @@ export default function FollowupSettingsModal({
   const [saving, setSaving] = useState(false);
   const [signatureName, setSignatureName] = useState('');
   const [signatureTitle, setSignatureTitle] = useState('');
-  const [signaturePhone, setSignaturePhone] = useState('(437) 475-1622');
+  const [signaturePhone, setSignaturePhone] = useState('(289) 670-3357');
   const [gmailAddress, setGmailAddress] = useState('');
   const [mailingAddressSet, setMailingAddressSet] = useState(false);
   const [mailingAddress, setMailingAddress] = useState('');
@@ -33,7 +33,7 @@ export default function FollowupSettingsModal({
         const s = data.settings || {};
         setSignatureName(s.signature_name || 'Malik Campbell');
         setSignatureTitle(s.signature_title || 'Founder & CEO');
-        setSignaturePhone(s.signature_phone || '(437) 475-1622');
+        setSignaturePhone(s.signature_phone || '(289) 670-3357');
         setGmailAddress(s.gmail_address || '');
         setMailingAddressSet(!!data.mailingAddressSet);
         setMailingAddress(data.mailingAddress || '');
@@ -175,7 +175,7 @@ export default function FollowupSettingsModal({
                   type="text"
                   value={signaturePhone}
                   onChange={(e) => setSignaturePhone(e.target.value)}
-                  placeholder="(437) 475-1622"
+                  placeholder="(289) 670-3357"
                   className="w-full px-3 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-blue-500"
                 />
               </div>
@@ -228,7 +228,7 @@ export default function FollowupSettingsModal({
                 <div className="font-semibold text-white">{signatureName || 'Your Name'}</div>
                 {signatureTitle && <div>{signatureTitle}</div>}
                 <div>Sea of Blue Inc.</div>
-                <div>{signaturePhone || '(437) 475-1622'}</div>
+                <div>{signaturePhone || '(289) 670-3357'}</div>
                 <div>seaofblue.ca</div>
               </div>
             </div>

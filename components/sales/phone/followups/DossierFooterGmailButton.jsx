@@ -12,6 +12,7 @@ import {
 import { toast } from 'sonner';
 import { gmailComposeUrl, gmailSearchUrl } from '@/lib/sales/followups/compose';
 import { renderEmail } from '@/lib/sales/followups/render';
+import { resolveRepConfig } from '@/lib/sales/followups/config';
 
 const POPULAR_TEMPLATES = [
   { key: 'drip_1', label: 'No-Answer Drip: Day 0', subject: 'Who handles closeout cleaning?' },
@@ -26,6 +27,9 @@ const POPULAR_TEMPLATES = [
 
 export default function DossierFooterGmailButton({
   contact,
+  user,
+  activeRepName,
+  repSettings: incomingRepSettings,
   onTriggerRefresh,
 }) {
   const [data, setData] = useState(null);
@@ -55,7 +59,7 @@ export default function DossierFooterGmailButton({
 
   const enrollments = data?.enrollments || [];
   const tasks = data?.tasks || [];
-  const repSettings = data?.meta?.repSettings || {};
+  const repSettings = incomingRepSettings || data?.meta?.repSettings || {};
   const mailingAddress = data?.meta?.mailingAddress || '';
 
   const activeEnr = useMemo(
@@ -70,6 +74,16 @@ export default function DossierFooterGmailButton({
     const emailTask = pending.find((t) => t.kind === 'email');
     return emailTask || null;
   }, [tasks]);
+
+  // Determine active rep (Malik, Raahim, or Ayaan — automatically detected by auth UUID, excluding Joshwa)
+  const effectiveRep = useMemo(() => {
+    if (user?.id) return resolveRepConfig(user.id);
+    if (repSettings?.rep_id) return resolveRepConfig(repSettings.rep_id);
+    if (nextEmailTask?.assigned_rep_id) return resolveRepConfig(nextEmailTask.assigned_rep_id);
+    if (repSettings?.signature_name) return resolveRepConfig(repSettings.signature_name);
+    if (activeRepName) return resolveRepConfig(activeRepName);
+    return resolveRepConfig('malik');
+  }, [user?.id, nextEmailTask, repSettings, activeRepName]);
 
   // Determine active template key
   const activeTemplateKey = useMemo(() => {
@@ -94,9 +108,9 @@ export default function DossierFooterGmailButton({
           company_name: contact.company,
         },
         rep: {
-          signature_name: repSettings?.signature_name || 'Malik Campbell',
-          signature_title: repSettings?.signature_title,
-          signature_phone: repSettings?.signature_phone,
+          signature_name: effectiveRep.name,
+          signature_title: effectiveRep.title,
+          signature_phone: effectiveRep.phone,
         },
         context: activeEnr?.context || {},
         anchorAt: activeEnr?.anchor_at,
@@ -106,21 +120,22 @@ export default function DossierFooterGmailButton({
       return {
         rendered,
         compose: gmailComposeUrl({
-          from: repSettings?.gmail_address || undefined,
+          from: effectiveRep.gmail_address || undefined,
           to: contact.email,
           subject: rendered.subject,
           body: rendered.body,
         }),
         search: gmailSearchUrl({
-          from: repSettings?.gmail_address || undefined,
+          from: effectiveRep.gmail_address || undefined,
           leadEmail: contact.email,
         }),
+        effectiveRep,
       };
     } catch (err) {
       console.warn('[DossierFooterGmailButton] renderEmail failed:', err);
       return null;
     }
-  }, [contact, activeTemplateKey, repSettings, activeEnr, mailingAddress]);
+  }, [contact, activeTemplateKey, effectiveRep, activeEnr, mailingAddress]);
 
   // Click handler for Open in Gmail
   const handleOpenGmailClick = async () => {
@@ -225,10 +240,15 @@ export default function DossierFooterGmailButton({
           rel="noopener noreferrer"
           onClick={handleOpenGmailClick}
           className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center gap-1.5 transition active:scale-[0.98]"
-          title={composeInfo?.rendered?.subject ? `Subject: ${composeInfo.rendered.subject}` : 'Open pre-filled Gmail compose'}
+          title={
+            composeInfo?.rendered?.subject
+              ? `Sending as ${effectiveRep.name} (${effectiveRep.title})\nSubject: ${composeInfo.rendered.subject}`
+              : `Open pre-filled Gmail compose (as ${effectiveRep.name})`
+          }
         >
           <Mail size={13} />
           <span>Open in Gmail</span>
+          <span className="text-[10px] text-blue-200 font-medium">({effectiveRep.name.split(' ')[0]})</span>
           <ExternalLink size={11} className="opacity-70" />
         </a>
 
@@ -285,6 +305,16 @@ export default function DossierFooterGmailButton({
                 <strong className="text-slate-300">Subject: </strong>
                 {composeInfo?.rendered?.subject || 'Ready to send'}
               </div>
+            </div>
+
+            {/* Sender identity badge */}
+            <div className="p-2 rounded-xl bg-slate-950/80 border border-slate-800 flex items-center justify-between text-xs">
+              <span className="text-[11px] text-slate-400">
+                Signing as <strong className="text-white">{effectiveRep.name}</strong>
+              </span>
+              <span className="text-[10px] font-mono text-blue-400 bg-blue-950/60 px-2 py-0.5 rounded border border-blue-900/50">
+                {effectiveRep.title}
+              </span>
             </div>
 
             {/* Template Picker Toggle / Submenu */}

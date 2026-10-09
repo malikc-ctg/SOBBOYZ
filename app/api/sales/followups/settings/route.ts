@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient, createServiceClient } from '@/lib/supabase/server';
 import { z } from 'zod';
-import { FOLLOWUP_CONFIG } from '@/lib/sales/followups/config';
+import { FOLLOWUP_CONFIG, resolveRepConfig } from '@/lib/sales/followups/config';
 
 export async function GET(request: NextRequest) {
   try {
@@ -22,14 +22,15 @@ export async function GET(request: NextRequest) {
       .eq('rep_id', user.id)
       .maybeSingle();
 
+    const repFallback = resolveRepConfig(user.id || user.user_metadata?.full_name || user.email);
     return NextResponse.json({
       success: true,
       settings: settings || {
         rep_id: user.id,
-        signature_name: user.user_metadata?.full_name || 'Malik Campbell',
-        signature_title: 'Founder & CEO',
-        signature_phone: FOLLOWUP_CONFIG.company.defaultPhone,
-        gmail_address: user.email || null,
+        signature_name: user.user_metadata?.full_name || repFallback.name,
+        signature_title: repFallback.title,
+        signature_phone: repFallback.phone,
+        gmail_address: repFallback.gmail_address || user.email || null,
       },
       mailingAddressSet: Boolean(FOLLOWUP_CONFIG.company.mailingAddress),
       mailingAddress: FOLLOWUP_CONFIG.company.mailingAddress || '',
