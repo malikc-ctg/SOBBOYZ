@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,8 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   Users,
   Home,
   Building2,
@@ -278,17 +280,56 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
     }
   };
 
+  const serviceScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = serviceScrollRef.current;
+    if (!el) return;
+    const { scrollLeft, scrollWidth, clientWidth } = el;
+    setCanScrollLeft(scrollLeft > 6);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 6);
+  }, []);
+
   const handleSelectSector = (newSector: Sector) => {
     setSector(newSector);
-    if (newSector === 'residential') {
-      if (serviceTab !== 'residential_cleaning' && serviceTab !== 'residential_carpet') {
-        setServiceTab('residential_cleaning');
-      }
-    } else {
-      if (serviceTab !== 'commercial_cleaning' && serviceTab !== 'strip_and_wax' && serviceTab !== 'commercial_carpet') {
-        setServiceTab('commercial_cleaning');
-      }
+    const targetServices = newSector === 'residential' ? RESIDENTIAL_SERVICES : COMMERCIAL_SERVICES;
+    const existsInTarget = targetServices.some((s) => s.value === serviceTab);
+    if (!existsInTarget) {
+      setServiceTab(newSector === 'residential' ? 'residential_cleaning' : 'commercial_cleaning');
     }
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const timer = setTimeout(checkScroll, 100);
+    window.addEventListener('resize', checkScroll);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [open, sector, checkScroll]);
+
+  // When active service tab changes, ensure it scrolls into view
+  useEffect(() => {
+    if (!open) return;
+    const el = serviceScrollRef.current;
+    if (!el) return;
+    const activeBtn = el.querySelector('[data-active="true"]') as HTMLElement | null;
+    if (activeBtn) {
+      activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
+    }
+    const timer = setTimeout(checkScroll, 150);
+    return () => clearTimeout(timer);
+  }, [open, serviceTab, checkScroll]);
+
+  const scrollServices = (direction: 'left' | 'right') => {
+    const el = serviceScrollRef.current;
+    if (!el) return;
+    const scrollAmount = 240;
+    el.scrollBy({ left: direction === 'left' ? -scrollAmount : scrollAmount, behavior: 'smooth' });
+    setTimeout(checkScroll, 250);
   };
 
   // Lock body scroll and prevent touch through when modal is open
@@ -325,14 +366,14 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
           </DialogDescription>
         </DialogHeader>
 
-        {/* ── Condensed 2-Tier Sector & Service Selector (Single-row scrollable on mobile) ── */}
-        <div className="px-3 sm:px-6 py-2 border-b shrink-0 bg-muted/30 flex items-center gap-2 sm:gap-4 overflow-x-auto scrollbar-none">
+        {/* ── Condensed 2-Tier Sector & Service Selector with Scroll Arrows ── */}
+        <div className="px-3 sm:px-6 py-2 border-b shrink-0 bg-muted/30 flex items-center gap-2 sm:gap-3 overflow-hidden">
           {/* Sector Toggle */}
           <div className="flex items-center gap-1 bg-background/80 p-0.5 sm:p-1 rounded-lg border shadow-xs shrink-0">
             <button
               type="button"
               onClick={() => handleSelectSector('residential')}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 sector === 'residential'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -344,7 +385,7 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
             <button
               type="button"
               onClick={() => handleSelectSector('commercial')}
-              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs font-semibold transition-all ${
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
                 sector === 'commercial'
                   ? 'bg-primary text-primary-foreground shadow-xs'
                   : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
@@ -357,27 +398,65 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
 
           <div className="h-4 w-px bg-border shrink-0 hidden sm:block" />
 
-          {/* Sector-Specific Service Pills */}
-          <div className="flex items-center gap-1.5 shrink-0 overflow-x-auto">
-            <span className="text-[11px] font-medium text-muted-foreground mr-1 uppercase tracking-wider hidden sm:inline">
-              {sector === 'residential' ? 'Residential Services:' : 'Commercial Services:'}
+          {/* Sector-Specific Service Pills with Left & Right Arrows */}
+          <div className="flex-1 min-w-0 flex items-center relative gap-1">
+            <span className="text-[11px] font-medium text-muted-foreground mr-1 uppercase tracking-wider shrink-0 hidden lg:inline">
+              {sector === 'residential' ? 'Services:' : 'Commercial Services:'}
             </span>
-            {activeServiceList.map((srv) => (
-              <Button
-                key={srv.value}
+
+            {/* Left Scroll Arrow */}
+            {canScrollLeft && (
+              <button
                 type="button"
-                variant={serviceTab === srv.value ? 'default' : 'outline'}
-                size="sm"
-                className={`text-xs h-7 sm:h-8 px-2.5 sm:px-3 whitespace-nowrap shrink-0 transition-colors ${
-                  serviceTab === srv.value
-                    ? 'font-semibold shadow-xs'
-                    : 'bg-background hover:bg-muted'
-                }`}
-                onClick={() => setServiceTab(srv.value)}
+                onClick={() => scrollServices('left')}
+                className="h-7 w-7 rounded-md border bg-background/95 hover:bg-muted text-foreground flex items-center justify-center shrink-0 shadow-xs transition z-10 cursor-pointer"
+                aria-label="Scroll services left"
+                title="Scroll services left"
               >
-                {srv.label}
-              </Button>
-            ))}
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
+
+            {/* Horizontal Scrollable Pills */}
+            <div
+              ref={serviceScrollRef}
+              onScroll={checkScroll}
+              className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 scroll-smooth"
+            >
+              {activeServiceList.map((srv) => {
+                const isActive = serviceTab === srv.value;
+                return (
+                  <Button
+                    key={srv.value}
+                    type="button"
+                    data-active={isActive ? "true" : "false"}
+                    variant={isActive ? 'default' : 'outline'}
+                    size="sm"
+                    className={`text-xs h-7 sm:h-8 px-2.5 sm:px-3 whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                      isActive
+                        ? 'font-semibold shadow-xs'
+                        : 'bg-background hover:bg-muted'
+                    }`}
+                    onClick={() => setServiceTab(srv.value)}
+                  >
+                    {srv.label}
+                  </Button>
+                );
+              })}
+            </div>
+
+            {/* Right Scroll Arrow (Highlighted when more items like Junk Removal & Painting are available) */}
+            {canScrollRight && (
+              <button
+                type="button"
+                onClick={() => scrollServices('right')}
+                className="h-7 w-7 rounded-md border border-primary/40 bg-primary/10 hover:bg-primary/20 text-primary flex items-center justify-center shrink-0 shadow-xs transition z-10 cursor-pointer"
+                aria-label="Scroll services right"
+                title="Scroll right to see more services (Junk Removal, Painting)"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
 
