@@ -111,7 +111,9 @@ export default function LeadsPage() {
     }
   }, [form.service_type]);
 
-  const filtered = leads;
+  const filtered = leads.filter(
+    (lead) => (lead.source as string) !== 'quo_telephony' && !(lead.source as string)?.toLowerCase().includes('quo')
+  );
 
   return (
     <div className="space-y-5 min-w-0">

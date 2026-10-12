@@ -3,8 +3,7 @@
 import React from 'react';
 import { 
   Home, Building2, PhoneCall, 
-  Map, ArrowRight,
-  Waves
+  ArrowRight, Waves
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -46,18 +45,6 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
       desc: 'Inside tele-sales workstation for commercial property managers, plaza facilities, 1-click dialer, and objection battle-cards.',
       features: ['B2B Dialer', 'Plaza Cold Calls', 'Objection Cards'],
       actionLabel: 'Launch Workstation'
-    },
-    {
-      id: 'map',
-      title: 'Territory Map Hub',
-      badge: 'Satellite GPS',
-      badgeColor: 'text-cyan-400',
-      badgeBg: 'bg-cyan-500/10',
-      iconBg: 'bg-cyan-500/10 text-cyan-400',
-      icon: <Map className="w-6 h-6" />,
-      desc: 'Interactive territory map with route tracking, boundary polygons, pinned addresses, heatmaps, and canvassing coverage.',
-      features: ['Satellite GPS', 'Zone Boundaries', 'Heatmap Overlay'],
-      actionLabel: 'Open Live Map'
     }
   ];
 
@@ -94,8 +81,8 @@ export default function SalesLaunchpad({ repName, user, onSelectApp, onLogout, i
         </div>
       </div>
 
-      {/* 4 Dedicated Application Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-4 gap-4 md:gap-5 pt-2">
+      {/* 3 Dedicated Application Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5 pt-2">
         {APPS.map((app) => (
           <div
             key={app.id}

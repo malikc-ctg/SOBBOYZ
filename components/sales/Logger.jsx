@@ -14,6 +14,8 @@ import {
   COMMERCIAL_FREQUENCIES,
   COMMERCIAL_EST_VALUE_CHIPS,
 } from '@/lib/sales/modes';
+import WrapUpSeasonModal from './history/WrapUpSeasonModal';
+import { getSeasonsState } from '@/lib/sales/seasonService';
 
 // ── Residential constants (identical to v1) ─────────────────────────────────
 const OUTCOMES = RESIDENTIAL_OUTCOMES;
@@ -69,6 +71,21 @@ export default function Logger({
   const [streetInput, setStreetInput] = useState('');
   const [streetSuggestions, setStreetSuggestions] = useState([]);
   const [streetCoords, setStreetCoords] = useState(null);
+  const [seasonsState, setSeasonsState] = useState(() => getSeasonsState());
+  const [showSeasonModal, setShowSeasonModal] = useState(false);
+
+  useEffect(() => {
+    const handleSeasonChange = (e) => {
+      setSeasonsState(e.detail || getSeasonsState());
+      setDayState('NOT_STARTED');
+      setSession(null);
+      setStreet('');
+      setHouseNum('');
+      setEvents([]);
+    };
+    window.addEventListener('season-wrapped-up', handleSeasonChange);
+    return () => window.removeEventListener('season-wrapped-up', handleSeasonChange);
+  }, []);
   
   const MAPBOX_TOKEN = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_MAPBOX_TOKEN) || (typeof import.meta !== 'undefined' && import.meta.env?.VITE_MAPBOX_TOKEN) || '';
 
@@ -1146,21 +1163,57 @@ export default function Logger({
             <span className="pre-session-ready">Ready to knock?</span>
           </div>
 
-          {/* Mode picker — appears on pre-session only */}
-          <div className="mode-picker">
-            <button
-              className={`mode-pick-btn ${mode === MODES.RESIDENTIAL ? 'active' : ''}`}
-              onClick={() => onModeChange && onModeChange(MODES.RESIDENTIAL)}
-            >
-              Residential
-            </button>
-            <button
-              className={`mode-pick-btn ${mode === MODES.COMMERCIAL ? 'active' : ''}`}
-              onClick={() => onModeChange && onModeChange(MODES.COMMERCIAL)}
-            >
-              Commercial
-            </button>
-          </div>
+          {/* Active Campaign indicator for Residential Canvassing */}
+          {mode === MODES.RESIDENTIAL && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              padding: '8px 12px',
+              background: 'rgba(255,255,255,0.03)',
+              border: '1px solid rgba(255,255,255,0.08)',
+              borderRadius: 10,
+              margin: '8px 0 12px'
+            }}>
+              <div style={{ fontSize: 12, color: '#94a3b8' }}>
+                <span style={{ color: '#60a5fa', fontWeight: 700 }}>Active Season:</span> {seasonsState.activeSeason?.name}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSeasonModal(true)}
+                style={{
+                  fontSize: 11,
+                  fontWeight: 800,
+                  color: '#f59e0b',
+                  background: 'rgba(245,158,11,0.1)',
+                  border: '1px solid rgba(245,158,11,0.25)',
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                  cursor: 'pointer'
+                }}
+              >
+                Wrap Up Season
+              </button>
+            </div>
+          )}
+
+          {/* Mode picker — hidden in Commercial knock (dedicated Commercial session) */}
+          {mode !== MODES.COMMERCIAL && !initialSalesMode && (
+            <div className="mode-picker">
+              <button
+                className={`mode-pick-btn ${mode === MODES.RESIDENTIAL ? 'active' : ''}`}
+                onClick={() => onModeChange && onModeChange(MODES.RESIDENTIAL)}
+              >
+                Residential
+              </button>
+              <button
+                className={`mode-pick-btn ${mode === MODES.COMMERCIAL ? 'active' : ''}`}
+                onClick={() => onModeChange && onModeChange(MODES.COMMERCIAL)}
+              >
+                Commercial
+              </button>
+            </div>
+          )}
 
           {/* Yesterday card — mirrors closed session stat-card style */}
           <div className="pre-session-animated" style={{ width: "100%", boxSizing: "border-box" }}>
@@ -1270,6 +1323,22 @@ export default function Logger({
             START SESSION
           </button>
         </div>
+
+        <WrapUpSeasonModal
+          isOpen={showSeasonModal}
+          onClose={() => setShowSeasonModal(false)}
+          currentSeason={seasonsState.activeSeason}
+          sessions={[]}
+          user={user}
+          onSeasonWrappedUp={(nextState) => {
+            setSeasonsState(nextState);
+            setDayState('NOT_STARTED');
+            setSession(null);
+            setStreet('');
+            setHouseNum('');
+            setEvents([]);
+          }}
+        />
       </div>
     );
   }

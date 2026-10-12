@@ -251,25 +251,8 @@ export async function POST(request: NextRequest) {
         return false;
       });
 
-      // If contact not found in leads, automatically create lead in CRM so it's fully tracked
-      if (!matchedLead && cleanTarget) {
-        const leadName = quoContactName || (direction === 'inbound' ? 'Inbound Quo Caller' : 'Outbound Quo Contact');
-        const { data: newLead } = await supabase
-          .from('leads')
-          .insert({
-            customer_name: leadName,
-            customer_phone: rawTargetPhone,
-            company_name: call.contact?.company || 'Commercial Prospect',
-            source: 'quo_telephony',
-            status: 'contacted',
-            notes: `Auto-created from Quo ${direction.toUpperCase()} call`,
-            service_type: 'post_construction_clean'
-          })
-          .select()
-          .single();
-
-        if (newLead) matchedLead = newLead;
-      } else if (matchedLead && quoContactName && (!matchedLead.customer_name || matchedLead.customer_name.startsWith('Quo Contact') || matchedLead.customer_name.startsWith('Inbound'))) {
+      // Do NOT auto-create leads in CRM from Quo calls
+      if (matchedLead && quoContactName && (!matchedLead.customer_name || matchedLead.customer_name.startsWith('Quo Contact') || matchedLead.customer_name.startsWith('Inbound'))) {
         await supabase
           .from('leads')
           .update({ customer_name: quoContactName, updated_at: endedAt })
@@ -575,19 +558,8 @@ export async function POST(request: NextRequest) {
               updated_at: new Date().toISOString()
             })
             .eq('id', matchedLead.id);
-        } else {
-          await supabase
-            .from('leads')
-            .insert({
-              customer_name: contactName,
-              company_name: companyName,
-              customer_phone: primaryPhone,
-              customer_email: email,
-              source: 'quo_telephony',
-              status: 'new',
-              service_type: 'post_construction_clean'
-            });
         }
+        // Do NOT insert unmatched Quo contacts into leads table
       }
 
       return NextResponse.json({ success: true, processed: true }, { status: 200 });

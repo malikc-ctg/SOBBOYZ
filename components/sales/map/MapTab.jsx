@@ -296,6 +296,15 @@ export default function MapTab({
 
       // ── CLICK HANDLERS ──
 
+      const parsePlazaKnocks = (props) => {
+        try {
+          if (props.knocks) {
+            return typeof props.knocks === 'string' ? JSON.parse(props.knocks) : props.knocks;
+          }
+        } catch (e) {}
+        return [];
+      };
+
       const handleMyPinClick = (e) => {
         const props = e.features[0].properties;
         const coords = e.features[0].geometry.coordinates.slice();
@@ -303,8 +312,17 @@ export default function MapTab({
         const timeStr = props.last_knocked_at
           ? new Date(props.last_knocked_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
           : '';
+        const knocks = parsePlazaKnocks(props);
         map.flyTo({ center: coords, zoom: 16.5, offset: [0, 80] });
-        setSelectedPin({ ...props, statusLabel, timeStr, visitsNum: props.visits || 1, isGhost: false });
+        setSelectedPin({ 
+          ...props, 
+          statusLabel, 
+          timeStr, 
+          visitsNum: props.visits || 1, 
+          isGhost: false,
+          knocks,
+          isPlaza: props.is_plaza || knocks.length > 0 || props.mode === 'COMMERCIAL'
+        });
       };
 
       map.on('click', 'unclustered-point', handleMyPinClick);
@@ -317,16 +335,44 @@ export default function MapTab({
         const timeStr = props.last_knocked_at
           ? new Date(props.last_knocked_at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
           : '';
+        const knocks = parsePlazaKnocks(props);
         map.flyTo({ center: coords, zoom: 16.5, offset: [0, 80] });
-        setSelectedPin({ ...props, statusLabel, timeStr, visitsNum: 1, isGhost: true });
+        setSelectedPin({ 
+          ...props, 
+          statusLabel, 
+          timeStr, 
+          visitsNum: 1, 
+          isGhost: true,
+          knocks,
+          isPlaza: props.is_plaza || knocks.length > 0 || props.mode === 'COMMERCIAL'
+        });
       };
 
       map.on('click', 'team-ghost-point', handleTeamPinClick);
 
-      // Coverage popup
+      // Coverage click handler
       map.on('click', 'coverage-point', (e) => {
         const props = e.features[0].properties;
         const coords = e.features[0].geometry.coordinates.slice();
+        const knocks = parsePlazaKnocks(props);
+        if (knocks.length > 0 || props.is_plaza || props.mode === 'COMMERCIAL') {
+          const statusLabel = (props.last_status || '').replace(/_/g, ' ');
+          const timeStr = props.last_knocked_at
+            ? new Date(props.last_knocked_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+            : '';
+          map.flyTo({ center: coords, zoom: 16.5, offset: [0, 80] });
+          setSelectedPin({
+            ...props,
+            statusLabel,
+            timeStr,
+            visitsNum: knocks.length || 1,
+            isGhost: true,
+            knocks,
+            isPlaza: true
+          });
+          return;
+        }
+
         const timeStr = props.last_knocked_at
           ? new Date(props.last_knocked_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
           : '';
@@ -582,23 +628,38 @@ export default function MapTab({
       </button>
 
       {/* ── Pin Info Bottom Sheet ── */}
-      <div className={`pin-sheet-overlay ${sheetOpen ? 'open' : ''}`}>
+      <div className={`pin-sheet-overlay ${sheetOpen ? 'open' : ''}`} style={{ maxHeight: '82vh', overflowY: 'auto' }}>
         {selectedPin && (
           <>
             <div className="pin-sheet-header">
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div className="pin-sheet-address">
-                  {selectedPin.business_name ? `${selectedPin.business_name} · ` : ''}
-                  {selectedPin.suite ? `Unit ${selectedPin.suite}, ` : ''}
-                  {selectedPin.address}
-                  {selectedPin.isGhost && (
-                    <span className="ghost-badge">TEAM</span>
-                  )}
-                  {selectedPin.mode === 'COMMERCIAL' && (
-                    <span className="mode-badge-commercial" style={{ marginLeft: 6 }}>COMMERCIAL</span>
+                  {selectedPin.isPlaza || (selectedPin.knocks && selectedPin.knocks.length > 0) ? (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                        <span>{selectedPin.plaza_name || selectedPin.address}</span>
+                        <span className="mode-badge-commercial">PLAZA</span>
+                        {selectedPin.isGhost && <span className="ghost-badge">TEAM</span>}
+                      </div>
+                      <div style={{ fontSize: 13, color: '#38bdf8', fontWeight: 700, marginTop: 4 }}>
+                        {selectedPin.knocks?.length || selectedPin.total_knocks || 1} {((selectedPin.knocks?.length || selectedPin.total_knocks || 1) === 1) ? 'business knocked' : 'businesses knocked in plaza'}
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      {selectedPin.business_name ? `${selectedPin.business_name} · ` : ''}
+                      {selectedPin.suite ? `Unit ${selectedPin.suite}, ` : ''}
+                      {selectedPin.address}
+                      {selectedPin.isGhost && (
+                        <span className="ghost-badge">TEAM</span>
+                      )}
+                      {selectedPin.mode === 'COMMERCIAL' && (
+                        <span className="mode-badge-commercial" style={{ marginLeft: 6 }}>COMMERCIAL</span>
+                      )}
+                    </>
                   )}
                 </div>
-                {selectedPin.isGhost && selectedPin.rep_name && (
+                {selectedPin.isGhost && selectedPin.rep_name && !selectedPin.isPlaza && (
                   <div className="pin-sheet-rep">Knocked by {selectedPin.rep_name}</div>
                 )}
               </div>
@@ -607,23 +668,78 @@ export default function MapTab({
               </button>
             </div>
 
-            <div className="pin-sheet-status-row">
-              <div className="pin-sheet-status-badge" style={{
-                background: STATUS_COLORS[selectedPin.last_status] + '33',
-                color: STATUS_COLORS[selectedPin.last_status] || '#fff'
-              }}>
-                {selectedPin.statusLabel}
-              </div>
-              {!selectedPin.isGhost && selectedPin.visitsNum > 1 && (
-                <div className="pin-sheet-visits">
-                  {selectedPin.visitsNum - 1} Re-knocks ({selectedPin.visitsNum} visits)
+            {/* If Plaza: Render all knocks within this plaza */}
+            {selectedPin.knocks && selectedPin.knocks.length > 0 ? (
+              <div className="plaza-knocks-list" style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8' }}>
+                  Knocks Within This Plaza ({selectedPin.knocks.length})
                 </div>
-              )}
-            </div>
+                {selectedPin.knocks.map((k, idx) => (
+                  <div key={k.event_id || idx} style={{
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 6,
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                      <div>
+                        <span style={{ fontWeight: 800, fontSize: 14, color: '#f8fafc' }}>
+                          {k.business_name || 'Business Tenant'}
+                        </span>
+                        {k.suite && (
+                          <span style={{ fontSize: 12, color: '#cbd5e1', marginLeft: 6, fontWeight: 600 }}>
+                            • Unit {k.suite}
+                          </span>
+                        )}
+                      </div>
+                      <div className="pin-sheet-status-badge" style={{
+                        background: (STATUS_COLORS[k.status] || '#3b82f6') + '33',
+                        color: STATUS_COLORS[k.status] || '#60a5fa',
+                        fontSize: 10,
+                        padding: '3px 8px',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {k.statusLabel || (k.status || '').replace(/_/g, ' ')}
+                      </div>
+                    </div>
 
-            <div className="pin-sheet-time">
-              Last knocked: {selectedPin.timeStr}
-            </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 11, color: '#94a3b8' }}>
+                      <span>{k.timeStr || (k.timestamp ? new Date(k.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '')}</span>
+                      {k.rep_name && <span style={{ color: '#a78bfa', fontWeight: 600 }}>Rep: {k.rep_name}</span>}
+                    </div>
+
+                    {k.notes && (
+                      <div style={{ fontSize: 11, color: '#cbd5e1', background: 'rgba(0,0,0,0.2)', padding: '6px 8px', borderRadius: 6 }}>
+                        {k.notes}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="pin-sheet-status-row">
+                  <div className="pin-sheet-status-badge" style={{
+                    background: STATUS_COLORS[selectedPin.last_status] + '33',
+                    color: STATUS_COLORS[selectedPin.last_status] || '#fff'
+                  }}>
+                    {selectedPin.statusLabel}
+                  </div>
+                  {!selectedPin.isGhost && selectedPin.visitsNum > 1 && (
+                    <div className="pin-sheet-visits">
+                      {selectedPin.visitsNum - 1} Re-knocks ({selectedPin.visitsNum} visits)
+                    </div>
+                  )}
+                </div>
+
+                <div className="pin-sheet-time">
+                  Last knocked: {selectedPin.timeStr}
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

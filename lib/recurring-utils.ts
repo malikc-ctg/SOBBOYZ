@@ -34,20 +34,27 @@ export const FREQUENCY_TITLE_MAP: Record<RecurringFrequency, string> = {
 };
 
 /**
- * Calculates the next calendar run date (YYYY-MM-DD) for a recurring agreement.
+ * Calculates the next calendar run date (YYYY-MM-DD) for a recurring agreement
+ * occurring strictly after fromDate (or after anchor date).
  */
 export function calculateNextRunDate(
   fromDate: Date | string,
   frequency: RecurringFrequency,
   daysOfWeek: string[] = [],
-  preferredDay?: string | null
+  preferredDay?: string | null,
+  anchorDate?: Date | string | null
 ): string {
   const base = typeof fromDate === 'string' ? parseISO(fromDate) : fromDate;
   const start = startOfDay(base);
+  const anchor = startOfDay(
+    typeof (anchorDate || fromDate) === 'string'
+      ? parseISO((anchorDate || fromDate) as string)
+      : (anchorDate || fromDate)
+  );
 
   // If specific days of week are given (e.g. ['monday', 'wednesday', 'friday'])
   if (daysOfWeek.length > 0) {
-    const targetDays = daysOfWeek.map(d => d.toLowerCase());
+    const targetDays = daysOfWeek.map((d) => d.toLowerCase());
     for (let i = 1; i <= 35; i++) {
       const candidate = addDays(start, i);
       const dayName = DAY_NAMES[candidate.getDay()];
@@ -57,29 +64,51 @@ export function calculateNextRunDate(
     }
   }
 
-  // If single preferredDay is provided
+  // Bi-weekly: next occurrence on the 14-day cadence strictly after start
+  if (frequency === 'biweekly') {
+    let cadenceAnchor = anchor;
+    if (preferredDay) {
+      const targetDay = preferredDay.toLowerCase();
+      for (let i = 0; i < 7; i++) {
+        if (DAY_NAMES[cadenceAnchor.getDay()] === targetDay) break;
+        cadenceAnchor = addDays(cadenceAnchor, 1);
+      }
+    }
+
+    let current = cadenceAnchor;
+    while (!isAfter(current, start)) {
+      current = addDays(current, 14);
+    }
+    return format(current, 'yyyy-MM-dd');
+  }
+
+  // Monthly: next occurrence on the monthly cadence strictly after start
+  if (frequency === 'monthly') {
+    let current = anchor;
+    while (!isAfter(current, start)) {
+      current = addMonths(current, 1);
+    }
+    return format(current, 'yyyy-MM-dd');
+  }
+
+  // If single preferredDay is provided for weekly
   if (preferredDay) {
     const targetDay = preferredDay.toLowerCase();
     for (let i = 1; i <= 14; i++) {
       const candidate = addDays(start, i);
       if (DAY_NAMES[candidate.getDay()] === targetDay) {
-        if (frequency === 'biweekly') {
-          return format(addDays(candidate, 7), 'yyyy-MM-dd');
-        }
         return format(candidate, 'yyyy-MM-dd');
       }
     }
   }
 
-  // Default jump based on frequency
-  if (frequency === 'weekly') {
-    return format(addDays(start, 7), 'yyyy-MM-dd');
-  }
-  if (frequency === 'biweekly') {
-    return format(addDays(start, 14), 'yyyy-MM-dd');
-  }
-  if (frequency === 'monthly') {
-    return format(addMonths(start, 1), 'yyyy-MM-dd');
+  // Default weekly jump anchored to anchor day of week
+  const targetDay = DAY_NAMES[anchor.getDay()];
+  for (let i = 1; i <= 14; i++) {
+    const candidate = addDays(start, i);
+    if (DAY_NAMES[candidate.getDay()] === targetDay) {
+      return format(candidate, 'yyyy-MM-dd');
+    }
   }
 
   return format(addDays(start, 7), 'yyyy-MM-dd');
@@ -140,38 +169,68 @@ export function formatRecurrenceSchedule(
 
 /**
  * Generates all candidate job dates (YYYY-MM-DD) between startDate and endDate.
+ * If anchorDate is provided (e.g. contract_start_date), the recurrence cadence
+ * (especially for biweekly and monthly) is anchored to anchorDate rather than startDate.
  */
 export function generateDatesBetween(
   startDate: Date | string,
   endDate: Date | string,
   frequency: RecurringFrequency,
   daysOfWeek: string[] = [],
-  preferredDay?: string | null
+  preferredDay?: string | null,
+  anchorDate?: Date | string | null
 ): string[] {
-  const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
-  const end = typeof endDate === 'string' ? parseISO(endDate) : endDate;
-  const dates: string[] = [];
+  const windowStart = startOfDay(typeof startDate === 'string' ? parseISO(startDate) : startDate);
+  const windowEnd = startOfDay(typeof endDate === 'string' ? parseISO(endDate) : endDate);
+  const anchor = startOfDay(
+    typeof (anchorDate || startDate) === 'string'
+      ? parseISO((anchorDate || startDate) as string)
+      : (anchorDate || startDate)
+  );
 
-  let current = startOfDay(start);
-  const boundary = startOfDay(end);
-
-  if (isAfter(current, boundary)) {
+  if (isAfter(windowStart, windowEnd)) {
     return [];
   }
 
+  const dates: string[] = [];
+
   // Monthly: anchor to the same calendar day each month (e.g. 8th or 20th)
   if (frequency === 'monthly') {
-    while (!isAfter(current, boundary)) {
-      dates.push(format(current, 'yyyy-MM-dd'));
+    let current = anchor;
+    // Advance forward in monthly steps until reaching windowStart
+    while (isBefore(current, windowStart)) {
+      current = addMonths(current, 1);
+    }
+    while (!isAfter(current, windowEnd)) {
+      if (!isBefore(current, windowStart)) {
+        dates.push(format(current, 'yyyy-MM-dd'));
+      }
       current = addMonths(current, 1);
     }
     return dates;
   }
 
-  // Bi-weekly: step 14 days from start
+  // Bi-weekly: step 14 days from anchor date
   if (frequency === 'biweekly') {
-    while (!isAfter(current, boundary)) {
-      dates.push(format(current, 'yyyy-MM-dd'));
+    let cadenceAnchor = anchor;
+    if (preferredDay) {
+      const targetDay = preferredDay.toLowerCase();
+      for (let i = 0; i < 7; i++) {
+        if (DAY_NAMES[cadenceAnchor.getDay()] === targetDay) break;
+        cadenceAnchor = addDays(cadenceAnchor, 1);
+      }
+    }
+
+    let current = cadenceAnchor;
+    // Advance by 14-day increments until reaching windowStart
+    while (isBefore(current, windowStart)) {
+      current = addDays(current, 14);
+    }
+    // Collect all biweekly dates within [windowStart, windowEnd]
+    while (!isAfter(current, windowEnd)) {
+      if (!isBefore(current, windowStart)) {
+        dates.push(format(current, 'yyyy-MM-dd'));
+      }
       current = addDays(current, 14);
     }
     return dates;
@@ -179,8 +238,9 @@ export function generateDatesBetween(
 
   // Weekly with multiple days of week
   if (daysOfWeek.length > 0) {
-    const targetDays = daysOfWeek.map(d => d.toLowerCase());
-    while (!isAfter(current, boundary)) {
+    const targetDays = daysOfWeek.map((d) => d.toLowerCase());
+    let current = windowStart;
+    while (!isAfter(current, windowEnd)) {
       const dayName = DAY_NAMES[current.getDay()];
       if (targetDays.includes(dayName)) {
         dates.push(format(current, 'yyyy-MM-dd'));
@@ -193,21 +253,26 @@ export function generateDatesBetween(
   // Weekly with single preferred day
   if (preferredDay) {
     const targetDay = preferredDay.toLowerCase();
-    // Advance current until it hits targetDay
-    while (DAY_NAMES[current.getDay()] !== targetDay && !isAfter(current, boundary)) {
+    let current = windowStart;
+    while (!isAfter(current, windowEnd)) {
+      const dayName = DAY_NAMES[current.getDay()];
+      if (dayName === targetDay) {
+        dates.push(format(current, 'yyyy-MM-dd'));
+      }
       current = addDays(current, 1);
-    }
-    while (!isAfter(current, boundary)) {
-      dates.push(format(current, 'yyyy-MM-dd'));
-      current = addDays(current, 7);
     }
     return dates;
   }
 
-  // Standard weekly step
-  while (!isAfter(current, boundary)) {
-    dates.push(format(current, 'yyyy-MM-dd'));
-    current = addDays(current, 7);
+  // Weekly default (anchored to anchor's day of week, every 7 days)
+  const targetDay = DAY_NAMES[anchor.getDay()];
+  let current = windowStart;
+  while (!isAfter(current, windowEnd)) {
+    const dayName = DAY_NAMES[current.getDay()];
+    if (dayName === targetDay) {
+      dates.push(format(current, 'yyyy-MM-dd'));
+    }
+    current = addDays(current, 1);
   }
 
   return dates;
@@ -221,10 +286,11 @@ export function generateDatesForSchedule(
   lookaheadDays: number,
   frequency: RecurringFrequency,
   daysOfWeek: string[] = [],
-  preferredDay?: string | null
+  preferredDay?: string | null,
+  anchorDate?: Date | string | null
 ): string[] {
   const start = typeof startDate === 'string' ? parseISO(startDate) : startDate;
   const end = addDays(startOfDay(start), lookaheadDays);
-  return generateDatesBetween(start, end, frequency, daysOfWeek, preferredDay);
+  return generateDatesBetween(start, end, frequency, daysOfWeek, preferredDay, anchorDate);
 }
 

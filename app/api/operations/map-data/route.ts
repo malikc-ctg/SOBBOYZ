@@ -12,11 +12,12 @@ export async function GET(request: NextRequest) {
 
     const supabase = await createServiceClient();
 
-    // Parse date from query string. If 'all', return all historical/upcoming jobs
+    // Parse date from query string. Default to today if omitted or 'today'. If 'all', return all footprint.
     const { searchParams } = new URL(request.url);
     const rawDate = searchParams.get('date');
-    const showAll = !rawDate || rawDate === 'all';
-    const targetDate = showAll ? null : (rawDate || format(new Date(), 'yyyy-MM-dd'));
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    const showAll = rawDate === 'all';
+    const targetDate = showAll ? null : (rawDate && rawDate !== 'today' ? rawDate : todayStr);
 
     let jobsQuery = supabase
       .from('jobs')
@@ -42,7 +43,9 @@ export async function GET(request: NextRequest) {
         assigned_employee:employees(id, full_name, phone, tier)
       `)
       .not('latitude', 'is', null)
-      .not('longitude', 'is', null);
+      .not('longitude', 'is', null)
+      .order('scheduled_date', { ascending: false })
+      .order('created_at', { ascending: false });
 
     if (targetDate) {
       jobsQuery = jobsQuery.eq('scheduled_date', targetDate);
@@ -50,7 +53,8 @@ export async function GET(request: NextRequest) {
 
     let allJobsStatsQuery = supabase
       .from('jobs')
-      .select('id, job_number, service_type, address_line1, status, quoted_price, final_price, city, latitude, longitude, assigned_employee_id, zone_id');
+      .select('id, job_number, service_type, scheduled_date, address_line1, status, quoted_price, final_price, city, latitude, longitude, assigned_employee_id, zone_id')
+      .order('scheduled_date', { ascending: false });
 
     if (targetDate) {
       allJobsStatsQuery = allJobsStatsQuery.eq('scheduled_date', targetDate);
@@ -62,7 +66,13 @@ export async function GET(request: NextRequest) {
       .select('id, contractor_id, latitude, longitude, accuracy, heading, speed, is_active, last_updated')
       .eq('is_active', true);
 
-    const [jobsRes, locsRes, zonesRes, activeEmployeesRes, allJobsStatsRes] = await Promise.all([
+    // Dedicated query for today's live stats
+    const todayJobsQuery = supabase
+      .from('jobs')
+      .select('id, status, quoted_price, final_price')
+      .eq('scheduled_date', todayStr);
+
+    const [jobsRes, locsRes, zonesRes, activeEmployeesRes, allJobsStatsRes, todayJobsRes] = await Promise.all([
       jobsQuery,
       locsQuery,
       supabase
@@ -75,6 +85,7 @@ export async function GET(request: NextRequest) {
         .select('id, full_name, phone, tier, status, notes, zone_id')
         .eq('status', 'active'),
       allJobsStatsQuery,
+      todayJobsQuery,
     ]);
 
     if (jobsRes.error) {
@@ -217,17 +228,32 @@ export async function GET(request: NextRequest) {
         in_house_jobs_today: inHouseJobsToday,
         employee_jobs_today: employeeJobsToday,
         dominance_mode: dominanceMode,
-        // Jobs preview for zone detail expansion
-        jobs_preview: zoneJobs.slice(0, 5).map((j) => ({
+        // Jobs preview for zone detail expansion (sorted latest first)
+        jobs_preview: zoneJobs.slice(0, 8).map((j) => ({
           id: j.id,
           job_number: j.job_number,
           service_type: j.service_type,
           status: j.status,
+          scheduled_date: j.scheduled_date,
           address_line1: j.address_line1,
           price: j.final_price || j.quoted_price || 0,
         })),
       };
     });
+
+    // Compute live metrics for today
+    const todayJobsRaw = todayJobsRes?.data || [];
+    const todayJobsNonCancelled = todayJobsRaw.filter((j: any) => j.status !== 'cancelled');
+    const todayMetrics = {
+      todayDate: todayStr,
+      jobsToday: todayJobsNonCancelled.length,
+      activeToday: todayJobsRaw.filter((j: any) => ACTIVE_STATUSES.includes(j.status)).length,
+      completedToday: todayJobsRaw.filter((j: any) => j.status === 'completed').length,
+      revenueToday: todayJobsNonCancelled.reduce(
+        (sum: number, j: any) => sum + (Number(j.final_price) || Number(j.quoted_price) || 0),
+        0
+      ),
+    };
 
     // Assignment routing lines
     const liveLocMap = new Map(
@@ -260,6 +286,7 @@ export async function GET(request: NextRequest) {
       zones,
       employeeHQs,
       zoneMetrics,
+      todayMetrics,
       assignmentLines,
     });
   } catch (err: unknown) {

@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { getLocalHistory, forceSyncHistoryDeltas, getTeamHistory } from '@/lib/sales/historyService';
 import SessionDetail from './SessionDetail';
+import WrapUpSeasonModal from './WrapUpSeasonModal';
+import { getSeasonsState } from '@/lib/sales/seasonService';
 
 import { MODES } from '@/lib/sales/modes';
 
@@ -31,6 +33,9 @@ export default function HistoryTab({
   const [loading, setLoading] = useState(true);
   const [teamLoading, setTeamLoading] = useState(false);
   const [selectedSession, setSelectedSession] = useState(null);
+  const [seasonsState, setSeasonsState] = useState(() => getSeasonsState());
+  const [seasonFilter, setSeasonFilter] = useState('all');
+  const [showWrapUpModal, setShowWrapUpModal] = useState(false);
 
   // 1. Fetch personal history (local OPFS SQLite)
   useEffect(() => {
@@ -148,6 +153,23 @@ export default function HistoryTab({
   const activeSessionsList = subTab === 'my' ? sessions : teamSessions;
   const isListLoading = subTab === 'my' ? loading : teamLoading;
 
+  // Filter sessions by season if in residential mode
+  const filteredSessionsBySeason = activeSessionsList.filter(s => {
+    if (mode !== MODES.RESIDENTIAL || seasonFilter === 'all') return true;
+    const sessionTime = new Date(s.started_at).getTime();
+    if (seasonFilter === 'active') {
+      const activeStart = new Date(seasonsState.activeSeason?.startedAt || 0).getTime();
+      return sessionTime >= activeStart;
+    }
+    const archived = (seasonsState.archivedSeasons || []).find(a => a.id === seasonFilter);
+    if (archived) {
+      const start = new Date(archived.startedAt || 0).getTime();
+      const end = new Date(archived.endedAt || Date.now()).getTime();
+      return sessionTime >= start && sessionTime <= end;
+    }
+    return true;
+  });
+
   // Group by relative date (Today, This Week, Older)
   const grouped = {
     today: [],
@@ -158,7 +180,7 @@ export default function HistoryTab({
   const todayStr = new Date().toISOString().split('T')[0];
   const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
-  activeSessionsList.forEach(s => {
+  filteredSessionsBySeason.forEach(s => {
     if (s.session_date === todayStr) {
       grouped.today.push(s);
     } else if (new Date(s.started_at) > oneWeekAgo) {
@@ -267,7 +289,84 @@ export default function HistoryTab({
             Team History
           </button>
         </div>
+
+        {/* Residential Season Management Bar */}
+        {mode === MODES.RESIDENTIAL && (
+          <div className="season-management-bar" style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'rgba(255, 255, 255, 0.03)',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: 12,
+            padding: '8px 12px',
+            marginTop: 12,
+            gap: 10,
+            flexWrap: 'wrap'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Season:
+              </span>
+              <select
+                value={seasonFilter}
+                onChange={(e) => setSeasonFilter(e.target.value)}
+                style={{
+                  background: '#13131f',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#fff',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  borderRadius: 8,
+                  padding: '4px 8px',
+                  outline: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <option value="all">All Seasons ({activeSessionsList.length})</option>
+                <option value="active">Active: {seasonsState.activeSeason?.name}</option>
+                {(seasonsState.archivedSeasons || []).map(a => (
+                  <option key={a.id} value={a.id}>Archived: {a.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowWrapUpModal(true)}
+              style={{
+                background: 'rgba(245, 158, 11, 0.12)',
+                color: '#f59e0b',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                borderRadius: 8,
+                padding: '5px 12px',
+                fontSize: 11,
+                fontWeight: 800,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 5,
+                transition: 'all 0.15s ease'
+              }}
+              title="Wrap up season and archive residential window knock data"
+            >
+              <span>🏁 Wrap Up Season</span>
+            </button>
+          </div>
+        )}
       </div>
+
+      <WrapUpSeasonModal
+        isOpen={showWrapUpModal}
+        onClose={() => setShowWrapUpModal(false)}
+        currentSeason={seasonsState.activeSeason}
+        sessions={activeSessionsList}
+        user={user}
+        onSeasonWrappedUp={(nextState) => {
+          setSeasonsState(nextState);
+          setSeasonFilter('active');
+        }}
+      />
 
       {subTab === 'team' && teamSessions.length > 0 && (
         <button className="bulk-export-btn" onClick={handleBulkExport}>

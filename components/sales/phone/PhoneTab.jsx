@@ -1671,6 +1671,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
                 followupsByLeadId={followupBoardData?.leads || {}}
                 followupMeta={followupMeta}
                 user={user}
+                repName={activeRepName}
                 onStartCall={startCall}
                 onOpenDossier={(contact) => {
                   setSelectedContact(contact);

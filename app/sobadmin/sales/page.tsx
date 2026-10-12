@@ -5,14 +5,6 @@ import dynamic from 'next/dynamic';
 import { useSearchParams } from 'next/navigation';
 import SalesLaunchpad from '@/components/sales/SalesLaunchpad';
 
-const DispatchMap = dynamic(() => import('@/components/admin/dashboard/DispatchMap'), {
-  ssr: false,
-  loading: () => (
-    <div className="flex h-96 items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
-    </div>
-  ),
-});
 import Logger from '@/components/sales/Logger';
 import PhoneTab from '@/components/sales/phone/PhoneTab';
 import HistoryTab from '@/components/sales/history/HistoryTab';
@@ -22,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   LayoutGrid, ArrowLeft, Home, Building2, 
-  PhoneCall, Map, Trophy, Compass, Clock, Users, RefreshCw
+  PhoneCall, Trophy, Compass, Clock, Users, RefreshCw
 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@/components/sales/styles/knocklog.css';
@@ -135,7 +127,6 @@ export default function AdminSalesOSPage() {
     residential: { title: 'KnockLog Residential', badge: 'Field Canvassing', icon: Home, iconColor: 'text-blue-500' },
     commercial: { title: 'KnockLog Commercial', badge: 'Commercial B2B', icon: Building2, iconColor: 'text-purple-400' },
     phone: { title: 'B2B Phone Sales OS', badge: 'Inside CRM Workstation', icon: PhoneCall, iconColor: 'text-emerald-500' },
-    map: { title: 'Territory Map Hub', badge: 'Satellite GPS', icon: Map, iconColor: 'text-cyan-400' },
   };
 
   // Handle switching apps & scrolling to top
@@ -167,15 +158,6 @@ export default function AdminSalesOSPage() {
         onLogout={() => {}}
         isInsideAdmin={true}
       />
-    );
-  }
-
-  // If active app is Territory Map Hub, render unified DispatchMap with sales preset
-  if (activeApp === 'map') {
-    return (
-      <div className="relative w-full h-[calc(100vh-56px)] lg:h-screen -m-0 md:-m-6 lg:-m-8 overflow-hidden bg-black">
-        <DispatchMap initialPreset="sales" onBack={() => handleSelectApp(null)} />
-      </div>
     );
   }
 

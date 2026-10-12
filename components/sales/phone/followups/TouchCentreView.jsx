@@ -80,20 +80,31 @@ export default function TouchCentreView({
       // If there is no open enrollment and no pending task, skip unless flagged
       if (!openEnr && !nextTask) return;
 
-      // Determine assigned rep
-      const effectiveRep = resolveRepConfig(
-        user?.id ||
+      // Determine assigned rep: prioritize the specific task assignee, enrollment owner, contact rep, then rep settings fallback
+      const assignedIdentifier =
         nextTask?.assigned_rep_id ||
         openEnr?.owner_rep_id ||
+        contact?.assigned_rep_id ||
+        contact?.rep_id ||
+        contact?.last_rep_name ||
+        contact?.rep_name ||
+        null;
+
+      const effectiveRep = resolveRepConfig(
+        assignedIdentifier ||
         repSettings?.rep_id ||
-        repSettings?.signature_name
+        repSettings?.signature_name ||
+        user?.id
       );
 
       const isMine = Boolean(
-        user?.id &&
-        (nextTask?.assigned_rep_id === user.id ||
-          (!nextTask && openEnr?.owner_rep_id === user.id) ||
-          effectiveRep.auth_user_id === user.id)
+        user?.id && (
+          (nextTask?.assigned_rep_id && nextTask.assigned_rep_id === user.id) ||
+          (!nextTask && openEnr?.owner_rep_id && openEnr.owner_rep_id === user.id) ||
+          effectiveRep.auth_user_id === user.id ||
+          (user.full_name && effectiveRep.name.toLowerCase() === user.full_name.toLowerCase()) ||
+          (user.email && effectiveRep.email && user.email.toLowerCase() === effectiveRep.email.toLowerCase())
+        )
       );
 
       // Check needs_attention state:
@@ -193,7 +204,18 @@ export default function TouchCentreView({
 
   // Counts for KPIs
   const counts = useMemo(() => {
-    const list = repFilter === 'mine' ? allTouchItems.filter((i) => i.isMine) : allTouchItems;
+    const isRepMatch = (item, repKey) => {
+      if (repKey === 'mine') return item.isMine;
+      if (repKey === 'all') return true;
+      const k = item.effectiveRep?.key || '';
+      const name = (item.effectiveRep?.name || '').toLowerCase();
+      if (repKey === 'malik') return k === 'malik' || name.includes('malik');
+      if (repKey === 'raahim') return k === 'raahim' || name.includes('raahim') || name.includes('ryan');
+      if (repKey === 'ayaan') return k === 'ayaan' || name.includes('ayaan');
+      return true;
+    };
+
+    const list = allTouchItems.filter((i) => isRepMatch(i, repFilter));
     let overdue = 0;
     let dueToday = 0;
     let upcoming = 0;
@@ -207,16 +229,31 @@ export default function TouchCentreView({
     });
 
     const mineTotal = allTouchItems.filter((i) => i.isMine).length;
+    const malikTotal = allTouchItems.filter((i) => isRepMatch(i, 'malik')).length;
+    const raahimTotal = allTouchItems.filter((i) => isRepMatch(i, 'raahim')).length;
+    const ayaanTotal = allTouchItems.filter((i) => isRepMatch(i, 'ayaan')).length;
     const allTotal = allTouchItems.length;
 
-    return { overdue, dueToday, upcoming, needsAttention, mineTotal, allTotal, total: list.length };
+    return { 
+      overdue, dueToday, upcoming, needsAttention, 
+      mineTotal, malikTotal, raahimTotal, ayaanTotal, allTotal, 
+      total: list.length 
+    };
   }, [allTouchItems, repFilter]);
 
   // Filtered touch items
   const filteredItems = useMemo(() => {
     return allTouchItems.filter((item) => {
       // Rep filter
-      if (repFilter === 'mine' && !item.isMine) return false;
+      if (repFilter === 'mine') {
+        if (!item.isMine) return false;
+      } else if (repFilter !== 'all') {
+        const k = item.effectiveRep?.key || '';
+        const name = (item.effectiveRep?.name || '').toLowerCase();
+        if (repFilter === 'malik' && k !== 'malik' && !name.includes('malik')) return false;
+        if (repFilter === 'raahim' && k !== 'raahim' && !name.includes('raahim') && !name.includes('ryan')) return false;
+        if (repFilter === 'ayaan' && k !== 'ayaan' && !name.includes('ayaan')) return false;
+      }
 
       // Status bucket filter
       if (statusFilter === 'overdue' && !item.overdue && item.dueBucket !== 'overdue') return false;
@@ -389,12 +426,12 @@ export default function TouchCentreView({
 
         {/* Rep Selector & Action Controls */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          {/* Mine vs All Reps Toggle */}
-          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
+          {/* Rep Specific Filter Pills */}
+          <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner overflow-x-auto max-w-full">
             <button
               type="button"
               onClick={() => setRepFilter('mine')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
                 repFilter === 'mine'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'
@@ -407,8 +444,50 @@ export default function TouchCentreView({
             </button>
             <button
               type="button"
+              onClick={() => setRepFilter('malik')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                repFilter === 'malik'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>Malik</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-900 text-slate-300 border border-slate-800">
+                {counts.malikTotal}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRepFilter('raahim')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                repFilter === 'raahim'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>Raahim</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-900 text-slate-300 border border-slate-800">
+                {counts.raahimTotal}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRepFilter('ayaan')}
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
+                repFilter === 'ayaan'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <span>Ayaan</span>
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-slate-900 text-slate-300 border border-slate-800">
+                {counts.ayaanTotal}
+              </span>
+            </button>
+            <button
+              type="button"
               onClick={() => setRepFilter('all')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-bold transition cursor-pointer flex items-center gap-1.5 shrink-0 ${
                 repFilter === 'all'
                   ? 'bg-blue-600 text-white shadow-sm'
                   : 'text-slate-400 hover:text-slate-200'

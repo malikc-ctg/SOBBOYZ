@@ -81,8 +81,8 @@ describe('Appendix F Acceptance Scenarios (1-55)', () => {
       rep: { signature_name: 'Malik Campbell', signature_title: 'Founder & CEO', signature_phone: '(437) 475-1622' },
       mailingAddressOverride: '123 King St W, Toronto, ON',
     });
-    expect(sameDay.subject).toBe('Who handles closeout cleaning?');
-    expect(sameDay.body).toContain('I called you today and missed you.');
+    expect(sameDay.subject).toBe('Closeout clean for Acme');
+    expect(sameDay.body).toContain('I called today and missed you.');
 
     const yesterday = new TZDate(2026, 9, 6, 10, 0, 0, 0, TORONTO_TZ);
     const nextDay = renderEmail({
@@ -93,7 +93,7 @@ describe('Appendix F Acceptance Scenarios (1-55)', () => {
       rep: { signature_name: 'Malik Campbell', signature_title: 'Founder & CEO', signature_phone: '(437) 475-1622' },
       mailingAddressOverride: '123 King St W, Toronto, ON',
     });
-    expect(nextDay.body).toContain('I called you recently and missed you.');
+    expect(nextDay.body).toContain('I called yesterday and missed you.');
   });
 
   // Scenario 6 & 7

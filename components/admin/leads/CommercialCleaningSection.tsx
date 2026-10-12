@@ -4,15 +4,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { AlertTriangle, Copy, Info, Minus, Plus, FileText, Calculator, ArrowLeft } from 'lucide-react';
+import { AlertTriangle, Copy, FileText, Calculator, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   calcCommercialCleaning,
@@ -28,52 +20,6 @@ interface CommercialCleaningSectionProps {
   onClose?: () => void;
 }
 
-// ── Stepper (re-declared locally) ──
-function Stepper({
-  value,
-  onChange,
-  min = 0,
-  max = 20,
-  label,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  label?: string;
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      {label && <Label className="text-xs text-muted-foreground">{label}</Label>}
-      <div className="flex items-center gap-0">
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-r-none border-r-0 shrink-0"
-          onClick={() => onChange(Math.max(min, value - 1))}
-          disabled={value <= min}
-        >
-          <Minus className="h-3 w-3" />
-        </Button>
-        <div className="h-8 min-w-[3rem] flex items-center justify-center border border-input bg-background text-sm font-medium px-2">
-          {value}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-8 w-8 rounded-l-none border-l-0 shrink-0"
-          onClick={() => onChange(Math.min(max, value + 1))}
-          disabled={value >= max}
-        >
-          <Plus className="h-3 w-3" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 function fmt(n: number) {
   return `$${n.toFixed(2)}`;
 }
@@ -84,10 +30,6 @@ function fmtParts(n: number) {
     dollars: `$${Number(parts[0]).toLocaleString()}`,
     cents: parts[1],
   };
-}
-
-function fmtRange(lo: number, hi: number) {
-  return `${fmt(lo)} to ${fmt(hi)}`;
 }
 
 const COMPLEXITY_OPTIONS: {
@@ -113,10 +55,6 @@ const FREQUENCY_OPTIONS: {
   { value: 'daily', label: 'Daily (5×/wk)', visits: 5, discount: '15% off / visit' },
 ];
 
-// ----------------------------------------------------------------
-// CommercialCleaningSection
-// ----------------------------------------------------------------
-
 export function CommercialCleaningSection({
   contact,
   onContactChange,
@@ -131,25 +69,11 @@ export function CommercialCleaningSection({
   const [complexity, setComplexity] = useState<CommercialCleaningComplexity>('small');
   const [frequency,  setFrequency]  = useState<CommercialCleaningFrequency>('1x');
 
-  // ── Add-ons ──
-  const [carpetExtractionUnits, setCarpetExtractionUnits] = useState(0);
-  const [kitchenDeepClean,      setKitchenDeepClean]      = useState(false);
-  const [windowCleaning,        setWindowCleaning]        = useState(false);
-  const [postConstrSqftStr,     setPostConstrSqftStr]     = useState('');
-  const [afterHours,            setAfterHours]            = useState(false);
-  const [rushSameDay,           setRushSameDay]           = useState(false);
-
   // ── Validation ──
   const sqft = sqftStr === '' ? 0 : Number(sqftStr);
   const sqftError =
     sqftStr !== '' && (isNaN(sqft) || sqft <= 0)
       ? 'Square footage must be a positive number'
-      : null;
-
-  const postConstrSqft = postConstrSqftStr === '' ? 0 : Number(postConstrSqftStr);
-  const postConstrError =
-    postConstrSqftStr !== '' && (isNaN(postConstrSqft) || postConstrSqft <= 0)
-      ? 'Must be a positive number'
       : null;
 
   const hasValidInput = sqft > 0 && !sqftError;
@@ -161,24 +85,19 @@ export function CommercialCleaningSection({
             sqft,
             complexity,
             frequency,
-            carpetExtractionUnits,
-            kitchenDeepClean,
-            windowCleaning,
-            postConstructionSqft: postConstrError ? 0 : postConstrSqft,
-            afterHours,
-            rushSameDay,
+            carpetExtractionUnits: 0,
+            kitchenDeepClean: false,
+            windowCleaning: false,
+            postConstructionSqft: 0,
+            afterHours: false,
+            rushSameDay: false,
           })
         : null,
-    [
-      sqft, complexity, frequency, carpetExtractionUnits, kitchenDeepClean,
-      windowCleaning, postConstrSqft, postConstrError, afterHours, rushSameDay, hasValidInput,
-    ],
+    [sqft, complexity, frequency, hasValidInput],
   );
 
-  const complexityOption   = COMPLEXITY_OPTIONS.find((o) => o.value === complexity)!;
-  const frequencyOption    = FREQUENCY_OPTIONS.find((o) => o.value === frequency)!;
-  const hasOneTimeAddOns   = result?.addOnLines.some((a) => a.isOneTime)  ?? false;
-  const hasRecurringAddOns = result?.addOnLines.some((a) => !a.isOneTime) ?? false;
+  const complexityOption = COMPLEXITY_OPTIONS.find((o) => o.value === complexity)!;
+  const frequencyOption  = FREQUENCY_OPTIONS.find((o) => o.value === frequency)!;
   const displayTotal = result ? fmt(result.monthlyTotal) : '$0.00';
 
   const handleCopy = () => {
@@ -192,24 +111,10 @@ export function CommercialCleaningSection({
     if (result.adjustedPerVisit !== result.basePerVisit) {
       lines.push(`Adjusted per visit: ${fmt(result.adjustedPerVisit)} (frequency discount applied)`);
     }
-    if (afterHours) {
-      lines.push(`After-hours (+20%): ${fmt(result.perVisitWithSurcharges)} per visit`);
-    }
     lines.push(`Weekly total:       ${fmt(result.weeklyTotal)}`);
     lines.push('');
     lines.push('—'.repeat(40));
-    lines.push(`MONTHLY TOTAL: ${fmt(result.monthlyTotal)}`);
-    if (result.addOnLines.length > 0) {
-      lines.push('');
-      lines.push('Add-ons:');
-      for (const a of result.addOnLines) {
-        const amtStr = a.isRange ? fmtRange(a.amountLow, a.amountHigh) : fmt(a.amountLow);
-        lines.push(`  ${a.label}: ${amtStr}${a.isOneTime ? ' (one-time)' : ' (recurring)'}`);
-      }
-    }
-    if (rushSameDay && result.rushSurcharge > 0) {
-      lines.push(`  Emergency / rush same-day surcharge: +${fmt(result.rushSurcharge)} (one-time)`);
-    }
+    lines.push(`MONTHLY TOTAL:      ${fmt(result.monthlyTotal)}`);
     navigator.clipboard.writeText(lines.join('\n'));
     toast.success('Quote copied to clipboard');
   };
@@ -230,7 +135,6 @@ export function CommercialCleaningSection({
         `Commercial Cleaning & Janitorial (${complexityOption?.label || complexity}, ${frequencyOption?.label || frequency})`,
         `Square footage: ${sqft.toLocaleString()} sqft`,
         `Base visit: ${fmt(result.basePerVisit)} | Monthly: ${fmt(result.monthlyTotal)}`,
-        result.addOnLines.length > 0 ? `Add-ons: ${result.addOnLines.map(a => a.label).join(', ')}` : null,
         `TOTAL: ${fmt(finalPrice)}/mo`,
       ].filter(Boolean).join(' | ');
 
@@ -394,7 +298,7 @@ export function CommercialCleaningSection({
                   type="button"
                   variant={frequency === f.value ? 'default' : 'outline'}
                   size="sm"
-                  className="text-xs h-8 flex flex-col h-auto py-2 px-3"
+                  className="text-xs h-auto py-2 px-3 flex flex-col"
                   onClick={() => setFrequency(f.value)}
                 >
                   <span>{f.label}</span>
@@ -403,112 +307,6 @@ export function CommercialCleaningSection({
                   )}
                 </Button>
               ))}
-            </div>
-          </section>
-
-          <hr className="border-muted" />
-
-          {/* 4. Add-ons */}
-          <section className="space-y-4">
-            <h3 className="font-semibold text-sm uppercase tracking-wider text-muted-foreground">
-              4. Add-Ons
-            </h3>
-
-            {/* Carpet extraction */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">Recurring</p>
-              <Stepper
-                label="Carpet extraction · $150–$200 per 1,000 sqft (units of 1,000 sqft)"
-                value={carpetExtractionUnits}
-                onChange={setCarpetExtractionUnits}
-                max={50}
-              />
-            </div>
-
-            {/* After-hours */}
-            <div className="flex items-start gap-3 p-3 rounded-md border border-muted">
-              <Switch
-                id="after-hours"
-                checked={afterHours}
-                onCheckedChange={setAfterHours}
-                className="mt-0.5"
-              />
-              <div>
-                <Label htmlFor="after-hours" className="text-sm font-medium cursor-pointer">
-                  After-hours service (6pm – 11pm) · +20%/visit
-                </Label>
-                <p className="text-[10px] text-muted-foreground mt-0.5">
-                  Recurring — reflected in monthly total.
-                </p>
-              </div>
-            </div>
-
-            {/* One-time add-ons */}
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-muted-foreground">One-time (shown as separate line items)</p>
-
-              <div className="flex items-start gap-3 p-3 rounded-md border border-muted">
-                <Switch
-                  id="kitchen-deep-clean"
-                  checked={kitchenDeepClean}
-                  onCheckedChange={setKitchenDeepClean}
-                  className="mt-0.5"
-                />
-                <Label htmlFor="kitchen-deep-clean" className="text-sm font-medium cursor-pointer">
-                  Kitchen deep clean · $200–$400
-                </Label>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-md border border-muted">
-                <Switch
-                  id="window-cleaning"
-                  checked={windowCleaning}
-                  onCheckedChange={setWindowCleaning}
-                  className="mt-0.5"
-                />
-                <Label htmlFor="window-cleaning" className="text-sm font-medium cursor-pointer">
-                  Window cleaning (interior, ground-accessible) · $100–$300
-                </Label>
-              </div>
-
-              {/* Post-construction */}
-              <div className="flex flex-col gap-1 p-3 rounded-md border border-muted">
-                <Label className="text-xs text-muted-foreground">
-                  Post-construction / move-in deep clean · $0.25–$0.65/sqft
-                </Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Input
-                    type="number"
-                    min={0}
-                    className="h-8 text-sm w-32"
-                    placeholder="0"
-                    value={postConstrSqftStr}
-                    onChange={(e) => setPostConstrSqftStr(e.target.value)}
-                  />
-                  <span className="text-xs text-muted-foreground">sqft</span>
-                </div>
-                {postConstrError && (
-                  <p className="text-xs text-destructive">{postConstrError}</p>
-                )}
-              </div>
-            </div>
-
-            {/* Rush */}
-            <div className="flex items-start gap-3 p-3 rounded-md border border-amber-200 bg-amber-50">
-              <Switch
-                id="rush-same-day"
-                checked={rushSameDay}
-                onCheckedChange={setRushSameDay}
-                className="mt-0.5"
-              />
-              <div>
-                <Label htmlFor="rush-same-day" className="text-sm font-medium cursor-pointer text-amber-800">
-                  Emergency / rush same-day · +30%/visit
-                </Label>
-                <p className="text-[10px] text-amber-700 mt-0.5">
-                  One-time — shown separately, not included in recurring monthly total.
-                </p>
-              </div>
             </div>
           </section>
 
@@ -583,12 +381,6 @@ export function CommercialCleaningSection({
                           <span>{fmt(result.adjustedPerVisit)}</span>
                         </div>
                       )}
-                      {afterHours && (
-                        <div className="flex justify-between text-orange-700">
-                          <span>After-hours +20%</span>
-                          <span>{fmt(result.perVisitWithSurcharges)}</span>
-                        </div>
-                      )}
                       <div className="flex justify-between">
                         <span>Per visit (final)</span>
                         <span className="font-semibold text-foreground">{fmt(result.perVisitWithSurcharges)}</span>
@@ -627,61 +419,6 @@ export function CommercialCleaningSection({
                       </div>
                     </div>
                   </div>
-
-                  {/* Recurring add-ons affecting monthly */}
-                  {hasRecurringAddOns && (
-                    <div>
-                      <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">
-                        Recurring Add-Ons (included in monthly)
-                      </h4>
-                      {result.addOnLines
-                        .filter((a) => !a.isOneTime)
-                        .map((a, i) => (
-                          <div key={i} className="flex justify-between text-xs mb-1 text-slate-700">
-                            <span>{a.label}</span>
-                            <span className="font-medium font-[family-name:var(--font-inter)]">
-                              {a.isRange ? fmtRange(a.amountLow, a.amountHigh) : fmt(a.amountLow)}
-                            </span>
-                          </div>
-                        ))}
-                      <div className="flex justify-between text-sm font-semibold mt-1 pt-1 border-t">
-                        <span>Monthly with recurring add-ons</span>
-                        <span className="font-[family-name:var(--font-inter)]">{fmt(result.monthlyWithRecurringAddOns)}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* One-time add-ons */}
-                  {hasOneTimeAddOns && (
-                    <div>
-                      <h4 className="text-[10px] font-semibold uppercase text-muted-foreground mb-1.5">
-                        One-Time Add-Ons (separate line)
-                      </h4>
-                      {result.addOnLines
-                        .filter((a) => a.isOneTime)
-                        .map((a, i) => (
-                          <div key={i} className="flex justify-between text-xs mb-1 text-slate-700">
-                            <span>{a.label}</span>
-                            <span className="font-medium">
-                              {a.isRange ? fmtRange(a.amountLow, a.amountHigh) : fmt(a.amountLow)}
-                            </span>
-                          </div>
-                        ))}
-                    </div>
-                  )}
-
-                  {/* Rush (one-time, not in monthly) */}
-                  {rushSameDay && result.rushSurcharge > 0 && (
-                    <div className="p-2 rounded-md bg-amber-50 border border-amber-200">
-                      <h4 className="text-[10px] font-semibold uppercase text-amber-700 mb-1">
-                        Rush Surcharge (one-time, not in monthly)
-                      </h4>
-                      <div className="flex justify-between text-xs text-amber-800">
-                        <span>Emergency / rush same-day (+30%)</span>
-                        <span className="font-medium">+{fmt(result.rushSurcharge)}</span>
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : null}
             </div>

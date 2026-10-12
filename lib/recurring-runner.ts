@@ -69,19 +69,22 @@ export async function materializeRecurringJobs(
     for (const booking of bookings) {
       result.totalEvaluated++;
 
+      const anchorDateStr = booking.contract_start_date || booking.last_job_date || todayStr;
+
       // Determine date window
       let windowStartStr = todayStr;
       if (backfillFromStart && booking.contract_start_date) {
         windowStartStr = booking.contract_start_date;
       }
 
-      // Generate all target dates across window
+      // Generate all target dates across window anchored to contract start date
       const targetDates = generateDatesBetween(
         windowStartStr,
         horizonEndStr,
         booking.frequency,
         booking.days_of_week || [],
-        booking.preferred_day_of_week
+        booking.preferred_day_of_week,
+        anchorDateStr
       );
 
       let latestPastDate: string | null = booking.last_job_date || null;
@@ -191,7 +194,8 @@ export async function materializeRecurringJobs(
           latestPastDate || todayStr,
           booking.frequency,
           booking.days_of_week || [],
-          booking.preferred_day_of_week
+          booking.preferred_day_of_week,
+          anchorDateStr
         );
 
       await supabase

@@ -76,5 +76,32 @@ describe('Recurring Services Utilities', () => {
       '2026-08-03',
     ]);
   });
+
+  it('correctly anchors biweekly schedule during rolling cron lookahead window (e.g. Erin Legary)', () => {
+    // Contract starts on Wednesday Oct 7.
+    // Cron runs on Friday Oct 9 with a 14-day lookahead (Oct 9 to Oct 23).
+    // It must ONLY generate Oct 21 (every 2 weeks from Oct 7), NEVER Oct 9 or Oct 23!
+    const datesOct9 = generateDatesBetween('2026-10-09', '2026-10-23', 'biweekly', [], null, '2026-10-07');
+    expect(datesOct9).toEqual(['2026-10-21']);
+
+    // Cron runs on Sunday Oct 11 with 14-day lookahead (Oct 11 to Oct 25).
+    // It must STILL only generate Oct 21, NEVER Oct 11 or Oct 25!
+    const datesOct11 = generateDatesBetween('2026-10-11', '2026-10-25', 'biweekly', [], null, '2026-10-07');
+    expect(datesOct11).toEqual(['2026-10-21']);
+
+    // Next run date calculation from Oct 11 anchored to Oct 7 is Oct 21
+    const nextDate = calculateNextRunDate('2026-10-11', 'biweekly', [], null, '2026-10-07');
+    expect(nextDate).toBe('2026-10-21');
+  });
+
+  it('correctly anchors monthly schedule during rolling cron lookahead window (e.g. Nathan, 8th of month)', () => {
+    // Contract starts on 8th of month. On Oct 9 with 14-day lookahead (up to Oct 23),
+    // Oct 8 has passed and Nov 8 is outside window -> 0 candidate dates.
+    const dates = generateDatesBetween('2026-10-09', '2026-10-23', 'monthly', [], null, '2026-06-08');
+    expect(dates).toEqual([]);
+
+    const nextDate = calculateNextRunDate('2026-10-11', 'monthly', [], null, '2026-06-08');
+    expect(nextDate).toBe('2026-11-08');
+  });
 });
 

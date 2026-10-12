@@ -65,6 +65,7 @@ interface ZoneMetric {
     job_number: string;
     service_type: string;
     status: string;
+    scheduled_date?: string;
     address_line1: string;
     price: number;
   }[];
@@ -93,6 +94,13 @@ interface MapData {
   employeeLocations: any[];
   employeeHQs: any[];
   zoneMetrics: ZoneMetric[];
+  todayMetrics?: {
+    todayDate: string;
+    jobsToday: number;
+    activeToday: number;
+    completedToday: number;
+    revenueToday: number;
+  };
   assignmentLines: any[];
 }
 
@@ -437,6 +445,17 @@ function QuickAssignDrawer({
 }
 
 // ─── Quick Sale / Canvass Intelligence Slide-Over Drawer ───────────────────────
+function safeJsonParse(val: any, fallback: any = []) {
+  if (!val) return fallback;
+  if (Array.isArray(val) || typeof val === 'object') return val;
+  try {
+    return JSON.parse(val);
+  } catch {
+    return fallback;
+  }
+}
+
+// ─── Quick Sale / Canvass Intelligence Slide-Over Drawer ───────────────────────
 function QuickSaleDrawer({
   sale,
   onClose,
@@ -445,145 +464,338 @@ function QuickSaleDrawer({
   onClose: () => void;
 }) {
   if (!sale) return null;
-  const isSale = sale.status === 'SALE';
-  const isCommercial = sale.kind === 'COMMERCIAL_OPP' || sale.mode === 'commercial';
+
+  const isPlaza = Boolean(sale.is_plaza || sale.kind === 'PLAZA' || sale.total_knocks || (sale.knocks && safeJsonParse(sale.knocks, []).length > 0));
+  const plazaKnocks: any[] = isPlaza ? safeJsonParse(sale.knocks, []) : [];
+  const knockHistory: any[] = !isPlaza ? safeJsonParse(sale.history, []) : [];
+  const serviceHistory: any[] = !isPlaza ? safeJsonParse(sale.service_history, []) : [];
+
+  const isSale = sale.status === 'SALE' || sale.is_sale;
   const price = sale.price || sale.deal_value || sale.expected_mrr;
 
   return (
-    <div className="absolute top-14 left-3 z-30 w-84 max-h-[calc(100vh-140px)] flex flex-col bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-200">
+    <div className="absolute top-14 left-3 z-30 w-96 max-h-[calc(100vh-140px)] flex flex-col bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-200">
       {/* Drawer Header */}
       <div className="p-3.5 border-b border-white/10 flex items-start justify-between bg-white/[0.03]">
-        <div>
-          <div className="flex items-center gap-2">
-            <span
-              className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                isSale
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
-                  : isCommercial
-                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/40'
-                  : 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
-              }`}
-            >
-              {sale.status_label || (isSale ? 'Won Sale' : isCommercial ? 'Commercial Opp' : 'Canvass Knock')}
-            </span>
-            <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-semibold">
-              Rep: {sale.rep_name || 'Teammate'}
-            </span>
+        <div className="min-w-0 flex-1 mr-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {isPlaza ? (
+              <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                <Building2 className="h-3 w-3" />
+                <span>Commercial Plaza</span>
+              </span>
+            ) : (
+              <span
+                className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
+                  isSale
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                    : 'bg-blue-500/20 text-blue-400 border border-blue-500/40'
+                }`}
+              >
+                {sale.status_label || (isSale ? 'Won Sale' : 'Canvass Knock')}
+              </span>
+            )}
+
+            {isPlaza ? (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-semibold">
+                {sale.total_knocks || plazaKnocks.length} Knocks Inside
+              </span>
+            ) : (
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/70 font-semibold">
+                Rep: {sale.rep_name || 'Teammate'}
+              </span>
+            )}
           </div>
-          <h3 className="text-white font-black text-sm mt-1 truncate max-w-[220px]">
-            {sale.homeowner_name || sale.company_name || sale.dm_name || sale.address || 'Field Property'}
+
+          <h3 className="text-white font-black text-sm mt-1.5 truncate">
+            {isPlaza
+              ? (sale.company_name || sale.address || 'Commercial Plaza')
+              : (sale.homeowner_name || sale.company_name || sale.address || 'Field Property')}
           </h3>
-          <p className="text-white/40 text-[11px] truncate">{sale.address}</p>
+          <p className="text-white/40 text-[11px] truncate mt-0.5">{sale.address}</p>
         </div>
         <button
           onClick={onClose}
-          className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-1 rounded-lg text-white/40 hover:text-white hover:bg-white/10 transition-colors shrink-0"
         >
           <X className="h-4 w-4" />
         </button>
       </div>
 
-      {/* Value & Status Strip */}
-      <div className="grid grid-cols-2 gap-2 p-3 bg-white/[0.02] border-b border-white/5 text-center">
-        <div className="bg-white/5 rounded-lg p-2">
-          <span className="text-white/40 text-[9px] uppercase font-bold block">
-            {isCommercial ? 'Expected MRR' : isSale ? 'Sale Value' : 'Outcome'}
-          </span>
-          <span className={`font-black text-sm ${price ? 'text-emerald-400' : 'text-white/60'}`}>
-            {price ? `$${Number(price).toFixed(2)} CAD` : sale.status_label || 'Logged'}
-          </span>
-        </div>
-        <div className="bg-white/5 rounded-lg p-2">
-          <span className="text-white/40 text-[9px] uppercase font-bold block">Status</span>
-          <span
-            className={`font-black text-xs uppercase px-2 py-0.5 rounded-md inline-block mt-0.5 ${
-              sale.job_status === 'COMPLETED'
-                ? 'bg-emerald-500/20 text-emerald-400'
-                : sale.job_status === 'CANCELLED'
-                ? 'bg-red-500/20 text-red-400'
-                : 'bg-blue-500/20 text-blue-300'
-            }`}
-          >
-            {sale.job_status || (isSale ? 'Completed' : 'Recorded')}
-          </span>
-        </div>
-      </div>
+      {/* PLAZA VIEW: Header KPI & List of Knocks within that Plaza */}
+      {isPlaza ? (
+        <div className="flex-1 overflow-y-auto divide-y divide-white/5 scrollbar-thin scrollbar-thumb-white/10">
+          {/* Plaza Summary Strip */}
+          <div className="grid grid-cols-4 gap-1 p-2.5 bg-white/[0.02] text-center text-xs">
+            <div className="bg-white/5 rounded-lg p-1.5">
+              <span className="text-white/40 text-[8px] uppercase font-bold block">Total Knocks</span>
+              <span className="font-black text-purple-400 text-sm">{sale.total_knocks || plazaKnocks.length}</span>
+            </div>
+            <div className="bg-white/5 rounded-lg p-1.5">
+              <span className="text-white/40 text-[8px] uppercase font-bold block">Businesses</span>
+              <span className="font-black text-blue-400 text-sm">
+                {sale.businesses_count || new Set(plazaKnocks.map((k) => k.business_name)).size}
+              </span>
+            </div>
+            <div className="bg-white/5 rounded-lg p-1.5">
+              <span className="text-white/40 text-[8px] uppercase font-bold block">Walkthroughs</span>
+              <span className="font-black text-emerald-400 text-sm">
+                {sale.walkthroughs_count || plazaKnocks.filter((k) => k.outcome_type === 'WALKTHROUGH_BOOKED').length}
+              </span>
+            </div>
+            <div className="bg-white/5 rounded-lg p-1.5">
+              <span className="text-white/40 text-[8px] uppercase font-bold block">DMs Met</span>
+              <span className="font-black text-amber-400 text-sm">
+                {sale.decision_makers_count || plazaKnocks.filter((k) => ['DECISION_MAKER', 'DM_INTERESTED'].includes(k.outcome_type)).length}
+              </span>
+            </div>
+          </div>
 
-      {/* Details list */}
-      <div className="p-3 space-y-2.5 overflow-y-auto text-xs text-white/80">
-        {sale.homeowner_name && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Homeowner</span>
-            <span className="text-white font-bold">{sale.homeowner_name}</span>
-          </div>
-        )}
-        {sale.company_name && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Company</span>
-            <span className="text-white font-bold">{sale.company_name}</span>
-          </div>
-        )}
-        {sale.dm_name && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Decision Maker</span>
-            <span className="text-white font-bold">{sale.dm_name}</span>
-          </div>
-        )}
-        {(sale.phone || sale.dm_phone) && (sale.phone !== '0' || sale.dm_phone) && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Phone</span>
-            <a href={`tel:${sale.phone || sale.dm_phone}`} className="text-blue-400 font-bold hover:underline">
-              {sale.phone || sale.dm_phone}
-            </a>
-          </div>
-        )}
-        {sale.service_date && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Service Date</span>
-            <span className="text-emerald-300 font-bold">{sale.service_date}</span>
-          </div>
-        )}
-        {sale.walkthrough_date && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Walkthrough Date</span>
-            <span className="text-purple-300 font-bold">{sale.walkthrough_date}</span>
-          </div>
-        )}
-        {sale.payment_method && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Payment Method</span>
-            <span className="text-white/70">{sale.payment_method}</span>
-          </div>
-        )}
-        {sale.timestamp && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Logged At</span>
-            <span className="text-white/50 text-[11px]">
-              {new Date(sale.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+          {/* Knocks within that plaza header */}
+          <div className="px-3.5 py-2 bg-purple-950/20 border-b border-purple-500/20 flex items-center justify-between">
+            <span className="text-[10px] font-black uppercase tracking-wider text-purple-300">
+              Knocks Within This Plaza ({plazaKnocks.length})
             </span>
+            <span className="text-[9px] text-white/40 font-mono">Individual Stores</span>
           </div>
-        )}
-        {sale.mode && (
-          <div className="flex items-center justify-between py-1 border-b border-white/5">
-            <span className="text-white/40 font-medium">Mode</span>
-            <span className="text-white/70 uppercase text-[10px] font-bold">{sale.mode}</span>
+
+          {/* List of knocks inside the plaza */}
+          <div className="p-3 space-y-2">
+            {plazaKnocks.length === 0 ? (
+              <div className="p-4 text-center text-white/40 text-xs">
+                No individual storefront knocks recorded yet for this plaza.
+              </div>
+            ) : (
+              plazaKnocks.map((k: any, idx: number) => {
+                const kColor = k.color || '#a855f7';
+                return (
+                  <div
+                    key={k.id || idx}
+                    className="p-2.5 rounded-xl bg-white/[0.03] hover:bg-white/[0.06] border border-white/5 space-y-1.5 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-white font-bold text-xs truncate">
+                            {k.business_name || 'Business'}
+                          </h4>
+                          {k.suite && (
+                            <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-white/10 text-white/60 shrink-0">
+                              Ste {k.suite}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Outcome Badge */}
+                      <span
+                        className="text-[9px] font-bold px-2 py-0.5 rounded-full uppercase shrink-0"
+                        style={{
+                          background: `${kColor}20`,
+                          color: kColor,
+                          border: `1px solid ${kColor}40`,
+                        }}
+                      >
+                        {k.outcome_label || k.outcome_type}
+                      </span>
+                    </div>
+
+                    {/* Rep & Timestamp */}
+                    <div className="flex items-center justify-between text-[10px] text-white/40 font-medium">
+                      <span>Rep: <strong className="text-white/70">{k.rep_name || 'Teammate'}</strong></span>
+                      <span>
+                        {k.timestamp ? new Date(k.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                      </span>
+                    </div>
+
+                    {/* Walkthrough or Deal Details */}
+                    {(k.walkthrough_date || k.expected_mrr || k.price) && (
+                      <div className="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between text-[10px]">
+                        {k.walkthrough_date && (
+                          <span className="text-emerald-300 font-bold">
+                            📅 Walkthrough: {k.walkthrough_date}
+                          </span>
+                        )}
+                        {(k.expected_mrr || k.price) && (
+                          <span className="text-emerald-400 font-black">
+                            ${Number(k.expected_mrr || k.price).toFixed(0)} CAD
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Decision Maker Contact */}
+                    {(k.dm_name || k.dm_phone) && (
+                      <div className="flex items-center justify-between text-[10px] text-white/70 pt-0.5">
+                        {k.dm_name && <span>👤 Contact: <strong>{k.dm_name}</strong></span>}
+                        {k.dm_phone && (
+                          <a
+                            href={`tel:${k.dm_phone}`}
+                            className="text-blue-400 font-bold hover:underline flex items-center gap-1"
+                          >
+                            <Phone className="h-2.5 w-2.5" />
+                            <span>{k.dm_phone}</span>
+                          </a>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Conversation Intel Notes */}
+                    {(k.convo_status || k.objection_type) && (
+                      <div className="text-[10px] text-blue-300/80 bg-blue-500/10 px-2 py-1 rounded">
+                        {k.convo_status} {k.objection_type ? `· ${k.objection_type}` : ''}
+                      </div>
+                    )}
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
-        {(sale.convo_status || sale.objection_type) && (
-          <div className="p-2 rounded-lg bg-white/5 border border-white/5 text-[11px]">
-            <span className="text-white/40 font-semibold block mb-0.5">Conversation Intel</span>
-            <span className="text-blue-300 font-medium">
-              {sale.convo_status} {sale.objection_type ? `· ${sale.objection_type}` : ''}
-            </span>
+        </div>
+      ) : (
+        /* RESIDENTIAL / SINGLE PROPERTY VIEW: Summary & History */
+        <div className="flex-1 overflow-y-auto divide-y divide-white/5 scrollbar-thin scrollbar-thumb-white/10 text-xs">
+          {/* Value & Status Strip (if Sale was won) */}
+          {price && (
+            <div className="grid grid-cols-2 gap-2 p-3 bg-white/[0.02] text-center">
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-white/40 text-[9px] uppercase font-bold block">Sale Value</span>
+                <span className="font-black text-sm text-emerald-400">${Number(price).toFixed(2)} CAD</span>
+              </div>
+              <div className="bg-white/5 rounded-lg p-2">
+                <span className="text-white/40 text-[9px] uppercase font-bold block">Job Status</span>
+                <span className="font-black text-xs uppercase px-2 py-0.5 rounded-md inline-block mt-0.5 bg-emerald-500/20 text-emerald-400">
+                  {sale.job_status || 'Won'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          {/* Details list */}
+          <div className="p-3 space-y-2 text-white/80">
+            {sale.homeowner_name && (
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-white/40 font-medium">Homeowner</span>
+                <span className="text-white font-bold">{sale.homeowner_name}</span>
+              </div>
+            )}
+            {sale.phone && sale.phone !== '0' && (
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-white/40 font-medium">Phone</span>
+                <a href={`tel:${sale.phone}`} className="text-blue-400 font-bold hover:underline">
+                  {sale.phone}
+                </a>
+              </div>
+            )}
+            {sale.service_date && (
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-white/40 font-medium">Service Date</span>
+                <span className="text-emerald-300 font-bold">{sale.service_date}</span>
+              </div>
+            )}
+            {sale.payment_method && (
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-white/40 font-medium">Payment Method</span>
+                <span className="text-white/70">{sale.payment_method}</span>
+              </div>
+            )}
+            {sale.timestamp && (
+              <div className="flex items-center justify-between py-1 border-b border-white/5">
+                <span className="text-white/40 font-medium">Latest Visit</span>
+                <span className="text-white/50 text-[11px]">
+                  {new Date(sale.timestamp).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                </span>
+              </div>
+            )}
+            {(sale.convo_status || sale.objection_type) && (
+              <div className="p-2 rounded-lg bg-white/5 border border-white/5 text-[11px]">
+                <span className="text-white/40 font-semibold block mb-0.5">Conversation Intel</span>
+                <span className="text-blue-300 font-medium">
+                  {sale.convo_status} {sale.objection_type ? `· ${sale.objection_type}` : ''}
+                </span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
+
+          {/* SERVICE & KNOCK HISTORY SECTION */}
+          {knockHistory.length > 0 && (
+            <div className="p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-white/50">
+                  Knock History ({knockHistory.length} Visited)
+                </span>
+                <span className="text-[9px] text-white/30 font-mono">Timeline</span>
+              </div>
+
+              <div className="space-y-1.5">
+                {knockHistory.map((h: any, idx: number) => {
+                  const hColor = h.color || '#64748b';
+                  return (
+                    <div key={h.id || idx} className="p-2 rounded-lg bg-white/[0.03] border border-white/5 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className="text-[9px] font-bold px-1.5 py-0.2 rounded uppercase"
+                          style={{ background: `${hColor}20`, color: hColor, border: `1px solid ${hColor}40` }}
+                        >
+                          {h.outcome_label || h.outcome_type}
+                        </span>
+                        <span className="text-[9px] text-white/40 font-mono">
+                          {h.timestamp ? new Date(h.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                      </div>
+                      <div className="text-[10px] text-white/60 flex items-center justify-between">
+                        <span>Rep: <strong>{h.rep_name || 'Teammate'}</strong></span>
+                        {h.price && <span className="text-emerald-400 font-bold">${h.price} CAD</span>}
+                      </div>
+                      {(h.convo_status || h.objection_type) && (
+                        <p className="text-[9px] text-blue-300/70">{h.convo_status} · {h.objection_type}</p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* LINKED OPERATIONS SERVICE JOBS */}
+          {serviceHistory.length > 0 && (
+            <div className="p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-black uppercase tracking-wider text-blue-400">
+                  SeaOfBlue Service History ({serviceHistory.length})
+                </span>
+                <span className="text-[9px] text-white/30 font-mono">Dispatch Jobs</span>
+              </div>
+
+              <div className="space-y-1.5">
+                {serviceHistory.map((j: any) => (
+                  <div key={j.id} className="p-2 rounded-lg bg-blue-950/20 border border-blue-500/20 flex items-center justify-between">
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-black text-blue-300">#{j.job_number}</span>
+                        <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/5 text-white/70 uppercase">
+                          {j.service_type || 'Cleaning'}
+                        </span>
+                      </div>
+                      <p className="text-[9px] text-white/40 mt-0.5">{j.scheduled_date || 'Scheduled'}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-xs font-black text-green-400">${Number(j.price || 0).toFixed(0)}</span>
+                      <p className="text-[9px] text-white/40 uppercase">{j.status}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Footer */}
       <div className="p-3 border-t border-white/10 bg-white/[0.02] flex items-center gap-2">
-        {(sale.phone || sale.dm_phone) && (sale.phone !== '0' || sale.dm_phone) && (
+        {!isPlaza && sale.phone && sale.phone !== '0' && (
           <a
-            href={`tel:${sale.phone || sale.dm_phone}`}
+            href={`tel:${sale.phone}`}
             className="flex-1 py-1.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs text-center transition-colors flex items-center justify-center gap-1.5"
           >
             <Phone className="h-3.5 w-3.5" />
@@ -596,7 +808,7 @@ function QuickSaleDrawer({
           }}
           className="flex-1 py-1.5 px-3 bg-white/10 hover:bg-white/15 text-white/80 font-bold rounded-lg text-xs text-center transition-colors"
         >
-          Copy Address
+          {isPlaza ? 'Copy Plaza Address' : 'Copy Address'}
         </button>
       </div>
     </div>
@@ -832,7 +1044,7 @@ function ZoneSidebar({
                                   className="flex items-center justify-between p-2 rounded-lg bg-white/[0.04] hover:bg-white/[0.08] border border-white/5 cursor-pointer transition-colors"
                                 >
                                   <div className="min-w-0 flex-1 pr-2">
-                                    <div className="flex items-center gap-1.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
                                       <span className="text-[10px] font-bold text-blue-400">#{pj.job_number}</span>
                                       <span
                                         className="text-[8px] font-bold px-1.5 py-0.2 rounded uppercase"
@@ -840,6 +1052,11 @@ function ZoneSidebar({
                                       >
                                         {(pj.status || '').replace(/_/g, ' ')}
                                       </span>
+                                      {pj.scheduled_date && (
+                                        <span className="text-[8px] px-1.5 py-0.2 rounded bg-white/5 text-white/50 font-mono">
+                                          {pj.scheduled_date}
+                                        </span>
+                                      )}
                                     </div>
                                     <p className="text-[10px] text-white/70 truncate mt-0.5">{pj.address_line1 || 'Address'}</p>
                                   </div>
@@ -964,7 +1181,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
     showEmployees: !isInitialSales,
     showHQs: !isInitialSales,
     showZones: true,
-    showLines: !isInitialSales,
+    showLines: false,
     showHeatmap: false,
     showKnocks: isInitialSales || isInitialHybrid,
     showSalesHeatmap: false,
@@ -992,7 +1209,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         showJobs: true,
         showEmployees: true,
         showHQs: true,
-        showLines: true,
+        showLines: false,
         showHeatmap: false,
         showKnocks: false,
         showCommercialOpps: false,
@@ -1005,7 +1222,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         showJobs: true,
         showEmployees: true,
         showHQs: false,
-        showLines: true,
+        showLines: false,
         showHeatmap: false,
         showKnocks: true,
         showCommercialOpps: true,
@@ -1016,7 +1233,8 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
   };
 
   const supabase = createClient();
-  const [selectedDate, setSelectedDate] = useState<string>('all');
+  const getTodayDateStr = () => new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState<string>(getTodayDateStr);
 
   // ── Fetch Weather ────────────────────────────────────────────────────────────
   const fetchWeather = useCallback(async () => {
@@ -1054,14 +1272,14 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
 
   useEffect(() => {
     fetchData();
-    const iv = setInterval(fetchData, 30000);
+    const iv = setInterval(fetchData, 15000); // 15s polling fallback
     return () => clearInterval(iv);
   }, [fetchData]);
 
   useEffect(() => {
     const ch = supabase
       .channel('dispatch-map-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_locations' }, fetchData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contractor_locations' }, fetchData)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'jobs' }, fetchData)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
@@ -1345,31 +1563,47 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         },
       });
 
-      // Sales Knock Points (Color-coded outcome pins)
+      // Sales Knock Points (Color-coded outcome pins with visual distinctions)
       map.addLayer({
         id: 'sales-knocks-circle',
         type: 'circle',
         source: 'sales-knocks-source',
         filter: ['==', ['get', 'kind'], 'KNOCK'],
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 3.5, 11, 5, 14, 7.5, 17, 12],
+          'circle-radius': [
+            'interpolate', ['linear'], ['zoom'],
+            8, ['case', ['==', ['get', 'is_sale'], true], 5.5, ['==', ['get', 'has_multi_knocks'], true], 4.2, 3],
+            11, ['case', ['==', ['get', 'is_sale'], true], 8.5, ['==', ['get', 'has_multi_knocks'], true], 6.5, 4.8],
+            14, ['case', ['==', ['get', 'is_sale'], true], 12, ['==', ['get', 'has_multi_knocks'], true], 9.5, 7.5],
+            17, ['case', ['==', ['get', 'is_sale'], true], 17, ['==', ['get', 'has_multi_knocks'], true], 14, 11]
+          ],
           'circle-color': ['get', 'color'],
-          'circle-stroke-width': 1.2,
-          'circle-stroke-color': '#ffffff',
+          'circle-stroke-width': [
+            'case',
+            ['==', ['get', 'is_sale'], true], 2.8,
+            ['==', ['get', 'has_multi_knocks'], true], 2.2,
+            1.2
+          ],
+          'circle-stroke-color': [
+            'case',
+            ['==', ['get', 'is_sale'], true], '#fbbf24',
+            ['==', ['get', 'has_multi_knocks'], true], '#38bdf8',
+            '#ffffff'
+          ],
           'circle-opacity': 0.95,
         },
       });
 
-      // Commercial Opportunities (Distinct glowing circle / marker)
+      // Commercial Plazas (ONE BIG DISTINCTIVE DOT PER PLAZA)
       map.addLayer({
         id: 'commercial-opps-circle',
         type: 'circle',
         source: 'sales-knocks-source',
-        filter: ['==', ['get', 'kind'], 'COMMERCIAL_OPP'],
+        filter: ['any', ['==', ['get', 'kind'], 'COMMERCIAL_OPP'], ['==', ['get', 'is_plaza'], true]],
         paint: {
-          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 5.5, 11, 8.5, 14, 12.5, 17, 16],
+          'circle-radius': ['interpolate', ['linear'], ['zoom'], 8, 7.5, 11, 11, 14, 15, 17, 20],
           'circle-color': '#c084fc',
-          'circle-stroke-width': 2.5,
+          'circle-stroke-width': 3,
           'circle-stroke-color': '#ffffff',
           'circle-opacity': 1,
         },
@@ -1384,13 +1618,14 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         const coordinates = (feat.geometry as any).coordinates.slice();
 
         const popupHtml = `
-          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:220px;background:#090d16;color:#fff;border-radius:8px;">
+          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:230px;background:#090d16;color:#fff;border-radius:8px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
               <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:${p.color}25;border:1px solid ${p.color}60;color:${p.color};text-transform:uppercase;">${p.status_label || p.status}</span>
               <span style="font-size:10px;color:#94a3b8;font-weight:600;">Rep: ${p.rep_name || 'Teammate'}</span>
             </div>
             <p style="font-weight:800;font-size:13px;margin:2px 0 2px;color:#f8fafc;line-height:1.2;">${p.address || 'Knocked Property'}</p>
             ${p.homeowner_name ? `<p style="font-size:11px;color:#cbd5e1;margin:1px 0 4px;font-weight:600;">👤 ${p.homeowner_name}</p>` : ''}
+            ${p.knock_count > 1 ? `<p style="font-size:10px;color:#38bdf8;font-weight:700;margin:2px 0 4px;">📍 Visited ${p.knock_count} times • Service & Knock History</p>` : ''}
             
             ${p.price ? `
               <div style="display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(255,255,255,0.1);padding-top:6px;margin-top:4px;">
@@ -1402,7 +1637,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
             ${p.convo_status ? `<p style="font-size:10px;color:#38bdf8;margin:4px 0 0;">${p.convo_status} ${p.objection_type ? '· ' + p.objection_type : ''}</p>` : ''}
             <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:4px;margin-top:6px;font-size:9px;color:#64748b;display:flex;justify-content:space-between;align-items:center;">
               <span>${p.service_date ? 'Service: ' + p.service_date : (p.timestamp ? new Date(p.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : '')}</span>
-              <span style="color:#38bdf8;font-weight:700;">Inspect ↗</span>
+              <span style="color:#38bdf8;font-weight:700;">Click for Service History ↗</span>
             </div>
           </div>
         `;
@@ -1433,18 +1668,18 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         const coordinates = (feat.geometry as any).coordinates.slice();
 
         const popupHtml = `
-          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:230px;background:#090d16;color:#fff;border-radius:8px;">
+          <div style="font-family:system-ui,sans-serif;padding:8px;min-width:240px;background:#090d16;color:#fff;border-radius:8px;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-              <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:#a855f725;border:1px solid #a855f760;color:#c084fc;text-transform:uppercase;">COMMERCIAL B2B</span>
-              <span style="font-size:10px;font-weight:700;color:#22c55e;">${p.expected_mrr ? '$' + Number(p.expected_mrr) + '/mo' : 'Lead'}</span>
+              <span style="font-size:9px;font-weight:800;padding:2px 6px;border-radius:4px;background:#a855f725;border:1px solid #a855f760;color:#c084fc;text-transform:uppercase;">COMMERCIAL PLAZA</span>
+              <span style="font-size:10px;font-weight:700;color:#c084fc;">${p.total_knocks || p.businesses_count || 1} Knocks Inside</span>
             </div>
-            <p style="font-weight:800;font-size:14px;margin:2px 0 2px;color:#f8fafc;line-height:1.2;">${p.company_name || 'Plaza / Storefront'}</p>
+            <p style="font-weight:800;font-size:14px;margin:2px 0 2px;color:#f8fafc;line-height:1.2;">${p.company_name || 'Commercial Plaza'}</p>
             <p style="font-size:10px;color:#94a3b8;margin:0 0 4px;">${p.address || ''}</p>
-            ${p.dm_name ? `<p style="font-size:10px;color:#cbd5e1;margin:2px 0 0;">👤 Contact: <strong style="color:#fff;">${p.dm_name}</strong> ${p.dm_phone ? '(' + p.dm_phone + ')' : ''}</p>` : ''}
-            ${p.walkthrough_date ? `<p style="font-size:10px;color:#38bdf8;margin:2px 0 0;">📅 Walkthrough: ${p.walkthrough_date}</p>` : ''}
+            ${p.businesses_summary ? `<p style="font-size:10px;color:#cbd5e1;margin:2px 0 2px;">🏪 <strong style="color:#fff;">Stores:</strong> ${p.businesses_summary}</p>` : ''}
+            ${p.walkthroughs_count > 0 ? `<p style="font-size:10px;color:#34d399;margin:2px 0 0;font-weight:700;">📅 ${p.walkthroughs_count} Walkthrough(s) Booked</p>` : ''}
             <div style="border-top:1px solid rgba(255,255,255,0.08);padding-top:4px;margin-top:6px;font-size:9px;color:#64748b;display:flex;justify-content:space-between;align-items:center;">
-              <span>B2B Pipeline</span>
-              <span style="color:#a855f7;font-weight:700;">Inspect ↗</span>
+              <span style="color:#a855f7;font-weight:600;">Plaza Canvass Intel</span>
+              <span style="color:#c084fc;font-weight:800;">Click to view knocks within ↗</span>
             </div>
           </div>
         `;
@@ -2011,7 +2246,6 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         { key: 'showEmployees' as const, label: 'Live', icon: Radio },
         { key: 'showKnocks' as const, label: 'Knocks', icon: MapPin },
         { key: 'showCommercialOpps' as const, label: 'Plazas', icon: Building2 },
-        { key: 'showLines' as const, label: 'Routes', icon: GitBranch },
         { key: 'showZones' as const, label: 'Zones', icon: Map },
       ];
     }
@@ -2019,7 +2253,6 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
       { key: 'showJobs' as const, label: 'Jobs', icon: Briefcase },
       { key: 'showEmployees' as const, label: 'Live', icon: Radio },
       { key: 'showHQs' as const, label: 'HQs', icon: Home },
-      { key: 'showLines' as const, label: 'Routes', icon: GitBranch },
       { key: 'showHeatmap' as const, label: 'Heatmap', icon: Flame },
       { key: 'showZones' as const, label: 'Zones', icon: Map },
     ];
@@ -2101,6 +2334,17 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
               <>
                 <div className="flex items-center gap-1 bg-white/5 border border-white/10 rounded-lg p-0.5 shrink-0">
                   <button
+                    onClick={() => setSelectedDate(new Date().toISOString().split('T')[0])}
+                    className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all flex items-center gap-1.5 ${
+                      selectedDate === new Date().toISOString().split('T')[0]
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'text-white/40 hover:text-white/70'
+                    }`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                    <span>Today ({mapData.todayMetrics?.jobsToday ?? (selectedDate === new Date().toISOString().split('T')[0] ? mapData.jobs.length : 0)})</span>
+                  </button>
+                  <button
                     onClick={() => setSelectedDate('all')}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
                       selectedDate === 'all'
@@ -2108,16 +2352,16 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
                         : 'text-white/40 hover:text-white/70'
                     }`}
                   >
-                    All Footprint ({mapData.jobs.length})
+                    All Footprint
                   </button>
                   <button
                     onClick={() => {
-                      if (selectedDate === 'all') {
+                      if (selectedDate === 'all' || selectedDate === new Date().toISOString().split('T')[0]) {
                         setSelectedDate(new Date().toISOString().split('T')[0]);
                       }
                     }}
                     className={`px-2.5 py-1 rounded-md text-[10px] font-bold transition-all ${
-                      selectedDate !== 'all'
+                      selectedDate !== 'all' && selectedDate !== new Date().toISOString().split('T')[0]
                         ? 'bg-blue-600 text-white shadow-sm'
                         : 'text-white/40 hover:text-white/70'
                     }`}
@@ -2126,7 +2370,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
                   </button>
                 </div>
 
-                {selectedDate !== 'all' && (
+                {selectedDate !== 'all' && selectedDate !== new Date().toISOString().split('T')[0] && (
                   <input
                     type="date"
                     value={selectedDate}
@@ -2357,7 +2601,15 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
           ))
         ) : preset === 'hybrid' ? (
           [
-            { label: 'Jobs Today', value: metrics.jobsToday, icon: Briefcase, color: 'text-blue-400' },
+            {
+              label: 'Jobs Today',
+              value: selectedDate === new Date().toISOString().split('T')[0]
+                ? metrics.jobsToday
+                : (mapData.todayMetrics?.jobsToday ?? metrics.jobsToday),
+              icon: Briefcase,
+              color: 'text-blue-400',
+              isLive: true,
+            },
             { label: 'Ops Revenue', value: `$${metrics.revenueToday.toFixed(0)}`, icon: DollarSign, color: 'text-green-400' },
             { label: 'Live Units', value: metrics.employeesOnline, icon: Radio, color: 'text-emerald-400' },
             { label: 'Total Knocks', value: salesSummary.totalKnocks.toLocaleString(), icon: MapPin, color: 'text-blue-400' },
@@ -2365,7 +2617,12 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
             { label: 'B2B Plazas', value: salesSummary.totalOpps, icon: Building2, color: 'text-purple-400' },
           ].map(m => (
             <div key={m.label} className="flex items-center gap-2 bg-black/85 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 shrink-0 shadow-lg">
-              <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
+              <div className="relative">
+                <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
+                {'isLive' in m && m.isLive && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </div>
               <div>
                 <p className="text-white font-black text-sm leading-none">{m.value}</p>
                 <p className="text-white/35 text-[9px] font-bold uppercase tracking-wider mt-0.5">{m.label}</p>
@@ -2374,7 +2631,20 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
           ))
         ) : (
           [
-            { label: 'Jobs Today', value: metrics.jobsToday, icon: Briefcase, color: 'text-blue-400' },
+            {
+              label: selectedDate === new Date().toISOString().split('T')[0]
+                ? 'Jobs Today'
+                : (selectedDate === 'all' ? 'Jobs Today (Live)' : 'Jobs on Date'),
+              value: selectedDate === new Date().toISOString().split('T')[0]
+                ? metrics.jobsToday
+                : (mapData.todayMetrics?.jobsToday ?? metrics.jobsToday),
+              icon: Briefcase,
+              color: 'text-blue-400',
+              isLive: true,
+            },
+            ...(selectedDate === 'all'
+              ? [{ label: 'All Footprint', value: metrics.jobsToday, icon: Map, color: 'text-indigo-400', isLive: false }]
+              : []),
             { label: 'Revenue', value: `$${metrics.revenueToday.toFixed(0)}`, icon: DollarSign, color: 'text-green-400' },
             { label: 'Live Units', value: metrics.employeesOnline, icon: Radio, color: 'text-emerald-400' },
             { label: 'En Route', value: metrics.active, icon: Zap, color: 'text-purple-400' },
@@ -2382,7 +2652,12 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
             { label: 'Issues', value: metrics.issues, icon: AlertTriangle, color: 'text-red-400' },
           ].map(m => (
             <div key={m.label} className="flex items-center gap-2 bg-black/85 backdrop-blur-xl border border-white/10 rounded-xl px-3 py-2 shrink-0 shadow-lg">
-              <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
+              <div className="relative">
+                <m.icon className={`h-3.5 w-3.5 ${m.color}`} />
+                {'isLive' in m && m.isLive && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                )}
+              </div>
               <div>
                 <p className="text-white font-black text-sm leading-none">{m.value}</p>
                 <p className="text-white/35 text-[9px] font-bold uppercase tracking-wider mt-0.5">{m.label}</p>
@@ -2399,7 +2674,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
               ? `Sales Territory: ${salesSummary.totalKnocks.toLocaleString()} logged properties across GTA (Malik, Ayaan, Raahim)`
               : preset === 'hybrid'
               ? `Unified Operations: ${mapData.jobs.length} jobs & ${salesSummary.totalKnocks.toLocaleString()} knocks synchronized`
-              : `Grid active: ${mapData.jobs.length} total operations tracked across GTA`}
+              : `Grid active: ${mapData.jobs.length} operations on map · ${mapData.todayMetrics?.jobsToday ?? 0} jobs live today`}
           </span>
         </div>
       </div>
@@ -2408,7 +2683,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
       <div className="absolute bottom-2 left-3 z-20 text-white/25 text-[10px] flex items-center gap-2">
         <span>Updated {lastRefresh.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
         <span>•</span>
-        <span>Auto-sync 30s</span>
+        <span>Auto-sync 15s</span>
         <span>•</span>
         <span className="text-emerald-400/70">GPS Telemetry Online</span>
       </div>
