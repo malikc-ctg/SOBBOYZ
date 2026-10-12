@@ -1,6 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, Building2, User, Phone, Mail, Layers, Store } from 'lucide-react';
+import {
+  Upload,
+  FileSpreadsheet,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  Building2,
+  User,
+  Phone,
+  Mail,
+  Layers,
+  Store,
+  ArrowUpCircle
+} from 'lucide-react';
 import { batchImportApolloLeads } from '@/lib/sales/phoneService';
 
 /**
@@ -8,6 +21,16 @@ import { batchImportApolloLeads } from '@/lib/sales/phoneService';
  */
 function cleanKey(k) {
   return String(k || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+/**
+ * Formats byte size into human readable string
+ */
+function formatFileSize(bytes) {
+  if (!bytes && bytes !== 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 /**
@@ -121,39 +144,176 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
   const [inputMode, setInputMode] = useState('file'); // 'file' | 'paste'
   const [rawText, setRawText] = useState('');
   const [fileName, setFileName] = useState('');
+  const [fileSize, setFileSize] = useState(null);
+  const [rawRows, setRawRows] = useState([]);
   const [vertical, setVertical] = useState('post_construction');
   const [parsedLeads, setParsedLeads] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  
+  // Drag and drop states
+  const [isDragging, setIsDragging] = useState(false);
+  const [isModalDragging, setIsModalDragging] = useState(false);
+  const dragCounter = useRef(0);
+  const modalDragCounter = useRef(0);
+  const fileInputRef = useRef(null);
 
   if (!isOpen) return null;
 
-  // Process XLSX / XLS / CSV / TSV file upload
-  const handleFileUpload = async (e) => {
-    const file = e.target.files?.[0];
+  // Process a File object (from input change or drag-and-drop)
+  const processFile = async (file) => {
     if (!file) return;
+
+    const validExtensions = ['.csv', '.xlsx', '.xls', '.tsv', '.txt'];
+    const nameLower = file.name.toLowerCase();
+    const hasValidExt = validExtensions.some(ext => nameLower.endsWith(ext));
+
+    if (!hasValidExt) {
+      setErrorMsg('Unsupported file format. Please upload or drop a .csv, .xlsx, .xls, or .tsv file.');
+      return;
+    }
 
     setErrorMsg('');
     setFileName(file.name);
+    setFileSize(file.size);
 
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
+      if (!firstSheetName) {
+        setErrorMsg('The selected spreadsheet does not contain any sheets.');
+        setParsedLeads([]);
+        setRawRows([]);
+        return;
+      }
+
       const worksheet = workbook.Sheets[firstSheetName];
       const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
       if (!jsonRows || jsonRows.length === 0) {
         setErrorMsg('The selected spreadsheet does not contain any data rows.');
         setParsedLeads([]);
+        setRawRows([]);
         return;
       }
 
+      setRawRows(jsonRows);
       const mapped = jsonRows.map(row => mapRowToLead(row, vertical));
       setParsedLeads(mapped);
     } catch (err) {
       console.error('[LeadImporter] File read error:', err);
       setErrorMsg('Failed to read file. Please ensure it is a valid .csv, .xlsx, or .xls file.');
+    }
+  };
+
+  // Process file upload from file picker dialog
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      await processFile(file);
+    }
+  };
+
+  // Clear loaded file and parsed results
+  const handleClearFile = (e) => {
+    if (e) e.stopPropagation();
+    setFileName('');
+    setFileSize(null);
+    setRawRows([]);
+    setParsedLeads([]);
+    setErrorMsg('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Drag-and-drop event handlers for the drop zone
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsDragging(true);
+    }
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounter.current -= 1;
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0;
+      setIsDragging(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    dragCounter.current = 0;
+    setIsModalDragging(false);
+    modalDragCounter.current = 0;
+
+    if (inputMode !== 'file') {
+      setInputMode('file');
+    }
+
+    const files = e.dataTransfer?.files;
+    if (files && files.length > 0) {
+      await processFile(files[0]);
+    }
+  };
+
+  // Modal-wide drag handlers so dropping anywhere on the modal works cleanly
+  const handleModalDragEnter = (e) => {
+    e.preventDefault();
+    modalDragCounter.current += 1;
+    if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+      setIsModalDragging(true);
+    }
+  };
+
+  const handleModalDragLeave = (e) => {
+    e.preventDefault();
+    modalDragCounter.current -= 1;
+    if (modalDragCounter.current <= 0) {
+      modalDragCounter.current = 0;
+      setIsModalDragging(false);
+    }
+  };
+
+  const handleModalDragOver = (e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'copy';
+  };
+
+  // Re-map when vertical selection changes
+  const handleVerticalChange = (newVertical) => {
+    setVertical(newVertical);
+    if (rawRows && rawRows.length > 0) {
+      setParsedLeads(rawRows.map(row => mapRowToLead(row, newVertical)));
+    } else if (rawText && rawText.trim()) {
+      try {
+        const workbook = XLSX.read(rawText, { type: 'string' });
+        const firstSheetName = workbook.SheetNames[0];
+        if (firstSheetName) {
+          const worksheet = workbook.Sheets[firstSheetName];
+          const jsonRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+          if (jsonRows && jsonRows.length > 0) {
+            setParsedLeads(jsonRows.map(row => mapRowToLead(row, newVertical)));
+          }
+        }
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -214,8 +374,25 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
   const missingPhone = totalParsed - withPhone;
 
   return (
-    <div className="phone-modal-overlay" style={{ zIndex: 2500 }}>
-      <div className="phone-modal-content" style={{ maxWidth: 680, maxHeight: '90vh', overflowY: 'auto' }}>
+    <div
+      className="phone-modal-overlay"
+      style={{ zIndex: 2500 }}
+      onDragEnter={handleModalDragEnter}
+      onDragLeave={handleModalDragLeave}
+      onDragOver={handleModalDragOver}
+      onDrop={handleDrop}
+    >
+      <div
+        className="phone-modal-content relative transition-all duration-200"
+        style={{
+          maxWidth: 680,
+          maxHeight: '90vh',
+          overflowY: 'auto',
+          boxShadow: isModalDragging
+            ? '0 0 0 2px rgba(59, 130, 246, 0.5), 0 20px 40px rgba(0, 0, 0, 0.9)'
+            : undefined
+        }}
+      >
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-slate-700/40">
@@ -225,7 +402,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
               Import Calling Leads
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Supports .csv, .xlsx, .xls, .tsv, and spreadsheet copy-paste with automatic column mapping
+              Supports .csv, .xlsx, .xls, .tsv, drag-and-drop, and spreadsheet copy-paste with automatic column mapping
             </p>
           </div>
           <button
@@ -249,7 +426,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
                   ? 'border-blue-500/60 bg-blue-500/10 text-white'
                   : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
               }`}
-              onClick={() => setVertical('post_construction')}
+              onClick={() => handleVerticalChange('post_construction')}
             >
               <Building2 className="w-4 h-4 text-blue-400 mt-0.5" />
               <div>
@@ -267,7 +444,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
                   ? 'border-blue-500/60 bg-blue-500/10 text-white'
                   : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
               }`}
-              onClick={() => setVertical('franchise_owners')}
+              onClick={() => handleVerticalChange('franchise_owners')}
             >
               <Store className="w-4 h-4 text-amber-400 mt-0.5" />
               <div>
@@ -285,7 +462,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
                   ? 'border-blue-500/60 bg-blue-500/10 text-white'
                   : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
               }`}
-              onClick={() => setVertical('commercial')}
+              onClick={() => handleVerticalChange('commercial')}
             >
               <Layers className="w-4 h-4 text-purple-400 mt-0.5" />
               <div>
@@ -327,23 +504,100 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
           </div>
 
           {inputMode === 'file' ? (
-            <div className="border-2 border-dashed border-slate-700/70 rounded-xl p-6 text-center bg-slate-900/40 hover:border-blue-500/50 transition">
+            <div
+              className={`relative border-2 border-dashed rounded-xl p-6 text-center transition-all duration-200 cursor-pointer ${
+                isDragging || isModalDragging
+                  ? 'border-blue-400 bg-blue-500/15 ring-4 ring-blue-500/20 scale-[1.01]'
+                  : fileName
+                  ? 'border-slate-700/80 bg-slate-900/60 hover:border-slate-600'
+                  : 'border-slate-700/80 bg-slate-900/40 hover:border-blue-500/50 hover:bg-slate-900/60'
+              }`}
+              onDragEnter={handleDragEnter}
+              onDragLeave={handleDragLeave}
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+              onClick={() => fileInputRef.current?.click()}
+            >
               <input
+                ref={fileInputRef}
                 type="file"
                 accept=".csv,.xlsx,.xls,.tsv,.txt"
                 id="lead-file-input"
                 className="hidden"
                 onChange={handleFileUpload}
               />
-              <label htmlFor="lead-file-input" className="cursor-pointer block">
-                <Upload className="w-8 h-8 text-blue-400 mx-auto mb-2" />
-                <span className="text-xs font-bold text-white block">
-                  {fileName ? fileName : 'Click to select CSV, Excel (.xlsx, .xls), or TSV file'}
-                </span>
-                <span className="text-[11px] text-slate-400 block mt-1">
-                  Automatic field recognition for First Name, Last Name, Title, Company, Phones, Email, Seniority
-                </span>
-              </label>
+
+              {isDragging || isModalDragging ? (
+                <div className="flex flex-col items-center justify-center py-2 animate-in fade-in duration-150">
+                  <div className="w-12 h-12 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center mb-2.5 animate-bounce">
+                    <ArrowUpCircle className="w-7 h-7 text-blue-300" />
+                  </div>
+                  <span className="text-sm font-bold text-blue-200 block">
+                    Drop your spreadsheet file here
+                  </span>
+                  <span className="text-xs text-blue-400/80 mt-1">
+                    Release to automatically parse contacts & columns
+                  </span>
+                </div>
+              ) : fileName ? (
+                <div onClick={(e) => e.stopPropagation()} className="space-y-2">
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-slate-950/70 border border-slate-800 rounded-lg text-left">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 flex items-center justify-center shrink-0">
+                        <FileSpreadsheet className="w-5 h-5" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="text-xs font-bold text-white truncate max-w-xs sm:max-w-md" title={fileName}>
+                          {fileName}
+                        </div>
+                        <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-2">
+                          {fileSize ? <span>{formatFileSize(fileSize)}</span> : null}
+                          <span>•</span>
+                          <span className="text-emerald-400 font-semibold">{totalParsed} contacts parsed</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <button
+                        type="button"
+                        className="text-xs px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fileInputRef.current?.click();
+                        }}
+                      >
+                        Change File
+                      </button>
+                      <button
+                        type="button"
+                        className="text-xs p-1 rounded hover:bg-red-500/20 text-slate-400 hover:text-red-400 transition"
+                        title="Remove file"
+                        onClick={handleClearFile}
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                  <div
+                    className="text-[10px] text-slate-400/80 cursor-pointer hover:text-slate-300 transition"
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    Drag & drop another file or click to replace
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <div className="w-11 h-11 rounded-full bg-blue-500/10 text-blue-400 flex items-center justify-center mx-auto mb-2.5">
+                    <Upload className="w-5 h-5 text-blue-400" />
+                  </div>
+                  <span className="text-xs font-bold text-white block">
+                    Drag & drop CSV or Excel file here, or <span className="text-blue-400 underline decoration-blue-500/40">browse files</span>
+                  </span>
+                  <span className="text-[11px] text-slate-400 block mt-1">
+                    Supports .csv, .xlsx, .xls, and .tsv with automatic field recognition
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div>
