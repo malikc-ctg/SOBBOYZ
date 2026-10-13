@@ -36,7 +36,7 @@ import {
   MessageSquare,
   Sparkles
 } from 'lucide-react';
-import { CALL_OUTCOMES, normalizeRepName } from '@/lib/sales/phoneService';
+import { CALL_OUTCOMES, normalizeRepName, parsePhoneAndExt } from '@/lib/sales/phoneService';
 import FollowupPanel from './followups/FollowupPanel';
 import DossierFooterGmailButton from './followups/DossierFooterGmailButton';
 
@@ -1010,40 +1010,68 @@ export default function LeadDossierModal({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
               {/* Direct Desk Line */}
-              <div
-                onClick={() => handleCopyNumber(contact.work_direct_phone || contact.phone, 'desk')}
-                className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/50 flex items-center justify-between gap-2 cursor-pointer transition group"
-                title="Click to copy direct desk phone"
-              >
-                <div className="min-w-0">
-                  <div className="text-[10px] uppercase font-bold text-slate-400">Direct Desk / Extension</div>
-                  <div className="font-mono text-sm font-bold text-blue-300 truncate mt-0.5 group-hover:text-blue-200">
-                    {contact.work_direct_phone || contact.phone || 'No direct line'}
-                  </div>
-                </div>
-                {(contact.work_direct_phone || contact.phone) && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCopyNumber(contact.work_direct_phone || contact.phone, 'desk');
-                    }}
-                    className="px-2.5 py-1.5 bg-blue-950 hover:bg-blue-900/60 border border-blue-800/80 text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0"
+              {(() => {
+                const rawDesk = contact.work_direct_phone || contact.phone;
+                const deskInfo = parsePhoneAndExt(rawDesk, contact.extension);
+                return (
+                  <div
+                    onClick={() => handleCopyNumber(deskInfo.display || rawDesk, 'desk')}
+                    className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-blue-500/50 flex items-center justify-between gap-2 cursor-pointer transition group"
+                    title="Click to copy direct desk phone and extension"
                   >
-                    {copiedKey === 'desk' ? (
-                      <>
-                        <Check size={12} className="text-emerald-400" />
-                        <span className="text-emerald-400">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy size={12} />
-                        <span>Copy</span>
-                      </>
+                    <div className="min-w-0">
+                      <div className="text-[10px] uppercase font-bold text-slate-400">Direct Desk / Extension</div>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        <span className="font-mono text-sm font-bold text-blue-300 truncate group-hover:text-blue-200">
+                          {deskInfo.phone || 'No direct line'}
+                        </span>
+                        {deskInfo.ext && (
+                          <span className="px-1.5 py-0.5 rounded text-[11px] font-bold font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                            Ext {deskInfo.ext}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    {rawDesk && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {deskInfo.ext && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyNumber(deskInfo.ext, 'desk_ext');
+                            }}
+                            className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded-lg text-xs font-mono font-bold transition"
+                            title="Copy extension only"
+                          >
+                            {copiedKey === 'desk_ext' ? 'Copied Ext!' : `x${deskInfo.ext}`}
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyNumber(deskInfo.display || rawDesk, 'desk');
+                          }}
+                          className="px-2.5 py-1.5 bg-blue-950 hover:bg-blue-900/60 border border-blue-800/80 text-blue-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition"
+                        >
+                          {copiedKey === 'desk' ? (
+                            <>
+                              <Check size={12} className="text-emerald-400" />
+                              <span className="text-emerald-400">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy size={12} />
+                              <span>Copy</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     )}
-                  </button>
-                )}
-              </div>
+                  </div>
+                );
+              })()}
 
               {/* Mobile Cell */}
               <div

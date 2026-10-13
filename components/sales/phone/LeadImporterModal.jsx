@@ -14,7 +14,7 @@ import {
   Store,
   ArrowUpCircle
 } from 'lucide-react';
-import { batchImportApolloLeads } from '@/lib/sales/phoneService';
+import { batchImportApolloLeads, parsePhoneAndExt } from '@/lib/sales/phoneService';
 
 /**
  * Normalizes keys to lowercase alphanumeric
@@ -81,12 +81,20 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
   const title = extractField(row, ['title', 'position', 'jobtitle', 'role', 'occupation']) || '';
   const company = extractField(row, ['companyname', 'company', 'organization', 'accountname', 'account', 'business'], { exclude: ['email'] }) || 'Commercial Prospect';
   
-  // Phone fields
-  const workDirectPhone = extractField(row, ['workdirectphone', 'directphone', 'directline', 'workphone', 'extension', 'ext']) || '';
+  // Extension & Phone fields
+  const explicitExt = extractField(row, ['extension', 'ext', 'phoneextension', 'workextension', 'directextension']) || '';
+  const workDirectPhone = extractField(row, ['workdirectphone', 'directphone', 'directline', 'workphone'], { exclude: ['extension', 'ext'] }) || '';
   const mobilePhone = extractField(row, ['mobilephone', 'cellphone', 'mobile', 'cell']) || '';
   const corporatePhone = extractField(row, ['corporatephone', 'companyphone', 'mainphone', 'hqphone', 'switchboard']) || '';
-  const genericPhone = extractField(row, ['phone', 'phonenumber', 'telephone', 'tel']) || '';
-  const primaryPhone = workDirectPhone || mobilePhone || genericPhone || corporatePhone || '';
+  const genericPhone = extractField(row, ['phone', 'phonenumber', 'telephone', 'tel'], { exclude: ['extension', 'ext'] }) || '';
+  let primaryPhone = workDirectPhone || mobilePhone || genericPhone || corporatePhone || '';
+
+  // Parse and separate extension if present in string or explicit column
+  const parsedPhoneInfo = parsePhoneAndExt(primaryPhone, explicitExt);
+  const finalExt = parsedPhoneInfo.ext || explicitExt || '';
+  if (finalExt && !primaryPhone.toLowerCase().includes('ext')) {
+    primaryPhone = primaryPhone ? `${primaryPhone} ext ${finalExt}` : `ext ${finalExt}`;
+  }
 
   const email = extractField(row, ['email', 'workemail', 'contactemail', 'corporateemail', 'emailaddress'], { exclude: ['company', 'account'] }) || '';
   const city = extractField(row, ['city', 'companycity', 'location', 'locality', 'metro']) || 'GTA';
@@ -103,6 +111,7 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
 
   // Rich metadata package
   const intel = {
+    extension: finalExt,
     seniority: seniority || 'Manager',
     departments,
     sub_departments: subDepartments,
@@ -689,7 +698,19 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
                       <td className="p-2 font-medium">{l.company_name}</td>
                       <td className="p-2">
                         {l.customer_phone ? (
-                          <span className="text-blue-400 font-medium">{l.customer_phone}</span>
+                          (() => {
+                            const pInfo = parsePhoneAndExt(l.customer_phone);
+                            return (
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-blue-400 font-medium">{pInfo.phone || l.customer_phone}</span>
+                                {pInfo.ext && (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                                    Ext {pInfo.ext}
+                                  </span>
+                                )}
+                              </div>
+                            );
+                          })()
                         ) : (
                           <span className="text-slate-400 text-[10px]">No Phone</span>
                         )}

@@ -129,7 +129,21 @@ export async function GET(request: NextRequest) {
         } catch {}
       }
 
-      const primaryPhone = l.customer_phone || intel.work_direct_phone || intel.mobile_phone || intel.corporate_phone || '';
+      const rawExt = String(intel.extension || intel.ext || '').trim();
+      let primaryPhone = l.customer_phone || '';
+      // If customer_phone lacks extension but work_direct_phone has one, prioritize work_direct_phone
+      if (intel.work_direct_phone && !/\b(?:ext\.?|extension|x|#)\s*[0-9]{1,6}\b/i.test(primaryPhone) && /\b(?:ext\.?|extension|x|#)\s*[0-9]{1,6}\b/i.test(intel.work_direct_phone)) {
+        primaryPhone = intel.work_direct_phone;
+      }
+      if (!primaryPhone) {
+        primaryPhone = intel.work_direct_phone || intel.mobile_phone || intel.corporate_phone || '';
+      }
+      const extMatch = primaryPhone.match(/\b(?:ext\.?|extension|x|#)\s*([0-9]{1,6})\b/i);
+      const leadExtension = rawExt || (extMatch ? extMatch[1] : '');
+      if (leadExtension && !extMatch && primaryPhone) {
+        primaryPhone = `${primaryPhone} ext ${leadExtension}`;
+      }
+
       const cleanLeadPhone = primaryPhone.replace(/[^0-9]/g, '');
       const leadCompany = l.company_name || 'Commercial Prospect';
       const normCompany = normalizeComp(leadCompany);
@@ -182,6 +196,7 @@ export async function GET(request: NextRequest) {
         company: leadCompany,
         position: l.contact_title || '',
         phone: primaryPhone,
+        extension: leadExtension || null,
         email: l.customer_email || '',
         city: l.city || 'GTA',
         service_type: l.service_type || 'post_construction_clean',

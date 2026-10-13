@@ -16,8 +16,11 @@ import {
   Copy,
   Flame,
   Settings,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { matchContactSearch } from '@/lib/sales/searchUtils';
+import { parsePhoneAndExt } from '@/lib/sales/phoneService';
 import { gmailComposeUrl, gmailSearchUrl } from '@/lib/sales/followups/compose';
 import { renderEmail } from '@/lib/sales/followups/render';
 import { resolveRepConfig } from '@/lib/sales/followups/config';
@@ -263,13 +266,12 @@ export default function TouchCentreView({
 
       // Search matching
       if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const nameMatch = (item.contact.name || '').toLowerCase().includes(q);
-        const compMatch = (item.contact.company || '').toLowerCase().includes(q);
-        const phoneMatch = (item.contact.phone || '').includes(q);
-        const titleMatch = (item.nextTask?.title || '').toLowerCase().includes(q);
-        const repMatch = (item.effectiveRep.name || '').toLowerCase().includes(q);
-        if (!nameMatch && !compMatch && !phoneMatch && !titleMatch && !repMatch) {
+        const contactForSearch = {
+          ...item.contact,
+          rep_name: item.effectiveRep?.name || item.contact?.rep_name,
+          last_notes: item.nextTask?.title || item.contact?.last_notes
+        };
+        if (!matchContactSearch(contactForSearch, searchQuery)) {
           return false;
         }
       }
@@ -703,9 +705,19 @@ export default function TouchCentreView({
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search contact, company, phone..."
-            className="w-full pl-9 pr-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600 transition"
+            placeholder="Search contact, company, title, phone, notes..."
+            className="w-full pl-9 pr-8 py-1.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-600 transition"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              aria-label="Clear search"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-md transition"
+            >
+              <X size={13} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -834,19 +846,29 @@ export default function TouchCentreView({
                     <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
                       {/* Phone box */}
                       {contact.phone ? (
-                        <div
-                          onClick={() => handleCopy(contact.phone, `phone-${contact.id}`)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-blue-600/50 cursor-pointer flex items-center gap-1.5 font-mono text-slate-300 transition"
-                          title="Click to copy phone"
-                        >
-                          <Phone size={11} className="text-blue-400" />
-                          <span>{contact.phone}</span>
-                          {copiedId === `phone-${contact.id}` ? (
-                            <Check size={11} className="text-emerald-400" />
-                          ) : (
-                            <Copy size={11} className="text-slate-500" />
-                          )}
-                        </div>
+                        (() => {
+                          const pInfo = parsePhoneAndExt(contact.phone, contact.extension);
+                          return (
+                            <div
+                              onClick={() => handleCopy(pInfo.display || contact.phone, `phone-${contact.id}`)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-950 border border-slate-800 hover:border-blue-600/50 cursor-pointer flex items-center gap-1.5 font-mono text-slate-300 transition"
+                              title="Click to copy phone"
+                            >
+                              <Phone size={11} className="text-blue-400 shrink-0" />
+                              <span>{pInfo.phone || contact.phone}</span>
+                              {pInfo.ext && (
+                                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                                  Ext {pInfo.ext}
+                                </span>
+                              )}
+                              {copiedId === `phone-${contact.id}` ? (
+                                <Check size={11} className="text-emerald-400 shrink-0" />
+                              ) : (
+                                <Copy size={11} className="text-slate-500 shrink-0" />
+                              )}
+                            </div>
+                          );
+                        })()
                       ) : (
                         <span className="text-[11px] text-slate-500 font-mono">No phone</span>
                       )}

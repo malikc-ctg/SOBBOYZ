@@ -13,9 +13,11 @@ import {
   Copy,
   Check,
   FileText,
-  BarChart3
+  BarChart3,
+  X
 } from 'lucide-react';
 import { getTodayCallStats, isAutomatedSource } from '@/lib/sales/phoneService';
+import { matchCallEventSearch } from '@/lib/sales/searchUtils';
 
 export default function RepStatsView({ onOpenDossier, initialRep = 'all' }) {
   const [loading, setLoading] = useState(true);
@@ -68,18 +70,7 @@ export default function RepStatsView({ onOpenDossier, initialRep = 'all' }) {
   const calls = statsData?.calls || [];
 
   // Filter calls by search query
-  const filteredCalls = calls.filter(c => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (c.contact_name && c.contact_name.toLowerCase().includes(q)) ||
-      (c.company_name && c.company_name.toLowerCase().includes(q)) ||
-      (c.phone_number && c.phone_number.includes(q)) ||
-      (c.rep_name && c.rep_name.toLowerCase().includes(q)) ||
-      (c.outcome_type && c.outcome_type.toLowerCase().includes(q)) ||
-      (c.notes && c.notes.toLowerCase().includes(q))
-    );
-  });
+  const filteredCalls = calls.filter(c => matchCallEventSearch(c, searchQuery));
 
   // Calculate current period label
   let periodLabel = 'Today (Live Shift)';
@@ -482,11 +473,21 @@ export default function RepStatsView({ onOpenDossier, initialRep = 'all' }) {
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
-              placeholder="Search shift calls..."
+              placeholder="Search rep, contact, company, phone, notes..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-8 pr-8 py-1.5 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-md transition"
+              >
+                <X size={13} />
+              </button>
+            )}
           </div>
         </div>
 

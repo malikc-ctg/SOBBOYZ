@@ -62,8 +62,11 @@ export async function GET(request: NextRequest) {
 
     let query = supabase.from('leads').select('*').order('created_at', { ascending: false });
 
-    // Exclude Quo imported contacts and calls from the Leads tab
-    query = query.neq('source', 'quo_telephony').not('source', 'ilike', '%quo%');
+    // Exclude Quo imported contacts, contact imports, and phone sales OS leads from the Leads tab
+    query = query
+      .neq('source', 'quo_telephony')
+      .not('source', 'ilike', '%quo%')
+      .not('source', 'in', '(contact_import,phone_sales_os,apollo)');
 
     const status = searchParams.get('status');
     if (status) query = query.eq('status', status);

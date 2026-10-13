@@ -11,10 +11,13 @@ import {
   Check,
   Plus,
   Upload,
-  Settings
+  Settings,
+  X
 } from 'lucide-react';
 import FollowupStrip from './followups/FollowupStrip';
 import { getDueBucket } from '@/lib/sales/followups/schedule';
+import { matchContactSearch } from '@/lib/sales/searchUtils';
+import { parsePhoneAndExt } from '@/lib/sales/phoneService';
 
 export const SECTORS = [
   { key: 'post_construction', label: 'Post-Construction', shortLabel: 'Construction', color: 'blue', description: 'General Contractors, Builders, Developers, Site Supers' },
@@ -283,17 +286,9 @@ export default function SalesKanbanBoard({
   // Filter contacts by search query and active sector filter
   const filteredContacts = useMemo(() => {
     return contacts.filter(c => {
-      // Search matching
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase();
-        const matchesName = (c.name || '').toLowerCase().includes(q);
-        const matchesCompany = (c.company || '').toLowerCase().includes(q);
-        const matchesPosition = (c.position || '').toLowerCase().includes(q);
-        const matchesCity = (c.city || '').toLowerCase().includes(q);
-        const matchesPhone = (c.phone || '').includes(q);
-        if (!matchesName && !matchesCompany && !matchesPosition && !matchesCity && !matchesPhone) {
-          return false;
-        }
+      // Expanded search matching
+      if (searchQuery.trim() && !matchContactSearch(c, searchQuery)) {
+        return false;
       }
 
       // Filter by sector tab
@@ -405,11 +400,21 @@ export default function SalesKanbanBoard({
               <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
-                placeholder="Search by name, company, position, phone, city..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-8 py-2 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-blue-500 transition"
+                placeholder="Search name, company, title, phone, email, notes, city, sector..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded-md transition"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
             {/* Sector Dropdown Filter */}
@@ -866,43 +871,53 @@ export default function SalesKanbanBoard({
                           </div>
 
                           {/* Middle: Phone Display - Entire Box is 1-Click Copy */}
-                          <div
-                            onClick={e => handleCopyPhone(e, contact.id, contact.phone)}
-                            className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800/80 hover:border-blue-600/50 flex items-center justify-between text-xs cursor-pointer transition group/phone"
-                            title="Click anywhere to copy phone number"
-                          >
-                            <div className="flex items-center gap-2 font-mono text-[12px] font-medium text-slate-200">
-                              <span className="group-hover/phone:text-blue-300 transition">
-                                {contact.phone || 'No direct phone'}
-                              </span>
-                              {contact.phone && (
-                                <span className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-400 group-hover/phone:text-white transition">
-                                  {copiedId === contact.id ? (
-                                    <span className="flex items-center gap-1 text-emerald-400 text-[10px] font-sans font-bold">
-                                      <Check size={11} /> Copied!
+                          {(() => {
+                            const phoneInfo = parsePhoneAndExt(contact.phone, contact.extension);
+                            return (
+                              <div
+                                onClick={e => handleCopyPhone(e, contact.id, phoneInfo.display || contact.phone)}
+                                className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800/80 hover:border-blue-600/50 flex items-center justify-between text-xs cursor-pointer transition group/phone"
+                                title="Click anywhere to copy phone number"
+                              >
+                                <div className="flex items-center gap-1.5 font-mono text-[12px] font-medium text-slate-200 flex-wrap">
+                                  <span className="group-hover/phone:text-blue-300 transition">
+                                    {phoneInfo.phone || 'No direct phone'}
+                                  </span>
+                                  {phoneInfo.ext && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                                      Ext {phoneInfo.ext}
+                                    </span>
+                                  )}
+                                  {contact.phone && (
+                                    <span className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-400 group-hover/phone:text-white transition ml-0.5">
+                                      {copiedId === contact.id ? (
+                                        <span className="flex items-center gap-1 text-emerald-400 text-[10px] font-sans font-bold">
+                                          <Check size={11} /> Copied!
+                                        </span>
+                                      ) : (
+                                        <Copy size={11} />
+                                      )}
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div className="flex items-center gap-1.5 text-[10px] shrink-0">
+                                  {hasDials ? (
+                                    <span className="text-blue-300 font-mono font-semibold">
+                                      {contact.times_contacted} dials
                                     </span>
                                   ) : (
-                                    <Copy size={11} />
+                                    <span className="text-slate-400 font-mono">Untouched</span>
                                   )}
-                                </span>
-                              )}
-                            </div>
-
-                            <div className="flex items-center gap-1.5 text-[10px]">
-                              {hasDials ? (
-                                <span className="text-blue-300 font-mono font-semibold">
-                                  {contact.times_contacted} dials
-                                </span>
-                              ) : (
-                                <span className="text-slate-400 font-mono">Untouched</span>
-                              )}
-                              {contact.last_outcome && (
-                                <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 font-mono border border-slate-700/80 font-bold">
-                                  {contact.last_outcome}
-                                </span>
-                              )}
-                            </div>
-                          </div>
+                                  {contact.last_outcome && (
+                                    <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 font-mono border border-slate-700/80 font-bold">
+                                      {contact.last_outcome}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })()}
 
                           {/* Sector Tag & Stage Badge */}
                           <div className="flex items-center justify-between gap-2 text-xs">

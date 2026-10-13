@@ -6,6 +6,7 @@ import {
   logCallEvent,
   getTodayCallStats,
   normalizeRepName,
+  parsePhoneAndExt,
 } from '@/lib/sales/phoneService';
 import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
 import { toast } from 'sonner';
@@ -46,7 +47,9 @@ import {
   Copy,
   Sparkles,
   RefreshCw,
+  X,
 } from 'lucide-react';
+import { matchContactSearch } from '@/lib/sales/searchUtils';
 import LeadImporterModal from './LeadImporterModal';
 import AddLeadModal from './AddLeadModal';
 import WalkthroughModal from './WalkthroughModal';
@@ -481,10 +484,13 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       }
 
       const existing = contacts.find(c => c.id === contactId) || {};
+      const effectivePhone = updatedFields.phone || updatedFields.work_direct_phone || existing.phone;
+      const parsedExtInfo = parsePhoneAndExt(effectivePhone, updatedFields.extension || existing.extension);
       const updated = {
         ...existing,
         ...updatedFields,
-        phone: updatedFields.phone || updatedFields.work_direct_phone || existing.phone,
+        phone: effectivePhone,
+        extension: parsedExtInfo.ext || null,
         work_direct_phone: updatedFields.work_direct_phone !== undefined ? updatedFields.work_direct_phone : existing.work_direct_phone,
         mobile_phone: updatedFields.mobile_phone !== undefined ? updatedFields.mobile_phone : existing.mobile_phone,
       };
@@ -1056,8 +1062,8 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     setSaleServiceType(callingContact.service_type || 'Post-Construction Turnover Clean');
 
     if (phoneToCall) {
-      const cleanPhone = phoneToCall.replace(/[^0-9+]/g, '');
-      window.location.href = `tel:${cleanPhone}`;
+      const parsed = parsePhoneAndExt(phoneToCall, contact?.extension);
+      window.location.href = parsed.dialable || `tel:${phoneToCall.replace(/[^0-9+]/g, '')}`;
     }
   }
 
@@ -1167,18 +1173,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   }
 
   // Filtered contacts based on search
-  const filteredContacts = contacts.filter(c => {
-    if (!searchQuery) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      (c.company || '').toLowerCase().includes(q) ||
-      (c.name || '').toLowerCase().includes(q) ||
-      (c.position || '').toLowerCase().includes(q) ||
-      (c.phone || '').includes(q) ||
-      (c.email || '').toLowerCase().includes(q) ||
-      (c.city || '').toLowerCase().includes(q)
-    );
-  });
+  const filteredContacts = contacts.filter(c => matchContactSearch(c, searchQuery));
 
   // Organizational Hierarchy Calculation for Selected Contact
   const currentNormCompany = selectedContact ? normalizeCompanyName(selectedContact.company) : '';
@@ -1239,16 +1234,55 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
           <div style={{ padding: '14px 16px' }}>
             {/* Search Box */}
-            <div className="phone-search-box">
+            <div className="phone-search-box" style={{ position: 'relative' }}>
               <Search size={14} style={{ color: '#88a2c0', marginLeft: 8, marginRight: 4 }} />
               <input
                 type="text"
                 className="phone-search-input"
-                placeholder="Search contractor, PM, title, phone, city..."
+                style={{ paddingRight: searchQuery ? 30 : 12 }}
+                placeholder="Search name, company, title, phone, email, notes, city, sector..."
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
               />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  title="Clear search"
+                  style={{
+                    position: 'absolute',
+                    right: 10,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    background: 'none',
+                    border: 'none',
+                    color: '#88a2c0',
+                    cursor: 'pointer',
+                    padding: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
+
+            {searchQuery.trim() && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '11px', color: '#88a2c0', marginBottom: 8, padding: '0 2px' }}>
+                <span>
+                  Found <strong style={{ color: '#fff' }}>{filteredContacts.length}</strong> matching {filteredContacts.length === 1 ? 'contact' : 'contacts'}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{ background: 'none', border: 'none', color: '#60a5fa', cursor: 'pointer', fontSize: '11px', fontWeight: 600, padding: 0 }}
+                >
+                  Clear search
+                </button>
+              </div>
+            )}
 
             {/* Filter Chips Bar */}
             <div className="phone-filter-bar">
@@ -1532,14 +1566,24 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
                       {/* Phone & Direct Status */}
                       <div className="flex items-center justify-between text-xs mt-1">
-                        <div className="phone-lead-phone font-mono text-[12px]">
-                          {c.phone ? (
-                            c.phone
-                          ) : (
-                            <span className="text-slate-400 font-sans text-[11px]">
-                              HQ Switchboard Only
-                            </span>
-                          )}
+                        <div className="phone-lead-phone font-mono text-[12px] flex items-center gap-1.5 flex-wrap">
+                          {(() => {
+                            const pInfo = parsePhoneAndExt(c.phone, c.extension);
+                            return pInfo.phone ? (
+                              <>
+                                <span>{pInfo.phone}</span>
+                                {pInfo.ext && (
+                                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40">
+                                    Ext {pInfo.ext}
+                                  </span>
+                                )}
+                              </>
+                            ) : (
+                              <span className="text-slate-400 font-sans text-[11px]">
+                                HQ Switchboard Only
+                              </span>
+                            );
+                          })()}
                         </div>
                         {c.email && (
                           <span className="text-[10px] text-slate-400 font-mono truncate max-w-[130px]">
