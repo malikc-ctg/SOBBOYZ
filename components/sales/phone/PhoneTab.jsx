@@ -8,8 +8,11 @@ import {
   normalizeRepName,
   parsePhoneAndExt,
 } from '@/lib/sales/phoneService';
+import { supabase } from '@/lib/sales/supabase';
 import { nextLeadStatus } from '@/lib/sales/followups/leadStatus';
 import { toast } from 'sonner';
+
+const LOCK_TTL_MS = 5 * 60 * 1000; // 5-minute active dial/view lock TTL
 
 import {
   Building2,
@@ -340,6 +343,321 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   // Call timer interval
   const timerRef = useRef(null);
 
+  // Per-tab persistent session ID so refreshes keep ownership while other tabs/reps see locks
+  const clientSessionIdRef = useRef(null);
+  if (!clientSessionIdRef.current && typeof window !== 'undefined') {
+    try {
+      let sid = sessionStorage.getItem('sob_kanban_tab_session_id');
+      if (!sid) {
+        sid = crypto.randomUUID ? crypto.randomUUID() : `sid_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        sessionStorage.setItem('sob_kanban_tab_session_id', sid);
+      }
+      clientSessionIdRef.current = sid;
+    } catch {
+      clientSessionIdRef.current = `sid_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    }
+  }
+
+  // Real-time Kanban Collision Prevention State (Active Locks & Online Reps)
+  const [activeLocks, setActiveLocks] = useState({});
+  const [onlineReps, setOnlineReps] = useState([]);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const channelRef = useRef(null);
+  const myLocksRef = useRef({});
+
+  // Helper to check if a lock belongs to this rep's active session
+  const isMyLock = (lock) => {
+    if (!lock) return false;
+    if (lock.session_id && clientSessionIdRef.current) {
+      return lock.session_id === clientSessionIdRef.current;
+    }
+    if (activeRepId && lock.rep_id) {
+      return lock.rep_id === activeRepId;
+    }
+    return normalizeRepName(lock.rep_name) === activeRepName;
+  };
+
+  // Sync our held locks to Supabase Presence
+  const syncMyPresence = async () => {
+    const ch = channelRef.current;
+    if (!ch) return;
+    try {
+      await ch.track({
+        rep_id: activeRepId,
+        rep_name: activeRepName,
+        session_id: clientSessionIdRef.current,
+        online_at: new Date().toISOString(),
+        locks: Object.values(myLocksRef.current),
+      });
+    } catch (err) {
+      // Ignore presence track errors if channel is still connecting
+    }
+  };
+
+  // Claim a real-time dial/view lock on a lead and broadcast to all reps
+  const claimLeadLock = async (contact, reason = 'dialing') => {
+    if (!contact?.id) return null;
+    const leadId = String(contact.id);
+    const now = Date.now();
+
+    // If we already hold a 'dialing' lock on this exact lead, don't downgrade it to 'viewing'
+    const existingOnTarget = myLocksRef.current[leadId];
+    const effectiveReason =
+      existingOnTarget?.reason === 'dialing' && reason === 'viewing' && new Date(existingOnTarget.expires_at).getTime() > now
+        ? 'dialing'
+        : reason;
+
+    // Auto-release any previous lock of the same (or viewing) type held by this rep on a DIFFERENT lead
+    // so reps moving down the Kanban column never leave a trail of stale locked cards behind
+    const previousLeadIdsToRelease = Object.keys(myLocksRef.current).filter(id => {
+      if (id === leadId) return false;
+      const prev = myLocksRef.current[id];
+      if (!prev) return false;
+      if (effectiveReason === 'dialing') return true; // Starting a new dial releases any prior lock by this rep
+      return prev.reason === 'viewing'; // Opening a new dossier releases any prior viewing lock
+    });
+
+    for (const oldId of previousLeadIdsToRelease) {
+      delete myLocksRef.current[oldId];
+      setActiveLocks(prev => {
+        const next = { ...prev };
+        if (next[oldId] && isMyLock(next[oldId])) {
+          delete next[oldId];
+        }
+        return next;
+      });
+      if (channelRef.current) {
+        channelRef.current.send({
+          type: 'broadcast',
+          event: 'lead_unlock',
+          payload: { lead_id: oldId, session_id: clientSessionIdRef.current },
+        }).catch(() => {});
+      }
+      updateLeadContact(oldId, { active_lock: null }).catch(() => {});
+    }
+
+    const lockPayload = {
+      lead_id: leadId,
+      rep_id: activeRepId,
+      rep_name: activeRepName,
+      session_id: clientSessionIdRef.current,
+      company_name: contact.company || '',
+      contact_name: contact.name || '',
+      reason: effectiveReason,
+      locked_at: new Date(now).toISOString(),
+      expires_at: new Date(now + LOCK_TTL_MS).toISOString(),
+    };
+
+    myLocksRef.current[leadId] = lockPayload;
+    setActiveLocks(prev => ({ ...prev, [leadId]: lockPayload }));
+
+    // 1. Broadcast immediately over Supabase Realtime
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'lead_lock',
+        payload: lockPayload,
+      }).catch(() => {});
+    }
+    syncMyPresence();
+
+    // 2. Persist lock in DB notes JSON so page reloads also see the lock
+    updateLeadContact(leadId, { active_lock: lockPayload }).catch(() => {});
+
+    return lockPayload;
+  };
+
+  // Release a lock on a lead and notify all reps
+  const releaseLeadLock = async (leadId, options = { skipDb: false }) => {
+    if (!leadId) return;
+    const idStr = String(leadId);
+    delete myLocksRef.current[idStr];
+
+    setActiveLocks(prev => {
+      if (!prev[idStr]) return prev;
+      const next = { ...prev };
+      delete next[idStr];
+      return next;
+    });
+
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: 'broadcast',
+        event: 'lead_unlock',
+        payload: { lead_id: idStr, session_id: clientSessionIdRef.current },
+      }).catch(() => {});
+    }
+    syncMyPresence();
+
+    if (!options?.skipDb) {
+      updateLeadContact(idStr, { active_lock: null }).catch(() => {});
+    }
+  };
+
+  // Broadcast live lead stage/field updates so other reps' Kanban boards move cards immediately
+  const broadcastLeadUpdate = (leadId, updatedFields) => {
+    if (!leadId || !channelRef.current) return;
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'lead_updated',
+      payload: {
+        lead_id: String(leadId),
+        updated_by: activeRepName,
+        session_id: clientSessionIdRef.current,
+        fields: updatedFields,
+      },
+    }).catch(() => {});
+  };
+
+  // Broadcast lead deletion so other reps' Kanban boards remove the card immediately
+  const broadcastLeadDelete = (leadId) => {
+    if (!leadId || !channelRef.current) return;
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'lead_deleted',
+      payload: {
+        lead_id: String(leadId),
+        deleted_by: activeRepName,
+        session_id: clientSessionIdRef.current,
+      },
+    }).catch(() => {});
+  };
+
+  // Subscribe to Supabase Realtime channel for live rep collision prevention & board sync
+  useEffect(() => {
+    if (!isActive) return;
+
+    const presenceKey = clientSessionIdRef.current || activeRepId || activeRepName;
+    const channel = supabase.channel('sales-kanban-room', {
+      config: {
+        broadcast: { self: false },
+        presence: { key: presenceKey },
+      },
+    });
+
+    channel
+      .on('presence', { event: 'sync' }, () => {
+        const state = channel.presenceState();
+        const repsMap = new Map();
+        const presenceLocks = {};
+        const now = Date.now();
+
+        Object.values(state).forEach(presences => {
+          (presences || []).forEach(p => {
+            const key = p.session_id || p.rep_id || p.rep_name;
+            if (key) {
+              repsMap.set(key, {
+                rep_id: p.rep_id,
+                rep_name: normalizeRepName(p.rep_name || 'Sales Rep'),
+                session_id: p.session_id,
+                online_at: p.online_at,
+              });
+            }
+            if (Array.isArray(p.locks)) {
+              p.locks.forEach(lk => {
+                if (lk?.lead_id && lk?.expires_at && new Date(lk.expires_at).getTime() > now) {
+                  presenceLocks[String(lk.lead_id)] = lk;
+                }
+              });
+            }
+          });
+        });
+
+        setOnlineReps(Array.from(repsMap.values()));
+        setActiveLocks(prev => {
+          const next = { ...prev };
+          // Prune expired locks
+          Object.keys(next).forEach(k => {
+            if (!next[k]?.expires_at || new Date(next[k].expires_at).getTime() <= now) {
+              delete next[k];
+            }
+          });
+          return { ...next, ...presenceLocks };
+        });
+      })
+      .on('broadcast', { event: 'lead_lock' }, ({ payload }) => {
+        if (!payload?.lead_id) return;
+        setActiveLocks(prev => ({
+          ...prev,
+          [String(payload.lead_id)]: payload,
+        }));
+      })
+      .on('broadcast', { event: 'lead_unlock' }, ({ payload }) => {
+        if (!payload?.lead_id) return;
+        const idStr = String(payload.lead_id);
+        setActiveLocks(prev => {
+          if (!prev[idStr]) return prev;
+          const next = { ...prev };
+          delete next[idStr];
+          return next;
+        });
+      })
+      .on('broadcast', { event: 'lead_updated' }, ({ payload }) => {
+        if (!payload?.lead_id || !payload?.fields) return;
+        const idStr = String(payload.lead_id);
+        // Clear any active lock on that lead since it was updated/dispositioned
+        setActiveLocks(prev => {
+          if (!prev[idStr]) return prev;
+          const next = { ...prev };
+          delete next[idStr];
+          return next;
+        });
+        setContacts(prev =>
+          prev.map(c => (String(c.id) === idStr ? { ...c, ...payload.fields, active_lock: null } : c))
+        );
+      })
+      .on('broadcast', { event: 'lead_deleted' }, ({ payload }) => {
+        if (!payload?.lead_id) return;
+        const idStr = String(payload.lead_id);
+        setActiveLocks(prev => {
+          if (!prev[idStr]) return prev;
+          const next = { ...prev };
+          delete next[idStr];
+          return next;
+        });
+        setContacts(prev => prev.filter(c => String(c.id) !== idStr));
+      })
+      .subscribe(async status => {
+        if (status === 'SUBSCRIBED') {
+          setRealtimeConnected(true);
+          await syncMyPresence();
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          setRealtimeConnected(false);
+        }
+      });
+
+    channelRef.current = channel;
+
+    // Periodic pruning of expired locks + lightweight background contact refresh every 20s
+    const pruneInterval = setInterval(() => {
+      const now = Date.now();
+      setActiveLocks(prev => {
+        let changed = false;
+        const next = { ...prev };
+        Object.keys(next).forEach(k => {
+          if (!next[k]?.expires_at || new Date(next[k].expires_at).getTime() <= now) {
+            delete next[k];
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+      Object.keys(myLocksRef.current).forEach(k => {
+        const lk = myLocksRef.current[k];
+        if (!lk?.expires_at || new Date(lk.expires_at).getTime() <= now) {
+          delete myLocksRef.current[k];
+        }
+      });
+    }, 5000);
+
+    return () => {
+      clearInterval(pruneInterval);
+      channelRef.current = null;
+      setRealtimeConnected(false);
+      supabase.removeChannel(channel);
+    };
+  }, [isActive, activeRepId, activeRepName]);
+
   // Load contacts & stats on mount & tab active
   useEffect(() => {
     if (!isActive) return;
@@ -427,6 +745,24 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     try {
       const data = await fetchSalesContacts(filter);
       setContacts(data);
+
+      // Hydrate any non-expired active_lock from DB into activeLocks state
+      const now = Date.now();
+      const dbLocks = {};
+      (data || []).forEach(c => {
+        if (c.active_lock && c.active_lock.expires_at && new Date(c.active_lock.expires_at).getTime() > now) {
+          const idStr = String(c.id);
+          dbLocks[idStr] = {
+            ...c.active_lock,
+            lead_id: idStr,
+          };
+          if (isMyLock(c.active_lock)) {
+            myLocksRef.current[idStr] = dbLocks[idStr];
+          }
+        }
+      });
+      setActiveLocks(prev => ({ ...dbLocks, ...prev }));
+
       if (data.length > 0) {
         if (!selectedContact || !data.some(c => c.id === selectedContact.id)) {
           setSelectedContact(data[0]);
@@ -458,6 +794,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     setSelectedContact(contact);
     setDossierModalContact(contact);
     setShowDossierModal(true);
+    claimLeadLock(contact, 'viewing');
   }
 
   // Update contact from inside LeadDossierModal
@@ -585,15 +922,27 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         followup: capture?.followup || null,
       });
 
+      const nowIso = new Date().toISOString();
+      const nextTimesContacted = (contact.times_contacted || 0) + 1;
+      const updatedFields = {
+        status: newStatus,
+        times_contacted: nextTimesContacted,
+        last_outcome: outcomeKey,
+        last_contacted_at: nowIso,
+        last_rep_name: activeRepName,
+      };
+
+      // Release any active lock on this lead and broadcast live stage move to all reps
+      releaseLeadLock(contact.id, { skipDb: true });
+      broadcastLeadUpdate(contact.id, updatedFields);
+
       // Update local contact state
       setContacts(prev => prev.map(c => {
         if (c.id === contact.id) {
           return {
             ...c,
-            status: newStatus,
-            times_contacted: (c.times_contacted || 0) + 1,
-            last_outcome: outcomeKey,
-            last_contacted_at: new Date().toISOString()
+            ...updatedFields,
+            active_lock: null,
           };
         }
         return c;
@@ -602,20 +951,16 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       if (selectedContact?.id === contact.id) {
         setSelectedContact(prev => ({
           ...prev,
-          status: newStatus,
-          times_contacted: (prev.times_contacted || 0) + 1,
-          last_outcome: outcomeKey,
-          last_contacted_at: new Date().toISOString()
+          ...updatedFields,
+          active_lock: null,
         }));
       }
 
       if (dossierModalContact?.id === contact.id) {
         setDossierModalContact(prev => ({
           ...prev,
-          status: newStatus,
-          times_contacted: (prev.times_contacted || 0) + 1,
-          last_outcome: outcomeKey,
-          last_contacted_at: new Date().toISOString()
+          ...updatedFields,
+          active_lock: null,
         }));
       }
 
@@ -678,7 +1023,8 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
   async function handleKanbanUpdateSector(contactId, newSector) {
     try {
-      await updateLeadContact(contactId, { sector: newSector, service_type: newSector });
+      const validServiceType = newSector === 'post_construction' ? 'post_construction_clean' : 'commercial_cleaning';
+      await updateLeadContact(contactId, { sector: newSector, service_type: validServiceType });
       const contact = contacts.find(c => c.id === contactId);
 
       // Universal Dial Rule: Sector reassignments increment Dials
@@ -696,9 +1042,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         repName: activeRepName,
       });
 
-      setContacts(prev => prev.map(c => c.id === contactId ? { ...c, sector: newSector, service_type: newSector } : c));
+      broadcastLeadUpdate(contactId, { sector: newSector, service_type: validServiceType });
+      setContacts(prev => prev.map(c => c.id === contactId ? { ...c, sector: newSector, service_type: validServiceType } : c));
       if (selectedContact?.id === contactId) {
-        setSelectedContact(prev => ({ ...prev, sector: newSector, service_type: newSector }));
+        setSelectedContact(prev => ({ ...prev, sector: newSector, service_type: validServiceType }));
       }
       refreshStats();
     } catch (err) {
@@ -1005,6 +1352,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         throw new Error(errJson.error || 'Failed to delete lead');
       }
 
+      // Release lock and broadcast deletion to all reps
+      releaseLeadLock(contactId, { skipDb: true });
+      broadcastLeadDelete(contactId);
+
       // Remove from state immediately
       setContacts(prev => prev.filter(c => c.id !== contactId));
       if (selectedContact?.id === contactId) setSelectedContact(null);
@@ -1052,6 +1403,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     const phoneToCall = targetPhone || contact.phone;
     const callingContact = { ...contact, phone: phoneToCall };
 
+    if (contact?.id) {
+      claimLeadLock(contact, 'dialing');
+    }
+
     setSelectedContact(callingContact);
     setActiveCallContact(callingContact);
     setCallDuration(0);
@@ -1096,6 +1451,15 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       repName: activeRepName,
     });
 
+    releaseLeadLock(contactToLog.id, { skipDb: true });
+    broadcastLeadUpdate(contactToLog.id, {
+      status: nextLeadStatus(contactToLog.status, outcomeType) || contactToLog.status,
+      times_contacted: (contactToLog.times_contacted || 0) + 1,
+      last_outcome: outcomeType,
+      last_contacted_at: new Date().toISOString(),
+      last_rep_name: activeRepName,
+    });
+
     setIsCalling(false);
     setActiveCallContact(null);
     refreshStats();
@@ -1135,6 +1499,15 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       repName: activeRepName,
     });
 
+    releaseLeadLock(contactToLog.id, { skipDb: true });
+    broadcastLeadUpdate(contactToLog.id, {
+      status: 'walkthrough_booked',
+      times_contacted: (contactToLog.times_contacted || 0) + 1,
+      last_outcome: 'WALKTHROUGH',
+      last_contacted_at: new Date().toISOString(),
+      last_rep_name: activeRepName,
+    });
+
     setIsCalling(false);
     setActiveCallContact(null);
     refreshStats();
@@ -1163,6 +1536,15 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       },
       repId: activeRepId,
       repName: activeRepName,
+    });
+
+    releaseLeadLock(contactToLog.id, { skipDb: true });
+    broadcastLeadUpdate(contactToLog.id, {
+      status: 'won',
+      times_contacted: (contactToLog.times_contacted || 0) + 1,
+      last_outcome: 'SALE',
+      last_contacted_at: new Date().toISOString(),
+      last_rep_name: activeRepName,
     });
 
     setShowSaleModal(false);
@@ -1777,12 +2159,20 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
                     setSelectedContact(contact);
                     setDossierModalContact(contact);
                     setShowDossierModal(true);
+                    claimLeadLock(contact, 'viewing');
                   }}
                   onOpenWalkthrough={contact => {
                     setSelectedContact(contact);
                     setShowWalkthroughModal(true);
                   }}
                   user={user}
+                  activeRepName={activeRepName}
+                  activeLocks={activeLocks}
+                  onlineReps={onlineReps}
+                  realtimeConnected={realtimeConnected}
+                  isMyLock={isMyLock}
+                  onClaimLock={claimLeadLock}
+                  onReleaseLock={releaseLeadLock}
                   followupsByLeadId={followupBoardData?.leads || {}}
                   followupMeta={followupMeta}
                   followupAuthError={followupAuthError}
@@ -1917,10 +2307,24 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         activeRepName={activeRepName}
         activeRepTitle={activeRepTitle}
         repSettings={followupMeta?.repSettings}
-        onClose={() => setShowDossierModal(false)}
+        activeLocks={activeLocks}
+        isMyLock={isMyLock}
+        onClaimLock={claimLeadLock}
+        onReleaseLock={releaseLeadLock}
+        onClose={() => {
+          const target = dossierModalContact || selectedContact;
+          if (target?.id) {
+            const existingLock = myLocksRef.current[String(target.id)];
+            if (existingLock && existingLock.reason === 'viewing') {
+              releaseLeadLock(target.id);
+            }
+          }
+          setShowDossierModal(false);
+        }}
         onSelectContact={(c) => {
           setSelectedContact(c);
           setDossierModalContact(c);
+          claimLeadLock(c, 'viewing');
         }}
         onStartCall={(c, phone) => {
           setSelectedContact(c);

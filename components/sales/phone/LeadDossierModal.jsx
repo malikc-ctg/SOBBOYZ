@@ -270,6 +270,10 @@ export default function LeadDossierModal({
   activeRepName = 'Sales Rep',
   activeRepTitle = 'Account Executive',
   repSettings,
+  activeLocks = {},
+  isMyLock,
+  onClaimLock,
+  onReleaseLock,
   // Followup handlers
   onOpenReplyModal,
   onOpenOutOfOfficeModal,
@@ -321,6 +325,9 @@ export default function LeadDossierModal({
       }
     } catch {
       fallbackCopy(num);
+    }
+    if (onClaimLock && contact && key !== 'desk_ext') {
+      onClaimLock(contact, 'dialing');
     }
     setCopiedKey(key);
     setTimeout(() => setCopiedKey(null), 2000);
@@ -568,12 +575,32 @@ export default function LeadDossierModal({
     setTimeout(() => setCopiedEmail(false), 2000);
   }
 
+  const directLock = contact?.id ? activeLocks?.[String(contact.id)] : null;
+  const hasValidDirectLock =
+    directLock && directLock.expires_at && new Date(directLock.expires_at).getTime() > Date.now();
+  const isLockedByOther = hasValidDirectLock && !(isMyLock ? isMyLock(directLock) : false);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
       <div 
         className="w-full max-w-4xl max-h-[92vh] flex flex-col rounded-2xl border border-blue-900/40 bg-[#001326] shadow-2xl overflow-hidden text-slate-100"
         onClick={e => e.stopPropagation()}
       >
+        {isLockedByOther && (
+          <div className="px-6 py-2.5 bg-amber-500/20 border-b border-amber-500/40 flex items-center justify-between gap-3 text-xs font-bold text-amber-200">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+              <PhoneCall size={14} className="text-amber-300 shrink-0" />
+              <span>
+                Collision Alert: {normalizeRepName(directLock.rep_name)} is currently{' '}
+                {directLock.reason === 'dialing' ? 'dialing this lead' : 'viewing this dossier'} (started{' '}
+                {formatDateRelative(directLock.locked_at)})
+              </span>
+            </div>
+            <span className="text-[11px] font-mono text-amber-300/90">Avoid simultaneous dial</span>
+          </div>
+        )}
+
         {/* Top Header Bar */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-blue-900/30 bg-[#001733]/90">
           <div className="flex items-center gap-3 min-w-0">

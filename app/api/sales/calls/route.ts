@@ -214,15 +214,25 @@ export async function POST(request: NextRequest) {
 
       const { data: currentLead } = await supabase
         .from('leads')
-        .select('status')
+        .select('status, notes')
         .eq('id', rawLeadId)
         .maybeSingle();
 
       const newStatus = nextLeadStatus(currentLead?.status, outcome_type, lead_status);
 
-      // Call notes live in the event payload. Never overwrite leads.notes (rep notes and Apollo intel).
+      // Call notes live in the event payload. Never overwrite leads.notes (rep notes and Apollo intel),
+      // except to clear any active_lock now that the call is completed.
       const updatePayload: any = { updated_at: timestamp };
       if (newStatus) updatePayload.status = newStatus;
+      if (currentLead?.notes && currentLead.notes.startsWith('{') && currentLead.notes.endsWith('}')) {
+        try {
+          const parsedLeadNotes = JSON.parse(currentLead.notes);
+          if (parsedLeadNotes && parsedLeadNotes.active_lock) {
+            parsedLeadNotes.active_lock = null;
+            updatePayload.notes = JSON.stringify(parsedLeadNotes);
+          }
+        } catch {}
+      }
 
       const callbackInstant = callback_time ? parseTorontoLocal(callback_time) : null;
       if (callbackInstant) {

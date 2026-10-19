@@ -7,17 +7,32 @@ import {
   ChevronLeft,
   ChevronRight,
   User,
+  Users,
   Copy,
   Check,
   Plus,
   Upload,
   Settings,
-  X
+  X,
+  Lock,
+  PhoneCall,
+  Eye,
+  AlertTriangle
 } from 'lucide-react';
+import { toast } from 'sonner';
 import FollowupStrip from './followups/FollowupStrip';
 import { getDueBucket } from '@/lib/sales/followups/schedule';
 import { matchContactSearch } from '@/lib/sales/searchUtils';
-import { parsePhoneAndExt } from '@/lib/sales/phoneService';
+import { parsePhoneAndExt, normalizeRepName } from '@/lib/sales/phoneService';
+
+function normalizeCompanyKey(name) {
+  if (!name) return '';
+  return String(name)
+    .toLowerCase()
+    .replace(/\b(inc|incorporated|ltd|limited|corp|corporation|group|llc|gsc|co)\b/gi, '')
+    .replace(/[^a-z0-9]/g, '')
+    .trim();
+}
 
 export const SECTORS = [
   { key: 'post_construction', label: 'Post-Construction', shortLabel: 'Construction', color: 'blue', description: 'General Contractors, Builders, Developers, Site Supers' },
@@ -32,10 +47,10 @@ export const SECTORS = [
 export const STAGES = [
   { key: 'new', label: 'New Leads', shortLabel: 'New', color: '#64748b', bg: 'bg-slate-900/60', border: 'border-slate-800' },
   { key: 'no_answer', label: 'No Answer', shortLabel: 'No Answer', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-900/40' },
-  { key: 'contacted', label: 'Contacted / In Progress', shortLabel: 'In Progress', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-900/40' },
-  { key: 'walkthrough_booked', label: 'Walkthrough Booked', shortLabel: 'Booked', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-900/40' },
-  { key: 'quoted', label: 'Quote Sent', shortLabel: 'Quoted', color: '#06b6d4', bg: 'bg-cyan-950/20', border: 'border-cyan-900/40' },
-  { key: 'won', label: 'Contract Won', shortLabel: 'Won', color: '#10b981', bg: 'bg-emerald-950/20', border: 'border-emerald-900/40' },
+  { key: 'contacted', label: 'Contacted / In Progress', shortLabel: 'In Progress', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-950/40' },
+  { key: 'walkthrough_booked', label: 'Walkthrough Booked', shortLabel: 'Booked', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-950/40' },
+  { key: 'quoted', label: 'Quote Sent', shortLabel: 'Quoted', color: '#06b6d4', bg: 'bg-cyan-950/20', border: 'border-cyan-950/40' },
+  { key: 'won', label: 'Contract Won', shortLabel: 'Won', color: '#10b981', bg: 'bg-emerald-950/20', border: 'border-emerald-950/40' },
   { key: 'lost', label: 'Lost / Follow Up', shortLabel: 'Lost', color: '#ef4444', bg: 'bg-rose-950/20', border: 'border-rose-950/40' }
 ];
 
@@ -44,7 +59,7 @@ export const FOLLOWUP_STAGES = [
   { key: 'due_today', label: 'Due today', shortLabel: 'Due today', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-950/40' },
   { key: 'upcoming', label: 'Upcoming', shortLabel: 'Upcoming', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-950/40' },
   { key: 'later', label: 'Later', shortLabel: 'Later', color: '#64748b', bg: 'bg-slate-900/60', border: 'border-slate-800' },
-  { key: 'needs_attention', label: 'Needs attention', shortLabel: 'Needs attn', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-900/40' }
+  { key: 'needs_attention', label: 'Needs attention', shortLabel: 'Needs attn', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-950/40' }
 ];
 
 function formatDateRelative(dateStr) {
@@ -79,6 +94,13 @@ export default function SalesKanbanBoard({
   onOpenImporter,
   onOpenAddLead,
   user,
+  activeRepName = 'Sales Rep',
+  activeLocks = {},
+  onlineReps = [],
+  realtimeConnected = false,
+  isMyLock,
+  onClaimLock,
+  onReleaseLock,
   // Followup props
   followupsByLeadId = {},
   followupMeta = null,
@@ -132,6 +154,7 @@ export default function SalesKanbanBoard({
   const [copiedId, setCopiedId] = useState(null);
   const [copiedNameId, setCopiedNameId] = useState(null);
   const [openSectorMenuId, setOpenSectorMenuId] = useState(null);
+  const [overrideConfirmId, setOverrideConfirmId] = useState(null);
 
   const getLeadFollowupBucket = (contact, followupData) => {
     if (!followupData) return null;
@@ -250,10 +273,62 @@ export default function SalesKanbanBoard({
     setTimeout(() => setCopiedNameId(null), 1500);
   };
 
-  // Copy phone number helper
-  const handleCopyPhone = (e, contactId, phone) => {
+  // Map of companyKey -> active lock by ANOTHER rep (to prevent calling the same company switchboard simultaneously)
+  const companyLocksByOther = useMemo(() => {
+    const map = {};
+    const now = Date.now();
+    Object.values(activeLocks || {}).forEach(lk => {
+      if (!lk || !lk.expires_at || new Date(lk.expires_at).getTime() <= now) return;
+      const ownedByMe = isMyLock ? isMyLock(lk) : false;
+      if (ownedByMe) return;
+      const compKey = normalizeCompanyKey(lk.company_name);
+      if (compKey && compKey !== 'commercialprospect' && compKey !== 'unknowncompany') {
+        if (!map[compKey] || lk.reason === 'dialing') {
+          map[compKey] = lk;
+        }
+      }
+    });
+    return map;
+  }, [activeLocks, isMyLock]);
+
+  const activeOtherLocksCount = useMemo(() => {
+    const now = Date.now();
+    return Object.values(activeLocks || {}).filter(lk => {
+      if (!lk || !lk.expires_at || new Date(lk.expires_at).getTime() <= now) return false;
+      return !(isMyLock ? isMyLock(lk) : false);
+    }).length;
+  }, [activeLocks, isMyLock]);
+
+  // Copy phone number helper with Rep Collision Guard & Auto-Lock
+  const handleCopyPhone = (e, contact, phone) => {
     e.stopPropagation();
-    if (!phone) return;
+    if (!phone || !contact) return;
+
+    const contactId = contact.id;
+    const idStr = String(contactId);
+    const existingLock = activeLocks?.[idStr];
+    const isLockedByOther =
+      existingLock &&
+      existingLock.expires_at &&
+      new Date(existingLock.expires_at).getTime() > Date.now() &&
+      !(isMyLock ? isMyLock(existingLock) : false);
+
+    // If another rep is currently dialing/viewing this lead, require a deliberate 2nd click to override
+    if (isLockedByOther && overrideConfirmId !== contactId) {
+      const otherRep = normalizeRepName(existingLock.rep_name || 'Another rep');
+      const actionVerb = existingLock.reason === 'dialing' ? 'is actively dialing' : 'has the dossier open for';
+      toast.warning(`Collision Guard: ${otherRep} ${actionVerb} ${contact.name || 'this lead'}!`, {
+        description: 'Click the phone box again within 4 seconds if you still want to copy and override their lock.',
+      });
+      setOverrideConfirmId(contactId);
+      setTimeout(() => {
+        setOverrideConfirmId(prev => (prev === contactId ? null : prev));
+      }, 4000);
+      return;
+    }
+
+    setOverrideConfirmId(null);
+
     try {
       if (navigator?.clipboard?.writeText) {
         navigator.clipboard.writeText(phone).catch(() => {
@@ -265,6 +340,12 @@ export default function SalesKanbanBoard({
     } catch {
       fallbackCopyText(phone);
     }
+
+    // Claim a 5-minute 'dialing' lock and broadcast to all reps in real time
+    if (onClaimLock) {
+      onClaimLock(contact, 'dialing');
+    }
+
     setCopiedId(contactId);
     setTimeout(() => setCopiedId(null), 1500);
   };
@@ -325,6 +406,21 @@ export default function SalesKanbanBoard({
   // Drag-and-drop handlers
   const handleDragStart = (e, contactId) => {
     if (boardView === 'followups') return;
+    const existingLock = activeLocks?.[String(contactId)];
+    const isLockedByOther =
+      existingLock &&
+      existingLock.expires_at &&
+      new Date(existingLock.expires_at).getTime() > Date.now() &&
+      !(isMyLock ? isMyLock(existingLock) : false);
+
+    if (isLockedByOther) {
+      e.preventDefault();
+      const otherRep = normalizeRepName(existingLock.rep_name || 'Another rep');
+      toast.warning(`Locked by ${otherRep}`, {
+        description: `${otherRep} is currently dialing/working this lead.`,
+      });
+      return;
+    }
     setDraggedContactId(contactId);
     e.dataTransfer.setData('text/plain', contactId);
     e.dataTransfer.effectAllowed = 'move';
@@ -600,6 +696,39 @@ export default function SalesKanbanBoard({
               </>
             )}
 
+            {/* Live Collision Guard & Online Reps Status Pill */}
+            <div
+              className={`px-2.5 py-1.5 rounded-xl text-[11px] font-sans font-bold flex items-center gap-1.5 border ${
+                activeOtherLocksCount > 0
+                  ? 'bg-amber-950/70 text-amber-300 border-amber-700/70'
+                  : 'bg-slate-950 text-slate-300 border-slate-800'
+              }`}
+              title={
+                onlineReps.length > 0
+                  ? `Active reps on board: ${Array.from(new Set(onlineReps.map(r => r.rep_name))).join(', ')}`
+                  : 'Live Collision Protection Active — copying a phone number locks the card for 5m'
+              }
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  activeOtherLocksCount > 0
+                    ? 'bg-amber-400 animate-ping'
+                    : realtimeConnected
+                    ? 'bg-emerald-400 animate-pulse'
+                    : 'bg-blue-400'
+                }`}
+              />
+              {activeOtherLocksCount > 0 ? (
+                <span>
+                  {activeOtherLocksCount} {activeOtherLocksCount === 1 ? 'lead' : 'leads'} being dialed
+                </span>
+              ) : (
+                <span>
+                  Live Guard{onlineReps.length > 1 ? ` (${onlineReps.length} reps)` : ''}
+                </span>
+              )}
+            </div>
+
             <div className="text-xs text-slate-400">
               <span className="text-white font-bold text-sm">{filteredContacts.length}</span> leads shown
             </div>
@@ -823,18 +952,99 @@ export default function SalesKanbanBoard({
                     colLeads.map(contact => {
                       const sectorMeta = SECTORS.find(s => s.key === contact.sector) || SECTORS[0];
                       const hasDials = (contact.times_contacted || 0) > 0;
+                      const idStr = String(contact.id);
+                      const directLock = activeLocks?.[idStr];
+                      const hasValidDirectLock =
+                        directLock && directLock.expires_at && new Date(directLock.expires_at).getTime() > Date.now();
+                      const isLockedByMe = hasValidDirectLock && (isMyLock ? isMyLock(directLock) : false);
+                      const isLockedByOther = hasValidDirectLock && !isLockedByMe;
+
+                      // Check if another rep is currently dialing a colleague at the SAME company
+                      const compKey = normalizeCompanyKey(contact.company);
+                      const companyLock =
+                        !isLockedByOther && compKey ? companyLocksByOther[compKey] : null;
+                      const hasCompanyCollision =
+                        Boolean(companyLock) && String(companyLock.lead_id) !== idStr;
 
                       return (
                         <div
                           key={contact.id}
-                          draggable={boardView === 'pipeline'}
+                          draggable={boardView === 'pipeline' && !isLockedByOther}
                           onDragStart={e => handleDragStart(e, contact.id)}
                           onDoubleClick={() => onOpenDossier && onOpenDossier(contact)}
-                          className={`p-4 rounded-xl bg-[#01162b] border border-blue-950/70 hover:border-blue-700/60 hover:bg-[#021d38] shadow-sm hover:shadow-md transition-all duration-150 space-y-3.5 group select-none ${
-                            boardView === 'pipeline' ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+                          className={`p-4 rounded-xl transition-all duration-150 space-y-3.5 group select-none border ${
+                            isLockedByOther
+                              ? 'bg-amber-950/20 border-amber-500/70 shadow-md shadow-amber-950/30 opacity-90'
+                              : isLockedByMe
+                              ? 'bg-[#021d38] border-emerald-500/60 shadow-md shadow-emerald-950/20'
+                              : hasCompanyCollision
+                              ? 'bg-[#01162b] border-amber-700/60 hover:border-amber-600/80'
+                              : 'bg-[#01162b] border-blue-950/70 hover:border-blue-700/60 hover:bg-[#021d38] shadow-sm hover:shadow-md'
+                          } ${
+                            boardView === 'pipeline' && !isLockedByOther
+                              ? 'cursor-grab active:cursor-grabbing'
+                              : 'cursor-default'
                           }`}
                           title="Double-click to open full lead dossier"
                         >
+                          {/* ACTIVE COLLISION LOCK BANNER (Another Rep is Dialing / Viewing) */}
+                          {isLockedByOther && (
+                            <div className="px-2.5 py-1.5 rounded-lg bg-amber-500/15 border border-amber-500/40 flex items-center justify-between gap-2 text-[11px] font-bold text-amber-200">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping shrink-0" />
+                                {directLock.reason === 'dialing' ? (
+                                  <PhoneCall size={12} className="text-amber-300 shrink-0" />
+                                ) : (
+                                  <Eye size={12} className="text-amber-300 shrink-0" />
+                                )}
+                                <span className="truncate">
+                                  {normalizeRepName(directLock.rep_name)}{' '}
+                                  {directLock.reason === 'dialing' ? 'is dialing...' : 'viewing dossier'}
+                                </span>
+                              </div>
+                              <span className="text-[10px] font-mono text-amber-300/90 shrink-0">
+                                {formatDateRelative(directLock.locked_at)}
+                              </span>
+                            </div>
+                          )}
+
+                          {/* CURRENT REP'S OWN LOCK BADGE (With 1-Click Release) */}
+                          {isLockedByMe && (
+                            <div className="px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/40 flex items-center justify-between gap-2 text-[11px] font-bold text-emerald-300">
+                              <div className="flex items-center gap-1.5 min-w-0">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                                <PhoneCall size={11} className="text-emerald-400 shrink-0" />
+                                <span className="truncate">
+                                  {directLock.reason === 'dialing' ? 'Dialing Lock Active (You)' : 'Viewing Dossier (You)'}
+                                </span>
+                              </div>
+                              {onReleaseLock && (
+                                <button
+                                  type="button"
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    onReleaseLock(contact.id);
+                                  }}
+                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-700/60 transition cursor-pointer shrink-0"
+                                  title="Release lock on this lead"
+                                >
+                                  Release ×
+                                </button>
+                              )}
+                            </div>
+                          )}
+
+                          {/* SAME-COMPANY DIAL WARNING (Another rep is calling a colleague at this company right now) */}
+                          {hasCompanyCollision && (
+                            <div className="px-2.5 py-1 rounded-lg bg-amber-950/60 border border-amber-700/50 flex items-center gap-1.5 text-[10.5px] font-semibold text-amber-300">
+                              <AlertTriangle size={11} className="text-amber-400 shrink-0" />
+                              <span className="truncate">
+                                {normalizeRepName(companyLock.rep_name)} is {companyLock.reason === 'dialing' ? 'dialing' : 'viewing'}{' '}
+                                {companyLock.contact_name || 'a colleague'} at {contact.company}
+                              </span>
+                            </div>
+                          )}
+
                           {/* Top: Name, Position, Company & City */}
                           <div className="flex items-start justify-between gap-2.5">
                             <div className="min-w-0">
@@ -870,29 +1080,45 @@ export default function SalesKanbanBoard({
                             )}
                           </div>
 
-                          {/* Middle: Phone Display - Entire Box is 1-Click Copy */}
+                          {/* Middle: Phone Display - Entire Box is 1-Click Copy (With Collision Protection) */}
                           {(() => {
                             const phoneInfo = parsePhoneAndExt(contact.phone, contact.extension);
+                            const isAwaitingOverride = overrideConfirmId === contact.id;
                             return (
                               <div
-                                onClick={e => handleCopyPhone(e, contact.id, phoneInfo.display || contact.phone)}
-                                className="p-2.5 rounded-lg bg-slate-950/90 border border-slate-800/80 hover:border-blue-600/50 flex items-center justify-between text-xs cursor-pointer transition group/phone"
-                                title="Click anywhere to copy phone number"
+                                onClick={e => handleCopyPhone(e, contact, phoneInfo.display || contact.phone)}
+                                className={`p-2.5 rounded-lg border flex items-center justify-between text-xs cursor-pointer transition group/phone ${
+                                  isAwaitingOverride
+                                    ? 'bg-rose-950/80 border-rose-500/80 text-rose-200'
+                                    : isLockedByOther
+                                    ? 'bg-amber-950/40 border-amber-700/60 hover:border-amber-500/80'
+                                    : 'bg-slate-950/90 border-slate-800/80 hover:border-blue-600/50'
+                                }`}
+                                title={
+                                  isLockedByOther
+                                    ? `Locked by ${normalizeRepName(directLock.rep_name)} — click twice to override`
+                                    : 'Click anywhere to copy phone number & claim 5m dial lock'
+                                }
                               >
                                 <div className="flex items-center gap-1.5 font-mono text-[12px] font-medium text-slate-200 flex-wrap">
+                                  {isLockedByOther && (
+                                    <Lock size={11} className="text-amber-400 shrink-0" />
+                                  )}
                                   <span className="group-hover/phone:text-blue-300 transition">
-                                    {phoneInfo.phone || 'No direct phone'}
+                                    {isAwaitingOverride
+                                      ? 'Click again to override lock & copy'
+                                      : phoneInfo.phone || 'No direct phone'}
                                   </span>
-                                  {phoneInfo.ext && (
+                                  {!isAwaitingOverride && phoneInfo.ext && (
                                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40">
                                       Ext {phoneInfo.ext}
                                     </span>
                                   )}
-                                  {contact.phone && (
+                                  {contact.phone && !isAwaitingOverride && (
                                     <span className="p-1 rounded bg-slate-900 border border-slate-800 text-slate-400 group-hover/phone:text-white transition ml-0.5">
                                       {copiedId === contact.id ? (
                                         <span className="flex items-center gap-1 text-emerald-400 text-[10px] font-sans font-bold">
-                                          <Check size={11} /> Copied!
+                                          <Check size={11} /> Copied & Locked!
                                         </span>
                                       ) : (
                                         <Copy size={11} />

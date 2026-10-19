@@ -1,6 +1,8 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
+import { toValidServiceType, resolveCanonicalSector } from '@/lib/sales/sectorUtils';
+
 
 function cleanRepName(name: string | null | undefined): string {
   if (!name) return 'Sales Rep';
@@ -162,29 +164,24 @@ export async function GET(request: NextRequest) {
       const pendingTask = leadTasks[0] || null;
       const callbackDueAt = pendingTask?.due_at || null;
 
-      const rawSector = (l.service_type || intel.industry || intel.sector || '').toLowerCase();
-      let sector = 'post_construction';
-      if (rawSector.includes('franchise') || rawSector.includes('franchisee') || rawSector.includes('owner-operator')) {
-        sector = 'franchise_owners';
-      } else if (rawSector.includes('office') || rawSector.includes('corporate') || rawSector.includes('financial')) {
-        sector = 'commercial_office';
-      } else if (rawSector.includes('property') || rawSector.includes('real estate') || rawSector.includes('residential') || rawSector.includes('hoa') || rawSector.includes('landlord')) {
-        sector = 'property_management';
-      } else if (rawSector.includes('industrial') || rawSector.includes('warehouse') || rawSector.includes('logistics') || rawSector.includes('plant') || rawSector.includes('manufacturing')) {
-        sector = 'industrial_warehouse';
-      } else if (rawSector.includes('medical') || rawSector.includes('health') || rawSector.includes('clinic') || rawSector.includes('dental')) {
-        sector = 'medical_healthcare';
-      } else if (rawSector.includes('retail') || rawSector.includes('hospitality') || rawSector.includes('restaurant') || rawSector.includes('hotel')) {
-        sector = 'retail_hospitality';
-      } else {
-        sector = 'post_construction';
-      }
+      // Resolve canonical sector (prioritizing explicit sector in notes JSON over DB service_type)
+      const rawSector = intel.sector || intel.industry || l.service_type || '';
+      const sector = resolveCanonicalSector(rawSector);
 
       let cleanNotes = '';
       if (typeof intel === 'object' && Object.keys(intel).length > 0) {
         cleanNotes = intel.notes || intel.rep_notes || '';
       } else if (typeof l.notes === 'string') {
         cleanNotes = l.notes;
+      }
+
+      // Check for active non-expired dial/view lock (5-min TTL)
+      let activeLock = null;
+      if (intel?.active_lock && intel.active_lock.expires_at) {
+        const exp = new Date(intel.active_lock.expires_at).getTime();
+        if (Number.isFinite(exp) && exp > Date.now()) {
+          activeLock = intel.active_lock;
+        }
       }
 
       return {
@@ -199,11 +196,12 @@ export async function GET(request: NextRequest) {
         extension: leadExtension || null,
         email: l.customer_email || '',
         city: l.city || 'GTA',
-        service_type: l.service_type || 'post_construction_clean',
+        service_type: toValidServiceType(l.service_type || sector),
         sector: sector,
         estimated_value: l.quoted_price ? Number(l.quoted_price) : 2500,
         status: l.status || 'new', // new, contacted, no_answer, voicemail, walkthrough_booked, quoted, won, lost
         notes: cleanNotes || '',
+        active_lock: activeLock,
         transcript: intel.transcript || null,
         ai_summary: intel.ai_summary || null,
         preferred_date: l.preferred_date || null,
@@ -287,7 +285,8 @@ export async function PATCH(request: NextRequest) {
       lead_id, status, notes, callback_time,
       customer_name, company_name, contact_title, 
       customer_phone, phone, work_direct_phone, mobile_phone, corporate_phone,
-      customer_email, email, city, service_type, sector, quoted_price
+      customer_email, email, city, service_type, sector, quoted_price,
+      active_lock
     } = body;
 
     if (!lead_id) {
@@ -317,10 +316,20 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
+    if (active_lock !== undefined && (!isJsonNotes || !parsedNotes)) {
+      parsedNotes = { notes: existingLead?.notes || '', rep_notes: existingLead?.notes || '' };
+      isJsonNotes = true;
+    }
+
     if (isJsonNotes && parsedNotes) {
       if (notes !== undefined) {
         parsedNotes.notes = notes;
         parsedNotes.rep_notes = notes;
+      }
+      if (active_lock !== undefined) {
+        parsedNotes.active_lock = active_lock;
+      } else if (status !== undefined) {
+        parsedNotes.active_lock = null;
       }
       if (work_direct_phone !== undefined) {
         parsedNotes.work_direct_phone = work_direct_phone;
@@ -378,8 +387,22 @@ export async function PATCH(request: NextRequest) {
     if (customer_email !== undefined) updatePayload.customer_email = customer_email;
     else if (email !== undefined) updatePayload.customer_email = email;
     if (city !== undefined) updatePayload.city = city;
-    if (sector !== undefined) updatePayload.service_type = sector;
-    if (service_type !== undefined) updatePayload.service_type = service_type;
+
+    // Safely handle sector & service_type without breaking Postgres service_type enum
+    if (sector !== undefined) {
+      const canonicalSector = resolveCanonicalSector(sector);
+      if (!isJsonNotes || !parsedNotes) {
+        parsedNotes = { notes: existingLead?.notes || '', rep_notes: existingLead?.notes || '' };
+        isJsonNotes = true;
+      }
+      parsedNotes.sector = canonicalSector;
+      parsedNotes.industry = canonicalSector;
+      updatePayload.notes = JSON.stringify(parsedNotes);
+      updatePayload.service_type = toValidServiceType(service_type || canonicalSector);
+    } else if (service_type !== undefined) {
+      updatePayload.service_type = toValidServiceType(service_type);
+    }
+
     if (quoted_price !== undefined) updatePayload.quoted_price = quoted_price ? parseFloat(quoted_price) : null;
 
     const { data, error } = await supabase
@@ -410,19 +433,41 @@ export async function POST(request: NextRequest) {
 
     // Support batch import from spreadsheets/CSV
     if (Array.isArray(body.leads)) {
-      const rows = body.leads.map((item: any) => ({
-        source: item.source || 'contact_import',
-        customer_name: item.customer_name || item.name || null,
-        company_name: item.company_name || item.company || 'Commercial Prospect',
-        contact_title: item.contact_title || item.position || item.title || null,
-        customer_phone: item.customer_phone || item.phone || '',
-        customer_email: item.customer_email || item.email || null,
-        city: item.city || 'GTA',
-        service_type: item.service_type || 'post_construction_clean',
-        quoted_price: item.quoted_price ? parseFloat(item.quoted_price) : 2500,
-        notes: typeof item.notes === 'string' ? item.notes : JSON.stringify(item.notes || {}),
-        status: item.status || 'new',
-      }));
+      const rows = body.leads.map((item: any) => {
+        const itemSector = resolveCanonicalSector(item.sector || item.industry || item.service_type || 'post_construction');
+        const itemServiceType = toValidServiceType(item.service_type || itemSector);
+
+        let itemIntel: any = {};
+        if (typeof item.notes === 'string') {
+          try {
+            if (item.notes.startsWith('{') && item.notes.endsWith('}')) {
+              itemIntel = JSON.parse(item.notes);
+            } else {
+              itemIntel = { notes: item.notes, rep_notes: item.notes };
+            }
+          } catch {
+            itemIntel = { notes: item.notes, rep_notes: item.notes };
+          }
+        } else if (typeof item.notes === 'object' && item.notes !== null) {
+          itemIntel = { ...item.notes };
+        }
+        itemIntel.sector = itemSector;
+        itemIntel.industry = itemSector;
+
+        return {
+          source: item.source || 'contact_import',
+          customer_name: item.customer_name || item.name || null,
+          company_name: item.company_name || item.company || 'Commercial Prospect',
+          contact_title: item.contact_title || item.position || item.title || null,
+          customer_phone: item.customer_phone || item.phone || '',
+          customer_email: item.customer_email || item.email || null,
+          city: item.city || 'GTA',
+          service_type: itemServiceType,
+          quoted_price: item.quoted_price ? parseFloat(item.quoted_price) : (itemSector === 'post_construction' ? 2500 : 950),
+          notes: JSON.stringify(itemIntel),
+          status: item.status || 'new',
+        };
+      });
 
       const { data, error } = await supabase
         .from('leads')
@@ -434,6 +479,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Single lead creation
+    const leadSector = resolveCanonicalSector(body.sector || body.industry || body.service_type || 'post_construction');
+    const dbServiceType = toValidServiceType(body.service_type || leadSector);
+
+    let singleIntel: any = {};
+    if (typeof body.notes === 'string') {
+      try {
+        if (body.notes.startsWith('{') && body.notes.endsWith('}')) {
+          singleIntel = JSON.parse(body.notes);
+        } else {
+          singleIntel = { notes: body.notes, rep_notes: body.notes };
+        }
+      } catch {
+        singleIntel = { notes: body.notes, rep_notes: body.notes };
+      }
+    } else if (typeof body.notes === 'object' && body.notes !== null) {
+      singleIntel = { ...body.notes };
+    }
+    singleIntel.sector = leadSector;
+    singleIntel.industry = leadSector;
+
     const { data, error } = await supabase
       .from('leads')
       .insert({
@@ -444,11 +509,11 @@ export async function POST(request: NextRequest) {
         customer_phone: body.customer_phone || body.phone || '',
         customer_email: body.customer_email || body.email || null,
         city: body.city || 'GTA',
-        service_type: body.service_type || 'post_construction_clean',
+        service_type: dbServiceType,
         preferred_date: body.preferred_date ? body.preferred_date.split('T')[0] : null,
         preferred_start_time: body.preferred_start_time || '09:00',
-        quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : 2500,
-        notes: typeof body.notes === 'string' ? body.notes : JSON.stringify(body.notes || {}),
+        quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : (leadSector === 'post_construction' ? 2500 : 950),
+        notes: JSON.stringify(singleIntel),
         status: body.status || 'new',
       })
       .select()
