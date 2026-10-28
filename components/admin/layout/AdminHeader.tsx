@@ -79,31 +79,35 @@ export function AdminHeader({
             <span className="hidden sm:inline">OS Launchpad</span>
           </button>
 
-          <div className="h-4 w-px bg-[#3c6ca8]/25 hidden sm:block" />
+          {!isLaunchpadView && (
+            <>
+              <div className="h-4 w-px bg-[#3c6ca8]/25 hidden sm:block" />
 
-          {/* Direct Workstation Switcher Dock */}
-          <div className="flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-[#3c6ca8]/25 overflow-x-auto scrollbar-none">
-            {workspaces.map((ws) => {
-              const Icon = ws.icon;
-              const isSelected = !isLaunchpadView && activeWorkspace.id === ws.id;
-              return (
-                <button
-                  key={ws.id}
-                  type="button"
-                  onClick={() => onSelectWorkspace(ws.id)}
-                  className={`h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition shrink-0 cursor-pointer ${
-                    isSelected
-                      ? WORKSTATION_ACTIVE_CLASSES[ws.id]
-                      : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
-                  }`}
-                  title={`Switch to ${ws.name} (⌘${ws.shortcut})`}
-                >
-                  <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="hidden md:inline">{ws.shortName}</span>
-                </button>
-              );
-            })}
-          </div>
+              {/* Direct Workstation Switcher Dock */}
+              <div className="flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-[#3c6ca8]/25 overflow-x-auto scrollbar-none">
+                {workspaces.map((ws) => {
+                  const Icon = ws.icon;
+                  const isSelected = activeWorkspace.id === ws.id;
+                  return (
+                    <button
+                      key={ws.id}
+                      type="button"
+                      onClick={() => onSelectWorkspace(ws.id)}
+                      className={`h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition shrink-0 cursor-pointer ${
+                        isSelected
+                          ? WORKSTATION_ACTIVE_CLASSES[ws.id]
+                          : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                      }`}
+                      title={`Switch to ${ws.name} (⌘${ws.shortcut})`}
+                    >
+                      <Icon className="w-3.5 h-3.5 shrink-0" />
+                      <span className="hidden md:inline">{ws.shortName}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
 
         {/* CENTER: Active Workstation Module Tabs (Desktop) */}
