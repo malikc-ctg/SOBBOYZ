@@ -111,25 +111,19 @@ export default function LeadsPage() {
     }
   }, [form.service_type]);
 
-  const filtered = leads.filter((lead) => {
-    const src = (lead.source as string)?.toLowerCase() || '';
-    if (
-      src === 'quo_telephony' ||
-      src.includes('quo') ||
-      src === 'contact_import' ||
-      src === 'phone_sales_os'
-    ) {
-      return false;
-    }
-    return true;
-  });
+  const filtered = leads.filter(
+    (lead) => (lead.source as string) !== 'quo_telephony' && !(lead.source as string)?.toLowerCase().includes('quo')
+  );
 
   return (
     <div className="space-y-5 min-w-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Inbound Leads</h1>
-          <p className="text-muted-foreground text-sm">Manage incoming residential & commercial quotes and inquiries</p>
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Leads</h1>
+          <p className="text-muted-foreground text-sm">Manage incoming leads and quotes</p>
+        </div>
+        <div className="flex items-center gap-3 flex-wrap">
+          <CRMPricingModal onSuccess={fetchLeads} />
         </div>
       </div>
 
