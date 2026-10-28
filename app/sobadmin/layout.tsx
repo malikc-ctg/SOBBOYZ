@@ -170,7 +170,18 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       if (leadsRes.status === 'fulfilled' && leadsRes.value.ok) {
         const leads = await leadsRes.value.json();
         if (Array.isArray(leads)) {
-          newLeads = leads.filter((l: any) => l.status === 'new').length;
+          newLeads = leads.filter((l: any) => {
+            const src = String(l.source || '').toLowerCase();
+            if (
+              src === 'quo_telephony' ||
+              src.includes('quo') ||
+              src === 'contact_import' ||
+              src === 'phone_sales_os'
+            ) {
+              return false;
+            }
+            return l.status === 'new';
+          }).length;
         }
       }
 
@@ -246,11 +257,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [allowedWorkspaces, handleSelectWorkspace]);
 
-  // Don't show OS top bar on login, forgot-password, or Sales OS (Sales OS renders its own integrated OS top bar)
+  // Don't show OS top bar on login or forgot-password
   if (
     pathname === '/sobadmin/login' ||
-    pathname === '/sobadmin/forgot-password' ||
-    pathname?.startsWith('/sobadmin/sales')
+    pathname === '/sobadmin/forgot-password'
   ) {
     return <>{children}</>;
   }
@@ -292,6 +302,24 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
     if (item.id === 'live-map') {
       return pathname === '/sobadmin' && searchParams?.get('view') === 'map';
+    }
+
+    if (item.id === 'sales-phone') {
+      const appParam = searchParams?.get('app') || searchParams?.get('mode');
+      return (
+        pathname?.startsWith('/sobadmin/sales') &&
+        (!appParam || appParam === 'phone')
+      );
+    }
+
+    if (item.id === 'sales-residential') {
+      const appParam = searchParams?.get('app') || searchParams?.get('mode');
+      return pathname?.startsWith('/sobadmin/sales') && appParam === 'residential';
+    }
+
+    if (item.id === 'sales-commercial') {
+      const appParam = searchParams?.get('app') || searchParams?.get('mode');
+      return pathname?.startsWith('/sobadmin/sales') && appParam === 'commercial';
     }
 
     if (item.exact) {
@@ -336,6 +364,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
             onToggleFullscreen={toggleFullscreen}
             onLogout={handleLogout}
           />
+        ) : pathname?.startsWith('/sobadmin/sales') ? (
+          <div className="h-full w-full min-h-0 overflow-hidden flex flex-col">
+            {children}
+          </div>
         ) : (
           <div
             className={

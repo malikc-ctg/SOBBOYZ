@@ -65,7 +65,7 @@ export function SobOsLaunchpad({
     },
     {
       id: 'sales',
-      href: '/sobadmin/sales',
+      href: '/sobadmin/leads',
       title: 'Sales OS & CRM',
       badge:
         counts.newLeads > 0
@@ -75,21 +75,22 @@ export function SobOsLaunchpad({
       iconBg: 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30',
       accentBorder: 'hover:border-indigo-500/60',
       icon: <Waves className="w-6 h-6" />,
-      desc: 'Full-screen field canvassing (KnockLog Residential & Commercial), B2B Inside Phone Sales workstation, inbound leads pipeline, and customer accounts.',
+      desc: 'Unified Sales & CRM workstation: inbound leads pipeline, customer accounts, B2B inside phone sales Kanban, and KnockLog field canvassing.',
       features: [
-        'KnockLog Residential',
-        'KnockLog Commercial',
-        'B2B Phone OS',
         'Inbound Leads',
         'Customer CRM',
+        'B2B Phone OS',
+        'KnockLog Residential',
+        'KnockLog Commercial',
       ],
       quickLinks: [
-        { label: 'Sales Launchpad', href: '/sobadmin/sales' },
         { label: 'Inbound Leads', href: '/sobadmin/leads' },
         { label: 'Customers', href: '/sobadmin/customers' },
         { label: 'B2B Phone', href: '/sobadmin/sales?app=phone' },
+        { label: 'Residential', href: '/sobadmin/sales?app=residential' },
+        { label: 'Commercial', href: '/sobadmin/sales?app=commercial' },
       ],
-      actionLabel: 'Launch Sales OS',
+      actionLabel: 'Launch Sales & CRM',
       visible: true,
     },
     {
