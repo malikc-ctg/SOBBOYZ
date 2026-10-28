@@ -2,6 +2,8 @@ import { calculateMonthlyMRR, calculateNextRunDate } from '@/lib/recurring-utils
 import { materializeRecurringJobs } from '@/lib/recurring-runner';
 import { resolveOrCreateZone } from '@/lib/zone-matcher';
 import { format, addDays } from 'date-fns';
+import { toValidServiceType } from '@/lib/sales/sectorUtils';
+
 
 export interface WonSalePayload {
   job_total?: number;
@@ -153,7 +155,7 @@ export async function autoLogWonSale(
         .from('recurring_bookings')
         .insert({
           customer_id: customerId,
-          service_type: saleDetails?.service_type || 'standard_clean',
+          service_type: toValidServiceType(saleDetails?.service_type || lead?.service_type || 'commercial_cleaning'),
           frequency,
           days_of_week: daysOfWeek,
           preferred_day_of_week: preferredDay,
@@ -205,7 +207,7 @@ export async function autoLogWonSale(
           job_number: jobNumber,
           customer_id: customerId,
           lead_id: rawLeadId,
-          service_type: saleDetails?.service_type || 'standard_clean',
+          service_type: toValidServiceType(saleDetails?.service_type || lead?.service_type || 'commercial_cleaning'),
           status: 'confirmed',
           scheduled_date: scheduledDate,
           scheduled_window: 'morning',

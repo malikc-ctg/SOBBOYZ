@@ -205,14 +205,30 @@ function getSeniorityRank(seniority, position = '') {
   return 2.5;
 }
 
-function getSeniorityLabel(rank, title = '') {
-  if (rank >= 5) return 'Executive / Owner';
-  if (rank >= 4) return 'Project Director';
-  if (rank >= 3.5) return 'Senior PM';
-  if (rank >= 3) return 'Project Manager / Super';
-  if (rank >= 2) return 'Senior Coordinator';
-  if (rank <= 1) return 'Project Coordinator';
-  return title || 'Team Member';
+const SECTOR_CATEGORY_LABELS = {
+  post_construction: 'Post-Construction',
+  franchise_owners: 'Franchise Owners',
+  commercial_office: 'Commercial Offices',
+  property_management: 'Property Management',
+  industrial_warehouse: 'Industrial & Warehouses',
+  medical_healthcare: 'Medical & Healthcare',
+  retail_hospitality: 'Retail & Hospitality',
+};
+
+function getCategoryLabel(contact) {
+  if (!contact) return 'Post-Construction';
+  const rawSector = String(contact.sector || '').trim().toLowerCase();
+  if (SECTOR_CATEGORY_LABELS[rawSector]) {
+    return SECTOR_CATEGORY_LABELS[rawSector];
+  }
+  const s = `${rawSector} ${contact.industry || ''} ${contact.service_type || ''}`.toLowerCase();
+  if (s.includes('franchise') || s.includes('multi-unit')) return 'Franchise Owners';
+  if (s.includes('property') || s.includes('real estate') || s.includes('condo') || s.includes('hoa') || s.includes('landlord')) return 'Property Management';
+  if (s.includes('industrial') || s.includes('warehouse') || s.includes('logistics') || s.includes('manufacturing')) return 'Industrial & Warehouses';
+  if (s.includes('medical') || s.includes('healthcare') || s.includes('clinic') || s.includes('dental') || s.includes('hospital')) return 'Medical & Healthcare';
+  if (s.includes('retail') || s.includes('hospitality') || s.includes('restaurant') || s.includes('hotel') || s.includes('gym') || s.includes('fitness')) return 'Retail & Hospitality';
+  if (s.includes('office') || s.includes('corporate') || s.includes('financial') || s.includes('law')) return 'Commercial Offices';
+  return 'Post-Construction';
 }
 
 export default function PhoneTab({ user, repName, repTitle, isActive }) {
@@ -922,10 +938,11 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         followup: capture?.followup || null,
       });
 
+      const finalStatus = res?.followup?.statusOverride || newStatus;
       const nowIso = new Date().toISOString();
       const nextTimesContacted = (contact.times_contacted || 0) + 1;
       const updatedFields = {
-        status: newStatus,
+        status: finalStatus,
         times_contacted: nextTimesContacted,
         last_outcome: outcomeKey,
         last_contacted_at: nowIso,
@@ -996,8 +1013,11 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     if (targetColKey === 'new') {
       return await logOutcome(contact, 'STATUS_MOVE', { leadStatus: 'new' });
     }
+    if (targetColKey === 'info_sent') {
+      return await logOutcome(contact, 'INFO_SENT', { leadStatus: 'info_sent', notes: 'Pricing spec sheet / information sent' });
+    }
     if (targetColKey === 'quoted') {
-      return await logOutcome(contact, 'INFO_SENT', { leadStatus: 'quoted', notes: 'Pricing spec sheet / information sent' });
+      return await logOutcome(contact, 'SEND_QUOTE', { leadStatus: 'quoted', notes: 'Quote / proposal sent' });
     }
     if (targetColKey === 'walkthrough_booked') {
       setSelectedContact(contact);
@@ -1089,8 +1109,11 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     } else if (outcomeType === 'VOICEMAIL') {
       notes = 'Outbound call: Left capabilities voicemail';
       duration = 25;
-    } else if (outcomeType === 'INFO_SENT' || outcomeType === 'SEND_QUOTE') {
+    } else if (outcomeType === 'INFO_SENT') {
       notes = 'Pricing spec sheet / information sent';
+      duration = 45;
+    } else if (outcomeType === 'SEND_QUOTE') {
+      notes = 'Quote / proposal sent';
       duration = 45;
     }
 
@@ -1976,10 +1999,18 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
                       {/* Metadata Row */}
                       <div className="phone-lead-meta">
-                        <span className="text-[10px] text-slate-400">{getSeniorityLabel(cRank, c.position)}</span>
+                        <span className="text-[10px] text-slate-400">{getCategoryLabel(c)}</span>
                         <span className="phone-lead-val">{c.last_rep_name ? normalizeRepName(c.last_rep_name) : (c.call_logs && c.call_logs[0]?.rep_name ? normalizeRepName(c.call_logs[0].rep_name) : (c.times_contacted > 0 ? normalizeRepName(c.rep_name || 'Sales Rep') : 'Untouched'))}</span>
                         <span className="uppercase text-[10px] font-bold text-slate-400">
-                          {c.status === 'walkthrough_booked' ? 'Walkthrough' : (c.status === 'no_answer' || c.status === 'voicemail') ? 'No Answer / VM' : c.status || 'New'}
+                          {c.status === 'walkthrough_booked'
+                            ? 'Walkthrough'
+                            : c.status === 'info_sent'
+                            ? 'Info Sent'
+                            : c.status === 'quoted'
+                            ? 'Quote Sent'
+                            : (c.status === 'no_answer' || c.status === 'voicemail')
+                            ? 'No Answer / VM'
+                            : c.status || 'New'}
                         </span>
                       </div>
                     </div>

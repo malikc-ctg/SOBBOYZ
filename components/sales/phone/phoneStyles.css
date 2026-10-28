@@ -4,9 +4,9 @@
 
 .phone-workspace-root {
   width: 100%;
-  max-width: 1400px;
+  max-width: 100%;
   margin: 0 auto;
-  padding: 12px 16px 60px;
+  padding: 12px 20px 36px;
   box-sizing: border-box;
   color: #fffcf6;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;

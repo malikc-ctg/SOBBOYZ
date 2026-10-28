@@ -37,7 +37,6 @@ import {
   Sparkles
 } from 'lucide-react';
 import { CALL_OUTCOMES, normalizeRepName, parsePhoneAndExt } from '@/lib/sales/phoneService';
-import FollowupPanel from './followups/FollowupPanel';
 import DossierFooterGmailButton from './followups/DossierFooterGmailButton';
 
 const OUTCOME_OPTIONS = [
@@ -74,8 +73,8 @@ const OUTCOME_OPTIONS = [
     subtext: '+1 Dial, +1 Info Sent',
     badge: 'Info Sent',
     icon: FileText,
-    color: 'text-blue-300 hover:text-white hover:bg-blue-950/60',
-    iconColor: 'text-blue-400'
+    color: 'text-sky-300 hover:text-white hover:bg-sky-950/60',
+    iconColor: 'text-sky-400'
   },
   {
     key: 'WALKTHROUGH',
@@ -85,6 +84,15 @@ const OUTCOME_OPTIONS = [
     icon: Calendar,
     color: 'text-indigo-300 hover:text-white hover:bg-indigo-950/60',
     iconColor: 'text-indigo-400'
+  },
+  {
+    key: 'SEND_QUOTE',
+    label: 'Quote Sent / Proposal',
+    subtext: '+1 Dial, Quote Sent',
+    badge: 'Quoted',
+    icon: DollarSign,
+    color: 'text-cyan-300 hover:text-white hover:bg-cyan-950/60',
+    iconColor: 'text-cyan-400'
   },
   {
     key: 'JOB_WON',
@@ -224,14 +232,30 @@ function getSeniorityRank(seniority = '', title = '') {
   return 2.5;
 }
 
-function getSeniorityLabel(rank, title = '') {
-  if (rank >= 5) return 'Executive / Owner';
-  if (rank >= 4) return 'Project Director';
-  if (rank >= 3.5) return 'Director / Senior PM';
-  if (rank >= 3) return 'Project Manager / Super';
-  if (rank >= 2) return 'Senior Coordinator';
-  if (rank <= 1) return 'Project Coordinator';
-  return title || 'Operations Lead';
+const SECTOR_CATEGORY_LABELS = {
+  post_construction: 'Post-Construction',
+  franchise_owners: 'Franchise Owners',
+  commercial_office: 'Commercial Offices',
+  property_management: 'Property Management',
+  industrial_warehouse: 'Industrial & Warehouses',
+  medical_healthcare: 'Medical & Healthcare',
+  retail_hospitality: 'Retail & Hospitality',
+};
+
+function getCategoryLabel(contact) {
+  if (!contact) return 'Post-Construction';
+  const rawSector = String(contact.sector || '').trim().toLowerCase();
+  if (SECTOR_CATEGORY_LABELS[rawSector]) {
+    return SECTOR_CATEGORY_LABELS[rawSector];
+  }
+  const s = `${rawSector} ${contact.industry || ''} ${contact.service_type || ''}`.toLowerCase();
+  if (s.includes('franchise') || s.includes('multi-unit')) return 'Franchise Owners';
+  if (s.includes('property') || s.includes('real estate') || s.includes('condo') || s.includes('hoa') || s.includes('landlord')) return 'Property Management';
+  if (s.includes('industrial') || s.includes('warehouse') || s.includes('logistics') || s.includes('manufacturing')) return 'Industrial & Warehouses';
+  if (s.includes('medical') || s.includes('healthcare') || s.includes('clinic') || s.includes('dental') || s.includes('hospital')) return 'Medical & Healthcare';
+  if (s.includes('retail') || s.includes('hospitality') || s.includes('restaurant') || s.includes('hotel') || s.includes('gym') || s.includes('fitness')) return 'Retail & Hospitality';
+  if (s.includes('office') || s.includes('corporate') || s.includes('financial') || s.includes('law')) return 'Commercial Offices';
+  return 'Post-Construction';
 }
 
 function formatDateRelative(dateStr) {
@@ -368,7 +392,7 @@ export default function LeadDossierModal({
   const [editCompany, setEditCompany] = useState(contact?.company || '');
   const [editPhone, setEditPhone] = useState(contact?.phone || '');
   const [editDirect, setEditDirect] = useState(contact?.work_direct_phone || '');
-  const [editMobile, setEditMobile] = useState(contact?.mobile_phone || '');
+  const [editMobile, setEditMobile] = useState(contact?.mobile_phone || contact?.other_phone || '');
   const [editEmail, setEditEmail] = useState(contact?.email || '');
   const [editCity, setEditCity] = useState(contact?.city || '');
   const [editValue, setEditValue] = useState(contact?.estimated_value || '2500');
@@ -394,7 +418,7 @@ export default function LeadDossierModal({
       setEditCompany(contact.company || '');
       setEditPhone(contact.phone || '');
       setEditDirect(contact.work_direct_phone || '');
-      setEditMobile(contact.mobile_phone || '');
+      setEditMobile(contact.mobile_phone || contact.other_phone || '');
       setEditEmail(contact.email || '');
       setEditCity(contact.city || '');
       setEditValue(contact.estimated_value || '2500');
@@ -628,7 +652,7 @@ export default function LeadDossierModal({
                   )}
                 </div>
                 <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-950 border border-blue-800 text-blue-300">
-                  {getSeniorityLabel(currentRank, contact.position)}
+                  {getCategoryLabel(contact)}
                 </span>
                 {lastTouchRep ? (
                   <span className="text-[11px] font-bold tracking-wider px-2.5 py-0.5 rounded bg-slate-900 border border-blue-800/60 text-blue-300 flex items-center gap-1.5 shrink-0" title={contact.last_contacted_at ? `Last touched ${formatDateRelative(contact.last_contacted_at)} by ${lastTouchRep}` : `Last touched by ${lastTouchRep}`}>
@@ -923,19 +947,6 @@ export default function LeadDossierModal({
               </div>
             </div>
 
-            {/* Follow-Up Engine Panel (Spec 7.5) */}
-            <FollowupPanel
-              leadId={contact.id}
-              contact={contact}
-              onOpenReplyModal={onOpenReplyModal}
-              onOpenOutOfOfficeModal={onOpenOutOfOfficeModal}
-              onOpenVisitResultModal={onOpenVisitResultModal}
-              onOpenJobResultModal={onOpenJobResultModal}
-              onOpenCallbackModal={onOpenCallbackModal}
-              onOpenQuoteDetailsModal={onOpenQuoteDetailsModal}
-              onTriggerRefresh={onTriggerRefresh}
-            />
-
             {/* Detailed Interaction Log Timeline */}
             {allRelatedLogs.length > 0 ? (
               <div className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800 space-y-2">
@@ -1102,22 +1113,22 @@ export default function LeadDossierModal({
 
               {/* Mobile Cell */}
               <div
-                onClick={() => handleCopyNumber(contact.mobile_phone, 'mobile')}
+                onClick={() => handleCopyNumber(contact.mobile_phone || contact.other_phone, 'mobile')}
                 className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-emerald-500/50 flex items-center justify-between gap-2 cursor-pointer transition group"
                 title="Click to copy mobile cell phone"
               >
                 <div className="min-w-0">
                   <div className="text-[10px] uppercase font-bold text-slate-400">Mobile Cell</div>
                   <div className="font-mono text-sm font-bold text-emerald-300 truncate mt-0.5 group-hover:text-emerald-200">
-                    {contact.mobile_phone || 'No cell on file'}
+                    {contact.mobile_phone || contact.other_phone || 'No cell on file'}
                   </div>
                 </div>
-                {contact.mobile_phone && (
+                {(contact.mobile_phone || contact.other_phone) && (
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleCopyNumber(contact.mobile_phone, 'mobile');
+                      handleCopyNumber(contact.mobile_phone || contact.other_phone, 'mobile');
                     }}
                     className="px-2.5 py-1.5 bg-emerald-950 hover:bg-emerald-900/60 border border-emerald-800/80 text-emerald-300 rounded-lg text-xs font-bold flex items-center gap-1.5 transition shrink-0"
                   >
@@ -1347,19 +1358,19 @@ export default function LeadDossierModal({
             )}
           </div>
 
-          {/* SECTION: Call Transcripts & Sona AI Summaries */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Headphones size={14} className="text-blue-400" />
-                Call Transcripts & Sona AI Summaries
-              </span>
-              <span className="text-[11px] text-slate-400 font-mono">
-                {transcriptsList.length > 0 ? `${transcriptsList.length} recording${transcriptsList.length > 1 ? 's' : ''} available` : '0 transcripts'}
-              </span>
-            </div>
+          {/* SECTION: Call Transcripts & Sona AI Summaries (only shown when transcripts exist) */}
+          {transcriptsList.length > 0 && (
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                  <Headphones size={14} className="text-blue-400" />
+                  Call Transcripts & Sona AI Summaries
+                </span>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {`${transcriptsList.length} recording${transcriptsList.length > 1 ? 's' : ''} available`}
+                </span>
+              </div>
 
-            {transcriptsList.length > 0 ? (
               <div className="space-y-3">
                 {transcriptsList.map((item, tIdx) => {
                   const isExpanded = !!expandedTranscripts[item.id];
@@ -1522,20 +1533,8 @@ export default function LeadDossierModal({
                   );
                 })}
               </div>
-            ) : (
-              <div className="p-4 rounded-xl bg-slate-950/40 border border-dashed border-slate-800 text-center space-y-2">
-                <div className="w-8 h-8 rounded-lg bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 mx-auto">
-                  <Headphones size={16} />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-slate-300">No Call Transcripts Yet</div>
-                  <div className="text-[11px] text-slate-400 max-w-md mx-auto mt-0.5 leading-relaxed">
-                    Word-for-word audio transcripts and Sona AI executive summaries will automatically appear here once outreach calls are completed via Quo VoIP or logged with conversation notes.
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* SECTION 5: Colleagues at this Company ("Who are they?") */}
           <div className="space-y-3">
@@ -1589,7 +1588,7 @@ export default function LeadDossierModal({
                           </div>
 
                           <span className="text-[10px] text-slate-400 shrink-0 font-medium">
-                            {getSeniorityLabel(rank, col.position)}
+                            {getCategoryLabel(col)}
                           </span>
                         </div>
 

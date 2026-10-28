@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 import { logAudit } from '@/lib/audit';
 import { resolveOrCreateZone } from '@/lib/zone-matcher';
+import { toValidServiceType } from '@/lib/sales/sectorUtils';
+
 
 export async function POST(
   request: NextRequest,
@@ -126,7 +128,7 @@ export async function POST(
         lead_id: id,
         customer_id: customerId,
         zone_id: finalZoneId,
-        service_type: lead.service_type ?? body.service_type,
+        service_type: toValidServiceType(body.service_type ?? lead.service_type),
         scheduled_date: body.scheduled_date ?? lead.preferred_date,
         scheduled_window: body.scheduled_window ?? lead.preferred_window ?? 'afternoon',
         scheduled_start_time: startTime,

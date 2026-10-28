@@ -31,6 +31,7 @@ interface LenisProviderProps {
 // Any pathname starting with one of these prefixes will skip Lenis entirely.
 const LENIS_EXCLUDED_PREFIXES = [
   '/sobadmin',
+  '/sales',
   '/employee',
   '/reset-password',
 ];

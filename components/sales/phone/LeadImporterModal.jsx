@@ -81,12 +81,16 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
   const title = extractField(row, ['title', 'position', 'jobtitle', 'role', 'occupation']) || '';
   const company = extractField(row, ['companyname', 'company', 'organization', 'accountname', 'account', 'business'], { exclude: ['email'] }) || 'Commercial Prospect';
   
-  // Extension & Phone fields
+  // Extension & Phone fields (Apollo's "Other Phone" is always treated as Mobile Phone)
   const explicitExt = extractField(row, ['extension', 'ext', 'phoneextension', 'workextension', 'directextension']) || '';
   const workDirectPhone = extractField(row, ['workdirectphone', 'directphone', 'directline', 'workphone'], { exclude: ['extension', 'ext'] }) || '';
-  const mobilePhone = extractField(row, ['mobilephone', 'cellphone', 'mobile', 'cell']) || '';
+  const rawMobilePhone = extractField(row, ['mobilephone', 'cellphone', 'mobile', 'cell']) || '';
+  const otherPhone = extractField(row, ['otherphone', 'otherphonenumber', 'otherline', 'other']) || '';
+  const mobilePhone = rawMobilePhone || otherPhone;
   const corporatePhone = extractField(row, ['corporatephone', 'companyphone', 'mainphone', 'hqphone', 'switchboard']) || '';
-  const genericPhone = extractField(row, ['phone', 'phonenumber', 'telephone', 'tel'], { exclude: ['extension', 'ext'] }) || '';
+  const genericPhone = extractField(row, ['phone', 'phonenumber', 'telephone', 'tel'], {
+    exclude: ['extension', 'ext', 'other', 'mobile', 'cell', 'work', 'direct', 'corporate', 'company', 'main', 'hq', 'home']
+  }) || '';
   let primaryPhone = workDirectPhone || mobilePhone || genericPhone || corporatePhone || '';
 
   // Parse and separate extension if present in string or explicit column
@@ -117,6 +121,7 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
     sub_departments: subDepartments,
     work_direct_phone: workDirectPhone,
     mobile_phone: mobilePhone,
+    other_phone: otherPhone || mobilePhone,
     corporate_phone: corporatePhone,
     employees,
     annual_revenue: revenue,
@@ -124,14 +129,14 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
     address,
     linkedin,
     website,
-    technologies: technologies.substring(0, 300)
+    technologies: technologies.substring(0, 300),
+    sector: defaultVertical,
+    industry: defaultVertical
   };
 
   const defaultPrice = defaultVertical === 'post_construction' ? 2500 : defaultVertical === 'franchise_owners' ? 950 : 650;
   const defaultService = defaultVertical === 'post_construction'
     ? 'post_construction_clean'
-    : defaultVertical === 'franchise_owners'
-    ? 'franchise_owners'
     : 'commercial_cleaning';
 
   return {
@@ -142,6 +147,7 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
     customer_email: email,
     city: city,
     service_type: defaultService,
+    sector: defaultVertical,
     quoted_price: defaultPrice,
     notes: JSON.stringify(intel),
     source: 'contact_import',

@@ -5,18 +5,23 @@
 .team-container {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 64px);
+  height: 100%;
+  width: 100%;
   overflow: hidden;
-  background: var(--bg, #0d0d18);
+  background: var(--bg-primary, #001326);
 }
 
 /* ── Segment Nav ── */
 .team-segment-nav {
   display: flex;
   padding: 14px 16px 0;
-  gap: 4px;
-  background: var(--bg, #0d0d18);
+  gap: 6px;
+  background: var(--bg-primary, #001326);
   flex-shrink: 0;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .team-seg-btn {
@@ -58,6 +63,10 @@
   flex: 1;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  max-width: 1080px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 /* ── Section Header ── */

@@ -333,7 +333,7 @@
 
 .logger-container {
   width: 100%;
-  max-width: 480px;
+  max-width: 820px;
   margin: 0 auto;
   padding: 0 12px 24px;
   padding-bottom: calc(24px + var(--safe-bottom));

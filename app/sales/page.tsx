@@ -1,5 +1,7 @@
-import { redirect } from 'next/navigation';
+'use client';
+
+import AdminSalesOSPage from '@/app/sobadmin/sales/page';
 
 export default function SalesPage() {
-  redirect('/sobadmin/sales');
+  return <AdminSalesOSPage />;
 }

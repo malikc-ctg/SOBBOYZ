@@ -131,6 +131,7 @@ export async function GET(request: NextRequest) {
         } catch {}
       }
 
+      const resolvedMobilePhone = intel.mobile_phone || intel.other_phone || '';
       const rawExt = String(intel.extension || intel.ext || '').trim();
       let primaryPhone = l.customer_phone || '';
       // If customer_phone lacks extension but work_direct_phone has one, prioritize work_direct_phone
@@ -138,7 +139,7 @@ export async function GET(request: NextRequest) {
         primaryPhone = intel.work_direct_phone;
       }
       if (!primaryPhone) {
-        primaryPhone = intel.work_direct_phone || intel.mobile_phone || intel.corporate_phone || '';
+        primaryPhone = intel.work_direct_phone || resolvedMobilePhone || intel.corporate_phone || '';
       }
       const extMatch = primaryPhone.match(/\b(?:ext\.?|extension|x|#)\s*([0-9]{1,6})\b/i);
       const leadExtension = rawExt || (extMatch ? extMatch[1] : '');
@@ -184,6 +185,13 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Resolve status: if a lead was previously stored as 'quoted' when logging INFO_SENT,
+      // surface it under the dedicated 'info_sent' stage unless a quote was explicitly sent.
+      let resolvedStatus = l.status || 'new';
+      if (resolvedStatus === 'quoted' && directCalls[0]?.outcome_type === 'INFO_SENT') {
+        resolvedStatus = 'info_sent';
+      }
+
       return {
         id: l.id,
         contact_id: `lead_${l.id}`,
@@ -199,7 +207,7 @@ export async function GET(request: NextRequest) {
         service_type: toValidServiceType(l.service_type || sector),
         sector: sector,
         estimated_value: l.quoted_price ? Number(l.quoted_price) : 2500,
-        status: l.status || 'new', // new, contacted, no_answer, voicemail, walkthrough_booked, quoted, won, lost
+        status: resolvedStatus, // new, contacted, no_answer, voicemail, info_sent, walkthrough_booked, quoted, won, lost
         notes: cleanNotes || '',
         active_lock: activeLock,
         transcript: intel.transcript || null,
@@ -224,7 +232,8 @@ export async function GET(request: NextRequest) {
         departments: intel.departments || '',
         sub_departments: intel.sub_departments || '',
         work_direct_phone: intel.work_direct_phone || '',
-        mobile_phone: intel.mobile_phone || '',
+        mobile_phone: resolvedMobilePhone,
+        other_phone: intel.other_phone || resolvedMobilePhone,
         corporate_phone: intel.corporate_phone || '',
         employees: intel.employees || '',
         annual_revenue: intel.annual_revenue || '',
@@ -237,7 +246,7 @@ export async function GET(request: NextRequest) {
     });
 
     if (filter === 'hot') {
-      b2bQueue = b2bQueue.filter((c: any) => c.status === 'new' || c.status === 'quoted');
+      b2bQueue = b2bQueue.filter((c: any) => c.status === 'new' || c.status === 'info_sent' || c.status === 'quoted');
     } else if (filter === 'construction') {
       b2bQueue = b2bQueue.filter((c: any) => 
         c.service_type === 'post_construction_clean' || 
@@ -336,6 +345,9 @@ export async function PATCH(request: NextRequest) {
       }
       if (mobile_phone !== undefined) {
         parsedNotes.mobile_phone = mobile_phone;
+        if (parsedNotes.other_phone !== undefined) {
+          parsedNotes.other_phone = mobile_phone;
+        }
       }
       if (corporate_phone !== undefined) {
         parsedNotes.corporate_phone = corporate_phone;
@@ -453,6 +465,10 @@ export async function POST(request: NextRequest) {
         }
         itemIntel.sector = itemSector;
         itemIntel.industry = itemSector;
+        const resolvedItemMobile = itemIntel.mobile_phone || itemIntel.other_phone || item.mobile_phone || item.other_phone || '';
+        if (resolvedItemMobile) {
+          itemIntel.mobile_phone = resolvedItemMobile;
+        }
 
         return {
           source: item.source || 'contact_import',
@@ -498,6 +514,10 @@ export async function POST(request: NextRequest) {
     }
     singleIntel.sector = leadSector;
     singleIntel.industry = leadSector;
+    const resolvedSingleMobile = singleIntel.mobile_phone || singleIntel.other_phone || body.mobile_phone || body.other_phone || '';
+    if (resolvedSingleMobile) {
+      singleIntel.mobile_phone = resolvedSingleMobile;
+    }
 
     const { data, error } = await supabase
       .from('leads')

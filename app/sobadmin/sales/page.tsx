@@ -1,8 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
-import { useSearchParams } from 'next/navigation';
+import React, { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import SalesLaunchpad from '@/components/sales/SalesLaunchpad';
 
 import Logger from '@/components/sales/Logger';
@@ -10,11 +9,11 @@ import PhoneTab from '@/components/sales/phone/PhoneTab';
 import HistoryTab from '@/components/sales/history/HistoryTab';
 import MapTab from '@/components/sales/map/MapTab';
 import TeamTab from '@/components/sales/team/TeamTab';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
   LayoutGrid, ArrowLeft, Home, Building2, 
-  PhoneCall, Trophy, Compass, Clock, Users, RefreshCw
+  PhoneCall, Compass, Clock, Users, RefreshCw,
+  Maximize2, Minimize2, MapPin
 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@/components/sales/styles/knocklog.css';
@@ -31,6 +30,7 @@ import { getPendingEvents } from '@/lib/sales/db';
 
 export default function AdminSalesOSPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialApp = searchParams.get('app') || searchParams.get('mode') || null;
   const [activeApp, setActiveApp] = useState<string | null>(initialApp);
   const [fieldTab, setFieldTab] = useState<'KNOCK' | 'MAP' | 'TEAM' | 'HISTORY'>('KNOCK');
@@ -38,11 +38,66 @@ export default function AdminSalesOSPage() {
   const [repName, setRepName] = useState('Sales Rep');
   const [repTitle, setRepTitle] = useState('Account Executive');
   const [authLoading, setAuthLoading] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [clockTime, setClockTime] = useState('');
 
   useEffect(() => {
     const appParam = searchParams.get('app') || searchParams.get('mode');
     if (appParam) setActiveApp(appParam);
   }, [searchParams]);
+
+  // Track browser Fullscreen state & live system clock
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 80);
+    };
+
+    setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    const updateClock = () => {
+      setClockTime(
+        new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      );
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 15000);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      clearInterval(timer);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle error:', err);
+    }
+  }, []);
+
+  const handleExitToAdmin = useCallback(async (destination = '/sobadmin/leads') => {
+    if (typeof document !== 'undefined' && document.fullscreenElement) {
+      try {
+        await document.exitFullscreen();
+      } catch {}
+    }
+    router.push(destination);
+  }, [router]);
 
   useEffect(() => {
     async function loadAuth() {
@@ -123,156 +178,314 @@ export default function AdminSalesOSPage() {
     }
   };
 
-  const APP_METAS: Record<string, { title: string; badge: string; icon: any; iconColor: string }> = {
-    residential: { title: 'KnockLog Residential', badge: 'Field Canvassing', icon: Home, iconColor: 'text-blue-500' },
-    commercial: { title: 'KnockLog Commercial', badge: 'Commercial B2B', icon: Building2, iconColor: 'text-purple-400' },
-    phone: { title: 'B2B Phone Sales OS', badge: 'Inside CRM Workstation', icon: PhoneCall, iconColor: 'text-emerald-500' },
-  };
+  const OS_APPS = [
+    { id: 'residential', label: 'Residential', icon: Home, activeColor: 'bg-blue-600 text-white border-blue-500' },
+    { id: 'commercial', label: 'Commercial', icon: Building2, activeColor: 'bg-purple-600 text-white border-purple-500' },
+    { id: 'phone', label: 'B2B Phone', icon: PhoneCall, activeColor: 'bg-emerald-600 text-white border-emerald-500' },
+  ];
 
-  // Handle switching apps & scrolling to top
   const handleSelectApp = (appId: string | null) => {
     setActiveApp(appId);
     if (appId) setFieldTab('KNOCK');
     if (typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'instant' });
-      const mainEl = document.querySelector('main');
-      if (mainEl) mainEl.scrollTo({ top: 0, behavior: 'instant' });
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 60);
+    }
+  };
+
+  const handleSelectFieldTab = (tab: 'KNOCK' | 'MAP' | 'TEAM' | 'HISTORY') => {
+    setFieldTab(tab);
+    if (tab === 'MAP' && typeof window !== 'undefined') {
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 60);
     }
   };
 
   if (authLoading || !user) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <div className="animate-pulse text-sm text-muted-foreground font-semibold">Loading Sales OS...</div>
+      <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center bg-[#001326] text-[#fffcf6] font-sans dark">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+          <div className="text-sm text-[#88a2c0] font-semibold">Booting Sales OS...</div>
+        </div>
       </div>
     );
   }
 
-  // If on launcher home screen, render SalesLaunchpad
-  if (!activeApp) {
-    return (
-      <SalesLaunchpad
-        repName={repName}
-        user={user}
-        onSelectApp={handleSelectApp}
-        onLogout={() => {}}
-        isInsideAdmin={true}
-      />
-    );
-  }
-
-  const currentMeta = APP_METAS[activeApp] || { title: 'Sales OS', badge: 'App', icon: LayoutGrid, iconColor: 'text-blue-500' };
-  const MetaIcon = currentMeta.icon;
-
   return (
-    <div className="space-y-2 sm:space-y-3 font-sans min-w-0">
-      {/* Unified Compact Navigation Bar */}
-      <div className="flex items-center justify-between gap-1.5 px-2 pt-1 pb-2 sm:px-0 sm:pt-0 sm:pb-2.5 border-b border-border">
-        {/* Left: Back to Suite + App Title */}
-        <div className="flex items-center gap-1.5 min-w-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleSelectApp(null)}
-            className="h-8 px-2 text-xs font-semibold gap-1 shadow-xs bg-card hover:bg-muted shrink-0"
-            title="Return to Sales OS Suite"
+    <div className="fixed inset-0 z-50 flex flex-col h-dvh w-screen overflow-hidden bg-[#001326] text-[#fffcf6] font-sans dark">
+      {/* =========================================================
+          PERSISTENT OS SYSTEM MENU BAR (Top Dock & Status Tray)
+         ========================================================= */}
+      <header className="h-12 px-2.5 sm:px-4 bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 flex items-center justify-between gap-2 shrink-0 z-50 select-none">
+        {/* LEFT: Workspace Return + OS Home Launcher + Direct App Dock */}
+        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+          <button
+            type="button"
+            onClick={() => handleExitToAdmin('/sobadmin')}
+            className="h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-[#001b38] hover:bg-[#002855] text-slate-200 border border-[#3c6ca8]/30 transition shrink-0 cursor-pointer"
+            title="Return to Sea of Blue OS Launchpad (All 4 Workstations)"
           >
-            <ArrowLeft className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Suite</span>
-          </Button>
+            <ArrowLeft className="h-3.5 w-3.5 text-blue-400" />
+            <span className="hidden sm:inline">OS Launchpad</span>
+          </button>
 
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className={`w-7 h-7 rounded-lg flex items-center justify-center bg-card border border-border shrink-0 ${currentMeta.iconColor}`}>
-              <MetaIcon className="w-3.5 h-3.5" />
-            </div>
-            <div className="min-w-0 truncate">
-              <span className="text-xs sm:text-sm font-bold text-foreground truncate block leading-tight">
-                {currentMeta.title}
-              </span>
-            </div>
+          <button
+            type="button"
+            onClick={() => handleExitToAdmin('/sobadmin/leads')}
+            className="hidden md:flex h-8 px-2.5 rounded-lg text-[11px] font-semibold items-center gap-1 bg-[#001326] hover:bg-[#002855] text-[#88a2c0] hover:text-white border border-[#3c6ca8]/25 transition shrink-0 cursor-pointer"
+            title="Open Inbound Leads CRM"
+          >
+            <span>Leads</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleExitToAdmin('/sobadmin/customers')}
+            className="hidden lg:flex h-8 px-2.5 rounded-lg text-[11px] font-semibold items-center gap-1 bg-[#001326] hover:bg-[#002855] text-[#88a2c0] hover:text-white border border-[#3c6ca8]/25 transition shrink-0 cursor-pointer"
+            title="Open Customers & Accounts CRM"
+          >
+            <span>Customers</span>
+          </button>
+
+          <div className="h-4 w-px bg-[#3c6ca8]/25 hidden sm:block" />
+
+          {/* OS Desktop / Suite Home Button */}
+          <button
+            type="button"
+            onClick={() => handleSelectApp(null)}
+            className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
+              !activeApp
+                ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
+                : 'bg-[#001b38]/80 hover:bg-[#00244c] text-[#88a2c0] hover:text-white border-[#3c6ca8]/25'
+            }`}
+            title="Sales OS Desktop Launchpad"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">OS Suite</span>
+          </button>
+
+          {/* Direct App Switcher Pills */}
+          <div className="flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-[#3c6ca8]/25">
+            {OS_APPS.map((app) => {
+              const Icon = app.icon;
+              const isSelected = activeApp === app.id;
+              return (
+                <button
+                  key={app.id}
+                  type="button"
+                  onClick={() => handleSelectApp(app.id)}
+                  className={`h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    isSelected
+                      ? app.activeColor
+                      : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                  }`}
+                  title={`Switch to ${app.label}`}
+                >
+                  <Icon className="w-3.5 h-3.5 shrink-0" />
+                  <span className="hidden lg:inline">{app.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Right: Sub-tabs for Field KnockLog or Rep Badge */}
-        {(activeApp === 'residential' || activeApp === 'commercial') ? (
-          <div className="flex items-center gap-1.5 shrink-0">
-            <button
-              onClick={handleForceSync}
-              disabled={isSyncing}
-              title={pendingSyncCount > 0 ? `${pendingSyncCount} offline knocks waiting to sync. Click to sync now.` : "All knocks synced to cloud"}
-              className={`h-7 px-2 flex items-center gap-1 rounded-md text-[11px] font-medium border transition-colors ${
-                pendingSyncCount > 0
-                  ? 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 animate-pulse'
-                  : 'bg-card text-muted-foreground border-border/60 hover:text-foreground'
-              }`}
-            >
-              <RefreshCw className={`w-3 h-3 ${isSyncing ? 'animate-spin text-primary' : pendingSyncCount > 0 ? 'text-amber-400' : 'text-emerald-500'}`} />
-              <span className="hidden sm:inline">
-                {isSyncing ? 'Syncing...' : pendingSyncCount > 0 ? `${pendingSyncCount} unsynced` : 'Synced'}
-              </span>
-            </button>
-
-            <div className="flex items-center gap-0.5 sm:gap-1 bg-muted/40 p-0.5 rounded-lg border border-border/50 shrink-0">
-              {(['KNOCK', 'MAP', 'TEAM', 'HISTORY'] as const).map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setFieldTab(tab)}
-                  className={`px-2 sm:px-2.5 py-1 rounded-md text-[11px] sm:text-xs font-semibold transition-all ${
-                    fieldTab === tab ? 'bg-primary text-primary-foreground shadow-xs' : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  {tab === 'KNOCK' ? 'Knock' : tab === 'MAP' ? 'Map' : tab === 'TEAM' ? 'Team' : 'Hist'}
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 shrink-0">
-            <Badge variant="outline" className="h-7 px-2 text-[11px] gap-1.5 border-border bg-card font-sans">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-              <span className="text-muted-foreground hidden sm:inline">Rep:</span>
-              <span className="font-bold text-foreground">{repName}</span>
-              <span className="text-muted-foreground hidden md:inline">• {repTitle}</span>
-            </Badge>
+        {/* CENTER: Field KnockLog Sub-Workspace Switcher (Knock | Map | Team | History) */}
+        {(activeApp === 'residential' || activeApp === 'commercial') && (
+          <div className="flex items-center gap-0.5 sm:gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 shrink-0">
+            {([
+              { id: 'KNOCK', label: 'Knock', icon: MapPin },
+              { id: 'MAP', label: 'Map', icon: Compass },
+              { id: 'TEAM', label: 'Team', icon: Users },
+              { id: 'HISTORY', label: 'History', icon: Clock },
+            ] as const).map(({ id, label, icon: TabIcon }) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => handleSelectFieldTab(id)}
+                className={`px-2.5 sm:px-3.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                  fieldTab === id
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                }`}
+              >
+                <TabIcon className="w-3.5 h-3.5 hidden sm:inline" />
+                <span>{label}</span>
+              </button>
+            ))}
           </div>
         )}
-      </div>
 
-      {/* RENDER ACTIVE APP */}
-      {(activeApp === 'residential' || activeApp === 'commercial') && (
-        <div className="w-full">
-          {/* Centered Card Canvas without Redundant Headers */}
-          <div className={`max-w-xl mx-auto bg-card sm:border sm:border-border sm:rounded-2xl sm:shadow-xs overflow-hidden ${fieldTab === 'MAP' ? 'p-0' : 'p-0 sm:p-3'}`}>
-            <div style={{ display: fieldTab === 'KNOCK' ? 'block' : 'none', minHeight: '520px' }}>
+        {/* RIGHT: OS System Tray (Sync Status + Rep Pill + Clock + Fullscreen Toggle) */}
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Cloud Sync Status */}
+          <button
+            type="button"
+            onClick={handleForceSync}
+            disabled={isSyncing}
+            title={
+              pendingSyncCount > 0
+                ? `${pendingSyncCount} offline events waiting to sync. Click to sync now.`
+                : 'All events synced to cloud'
+            }
+            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
+              pendingSyncCount > 0
+                ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25 animate-pulse'
+                : 'bg-[#001b38] text-[#88a2c0] border-[#3c6ca8]/25 hover:text-white'
+            }`}
+          >
+            <RefreshCw
+              className={`w-3.5 h-3.5 ${
+                isSyncing
+                  ? 'animate-spin text-blue-400'
+                  : pendingSyncCount > 0
+                  ? 'text-amber-400'
+                  : 'text-emerald-400'
+              }`}
+            />
+            <span className="hidden md:inline">
+              {isSyncing ? 'Syncing...' : pendingSyncCount > 0 ? `${pendingSyncCount} unsynced` : 'Synced'}
+            </span>
+          </button>
+
+          {/* Operator Badge */}
+          <Badge
+            variant="outline"
+            className="hidden sm:inline-flex h-8 px-2.5 text-[11px] gap-1.5 border-[#3c6ca8]/30 bg-[#001b38] text-slate-200 font-sans"
+          >
+            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
+            <span className="font-bold text-white truncate max-w-[120px]">{repName}</span>
+            <span className="text-[#88a2c0] hidden xl:inline">• {repTitle}</span>
+          </Badge>
+
+          {/* System Clock */}
+          {clockTime && (
+            <span className="hidden xl:inline-block text-xs font-mono font-semibold text-[#88a2c0] px-1.5">
+              {clockTime}
+            </span>
+          )}
+
+          {/* Native OS Fullscreen Button */}
+          <button
+            type="button"
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Enter Full Screen OS Mode'}
+            className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
+              isFullscreen
+                ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30'
+                : 'bg-[#001b38] text-slate-200 border-[#3c6ca8]/35 hover:bg-[#002855] hover:text-white'
+            }`}
+          >
+            {isFullscreen ? (
+              <>
+                <Minimize2 className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">Exit Full</span>
+              </>
+            ) : (
+              <>
+                <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
+                <span className="hidden sm:inline">Full Screen</span>
+              </>
+            )}
+          </button>
+        </div>
+      </header>
+
+      {/* =========================================================
+          EDGE-TO-EDGE OS WORKSPACE CANVAS (100% Remaining Viewport)
+         ========================================================= */}
+      <div className="flex-1 w-full h-full min-h-0 overflow-hidden relative flex flex-col">
+        {/* 1. OS DESKTOP LAUNCHPAD */}
+        {!activeApp && (
+          <SalesLaunchpad
+            repName={repName}
+            repTitle={repTitle}
+            user={user}
+            onSelectApp={handleSelectApp}
+            onLogout={() => {}}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            pendingSyncCount={pendingSyncCount}
+          />
+        )}
+
+        {/* 2. KNOCKLOG RESIDENTIAL & COMMERCIAL WORKSTATIONS */}
+        {(activeApp === 'residential' || activeApp === 'commercial') && (
+          <div className="flex-1 w-full h-full min-h-0 relative overflow-hidden flex flex-col">
+            {/* KNOCK TAB */}
+            <div
+              style={{ display: fieldTab === 'KNOCK' ? 'block' : 'none' }}
+              className="w-full h-full flex-1 overflow-y-auto bg-[#001326] py-3 px-2 sm:px-6"
+            >
               <Logger
                 user={user}
                 repName={repName}
                 onLogout={() => {}}
                 isActive={fieldTab === 'KNOCK'}
                 mode={activeApp === 'commercial' ? 'COMMERCIAL' : 'RESIDENTIAL'}
-                onModeChange={(newMode) => setActiveApp(newMode === 'COMMERCIAL' ? 'commercial' : 'residential')}
+                onModeChange={(newMode: string) =>
+                  setActiveApp(newMode === 'COMMERCIAL' ? 'commercial' : 'residential')
+                }
                 initialSalesMode={activeApp === 'commercial' ? 'commercial' : 'residential'}
                 hideHeader={true}
               />
             </div>
-            <div style={{ display: fieldTab === 'MAP' ? 'block' : 'none', height: '560px', width: '100%', position: 'relative' }} className="overflow-hidden sm:rounded-xl">
-              <MapTab user={user} repName={repName} isActive={fieldTab === 'MAP'} salesMode={activeApp} />
+
+            {/* MAP TAB — 100% Edge-to-Edge Full Viewport Mapbox */}
+            <div
+              style={{ display: fieldTab === 'MAP' ? 'flex' : 'none' }}
+              className="w-full h-full flex-1 relative overflow-hidden"
+            >
+              <MapTab
+                user={user}
+                repName={repName}
+                isActive={fieldTab === 'MAP'}
+                salesMode={activeApp}
+              />
             </div>
-            <div style={{ display: fieldTab === 'TEAM' ? 'block' : 'none', minHeight: '520px', width: '100%' }}>
-              <TeamTab user={user} repName={repName} isActive={fieldTab === 'TEAM'} salesMode={activeApp} />
+
+            {/* TEAM TAB — Full Viewport Team Telemetry */}
+            <div
+              style={{ display: fieldTab === 'TEAM' ? 'flex' : 'none' }}
+              className="w-full h-full flex-1 overflow-hidden flex-col"
+            >
+              <TeamTab
+                user={user}
+                repName={repName}
+                isActive={fieldTab === 'TEAM'}
+                salesMode={activeApp}
+              />
             </div>
-            <div style={{ display: fieldTab === 'HISTORY' ? 'block' : 'none', minHeight: '520px' }}>
-              <HistoryTab user={user} repName={repName} isActive={fieldTab === 'HISTORY'} salesMode={activeApp} />
+
+            {/* HISTORY TAB — Full Viewport Session History */}
+            <div
+              style={{ display: fieldTab === 'HISTORY' ? 'block' : 'none' }}
+              className="w-full h-full flex-1 overflow-y-auto bg-[#001326]"
+            >
+              <HistoryTab
+                user={user}
+                repName={repName}
+                isActive={fieldTab === 'HISTORY'}
+                salesMode={activeApp}
+              />
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {activeApp === 'phone' && (
-        <div className="w-full">
-          <PhoneTab user={user} repName={repName} repTitle={repTitle} isActive={activeApp === 'phone'} />
-        </div>
-      )}
+        {/* 3. B2B PHONE SALES OS WORKSTATION */}
+        {activeApp === 'phone' && (
+          <div className="flex-1 w-full h-full min-h-0 overflow-y-auto bg-[#001326]">
+            <PhoneTab
+              user={user}
+              repName={repName}
+              repTitle={repTitle}
+              isActive={activeApp === 'phone'}
+            />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

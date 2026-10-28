@@ -101,7 +101,7 @@ export default function AddLeadModal({
         customer_phone: phone,
         customer_email: email,
         city: formData.city.trim() || 'GTA',
-        service_type: formData.sector,
+        service_type: formData.sector === 'post_construction' ? 'post_construction_clean' : 'commercial_cleaning',
         sector: formData.sector,
         status: formData.status || 'new',
         quoted_price: formData.quotedPrice ? parseFloat(formData.quotedPrice) : 2500,

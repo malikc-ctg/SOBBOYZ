@@ -2,23 +2,23 @@
 
 import { useEffect, useState, useRef, useMemo } from 'react';
 import dynamic from 'next/dynamic';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { 
   Briefcase, Radio, AlertCircle, 
   Search, MapPin, Clock, 
   ArrowRight, CheckCircle2,
   TrendingUp, Calendar, Globe, Map, List,
-  Plus, UserCheck, Sparkles, Phone, Mail, ExternalLink,
+  Plus, UserCheck, Sparkles, Repeat,
   ChevronRight
 } from 'lucide-react';
-import { format, parseISO, isToday, isTomorrow, isThisWeek } from 'date-fns';
+import { format, parseISO, isThisWeek } from 'date-fns';
 import Link from 'next/link';
 import type { Job, Employee, Zone, Lead } from '@/types';
 import { SERVICE_TYPE_LABELS, JOB_STATUS_LABELS } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { CRMPricingModal } from '@/components/admin/leads/CRMPricingModal';
 
 const DispatchMap = dynamic(() => import('./DispatchMap'), {
   ssr: false,
@@ -35,6 +35,8 @@ const DispatchMap = dynamic(() => import('./DispatchMap'), {
 type TimeframeFilter = 'today' | 'tomorrow' | 'week' | 'unassigned' | 'all';
 
 export function AdminDashboard() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [allJobs, setAllJobs] = useState<Job[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
@@ -42,8 +44,16 @@ export function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isClient, setIsClient] = useState(false);
-  const [view, setView] = useState<'list' | 'map'>('list');
-  const [timeframe, setTimeframe] = useState<TimeframeFilter>('all');
+  const [view, setView] = useState<'list' | 'map'>(() =>
+    searchParams?.get('view') === 'map' ? 'map' : 'list'
+  );
+  const [timeframe, setTimeframe] = useState<TimeframeFilter>(() => {
+    const tf = searchParams?.get('timeframe');
+    if (tf === 'unassigned' || tf === 'today' || tf === 'week' || tf === 'all') {
+      return tf;
+    }
+    return 'all';
+  });
   
   const supabase = createClient();
   const supabaseRef = useRef(supabase);
@@ -51,6 +61,26 @@ export function AdminDashboard() {
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // Synchronize URL searchParams (?view=map or ?timeframe=unassigned) with local state
+  useEffect(() => {
+    const viewParam = searchParams?.get('view');
+    setView(viewParam === 'map' ? 'map' : 'list');
+
+    const tfParam = searchParams?.get('timeframe');
+    if (tfParam === 'unassigned' || tfParam === 'today' || tfParam === 'week' || tfParam === 'all') {
+      setTimeframe(tfParam);
+    }
+  }, [searchParams]);
+
+  const handleSetView = (nextView: 'list' | 'map') => {
+    setView(nextView);
+    if (nextView === 'map') {
+      router.replace('/sobadmin?app=dispatch&view=map', { scroll: false });
+    } else {
+      router.replace('/sobadmin?app=dispatch', { scroll: false });
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -175,7 +205,7 @@ export function AdminDashboard() {
       sub: `${activeNowJobs.length} cleaners on site/transit`,
       icon: Radio, 
       color: 'blue',
-      onClick: () => setView('map'),
+      onClick: () => handleSetView('map'),
     },
     { 
       label: 'New Inbound Leads', 
@@ -235,49 +265,72 @@ export function AdminDashboard() {
   if (view === 'map') {
     return (
       <div className="relative">
-        <DispatchMap onBack={() => setView('list')} />
+        <DispatchMap onBack={() => handleSetView('list')} />
       </div>
     );
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-5 md:space-y-6 lg:space-y-8 max-w-7xl mx-auto min-w-0">
+    <div className="p-4 md:p-6 lg:p-8 space-y-5 md:space-y-6 lg:space-y-7 max-w-7xl mx-auto min-w-0">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <div className="flex items-center gap-2 text-blue-600 mb-1">
-            <Calendar className="h-4 w-4" />
-            <span className="text-xs font-bold uppercase tracking-wider">Operations Command</span>
+          <div className="flex items-center gap-2 text-blue-400 mb-1">
+            <Radio className="h-3.5 w-3.5" />
+            <span className="text-xs font-bold uppercase tracking-wider">Dispatch & Operations Workspace</span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Dashboard</h1>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Command Center</h1>
         </div>
 
-        {/* Action Controls */}
+        {/* View Switcher & Operational Shortcuts */}
         <div className="flex items-center gap-2 flex-wrap sm:justify-end">
-          <CRMPricingModal onSuccess={loadData} />
+          {/* Segmented View Toggle: Queue vs Live GPS Map */}
+          <div className="inline-flex items-center p-1 rounded-xl bg-muted/60 border border-border">
+            <button
+              type="button"
+              onClick={() => handleSetView('list')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                view === 'list'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <List className="h-3.5 w-3.5" />
+              Dispatch Queue
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSetView('map')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                view !== 'list'
+                  ? 'bg-background text-foreground shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              <Map className="h-3.5 w-3.5 text-blue-400" />
+              Live GPS Map
+            </button>
+          </div>
 
-          <Link href="/sobadmin/jobs/new">
-            <Button size="sm" className="h-9 px-3 text-xs font-semibold gap-1.5 shadow-xs">
-              <Plus className="h-4 w-4" />
-              New Job
+          <Link href="/sobadmin/recurring">
+            <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-semibold gap-1.5">
+              <Repeat className="h-3.5 w-3.5 text-blue-400" />
+              Recurring
             </Button>
           </Link>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setView('map')}
-            className="h-9 px-3 text-xs font-semibold gap-1.5"
-          >
-            <Map className="h-3.5 w-3.5" />
-            Live Map
-          </Button>
+          <Link href="/sobadmin/zones">
+            <Button variant="outline" size="sm" className="h-9 px-3 text-xs font-semibold gap-1.5">
+              <Globe className="h-3.5 w-3.5 text-emerald-400" />
+              Zones
+            </Button>
+          </Link>
 
           <div className="pl-2 border-l border-border hidden lg:block text-right">
             <p className="text-xs font-semibold text-foreground">
               {isClient ? format(new Date(), 'EEE, MMM do, yyyy') : '...'}
             </p>
-            <p className="text-[10px] text-muted-foreground">Auto-refresh active</p>
+            <p className="text-[10px] text-muted-foreground">Live Realtime Sync</p>
           </div>
         </div>
       </div>
@@ -325,27 +378,27 @@ export function AdminDashboard() {
         })}
       </div>
 
-      {/* Mobile Quick-Links Row — shows sidebar content as tappable chips on phones */}
+      {/* Mobile Dispatch Quick-Links Row */}
       <div className="flex gap-2 overflow-x-auto pb-1 lg:hidden -mx-4 px-4 scrollbar-none">
         <button
-          onClick={() => setView('map')}
+          onClick={() => handleSetView('map')}
           className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors"
         >
-          <Map className="h-3.5 w-3.5 text-blue-600" />
+          <Map className="h-3.5 w-3.5 text-blue-400" />
           Live Map
         </button>
-        <a href="/sobadmin/leads" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
-          <Sparkles className="h-3.5 w-3.5 text-purple-600" />
-          Leads
-        </a>
-        <a href="/sobadmin/employees" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
-          <UserCheck className="h-3.5 w-3.5 text-emerald-600" />
-          Employees
-        </a>
-        <a href="/sobadmin/finance" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
-          <TrendingUp className="h-3.5 w-3.5 text-green-600" />
-          Finance
-        </a>
+        <Link href="/sobadmin/jobs" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
+          <Briefcase className="h-3.5 w-3.5 text-blue-400" />
+          All Jobs
+        </Link>
+        <Link href="/sobadmin/recurring" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
+          <Repeat className="h-3.5 w-3.5 text-indigo-400" />
+          Recurring
+        </Link>
+        <Link href="/sobadmin/zones" className="flex items-center gap-1.5 shrink-0 px-3 py-2 rounded-xl bg-card border border-border text-xs font-semibold hover:border-primary/50 transition-colors">
+          <Globe className="h-3.5 w-3.5 text-emerald-400" />
+          Zones
+        </Link>
       </div>
 
       {/* Main Grid: Operational Jobs Feed + Sidebar */}

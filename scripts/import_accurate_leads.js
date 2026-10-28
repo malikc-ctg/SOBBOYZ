@@ -103,9 +103,9 @@ async function run() {
     const subDepartments = (r[8] || '').trim();
 
     const workDirectPhone = (r[10] || '').trim();
-    const mobilePhone = (r[12] || '').trim();
-    const corporatePhone = (r[13] || '').trim();
     const otherPhone = (r[14] || '').trim();
+    const mobilePhone = (r[12] || '').trim() || otherPhone;
+    const corporatePhone = (r[13] || '').trim();
     const companyPhone = (r[35] || '').trim();
 
     const primaryPhone = workDirectPhone || mobilePhone || corporatePhone || otherPhone || companyPhone || '';

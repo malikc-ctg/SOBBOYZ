@@ -6,6 +6,7 @@ export type CanonicalStatus =
   | 'new'
   | 'no_answer'
   | 'contacted'
+  | 'info_sent'
   | 'walkthrough_booked'
   | 'quoted'
   | 'won'
@@ -15,9 +16,10 @@ const RANK: Record<string, number> = {
   new: 0,
   no_answer: 1,
   contacted: 2,
-  walkthrough_booked: 3,
-  quoted: 4,
-  won: 5,
+  info_sent: 3,
+  walkthrough_booked: 4,
+  quoted: 5,
+  won: 6,
 };
 
 /**
@@ -28,7 +30,6 @@ export function normalizeStatus(s: string | null | undefined): string {
   if (!v) return 'new';
   if (v === 'voicemail' || v === 'no_answers' || v === 'unreachable') return 'no_answer';
   if (v === 'convo') return 'contacted';
-  if (v === 'info_sent') return 'quoted';
   if (v === 'job_won') return 'won';
   return v;
 }
@@ -66,7 +67,9 @@ export function nextLeadStatus(
     case 'CALLBACK':
       return cur === 'lost' || (rank !== null && rank < 2) ? 'contacted' : null;
     case 'INFO_SENT':
+      return cur === 'walkthrough_booked' ? null : 'info_sent';
     case 'SEND_QUOTE':
+    case 'QUOTE_SENT':
       return cur === 'walkthrough_booked' ? null : 'quoted';
     case 'WALKTHROUGH':
       return 'walkthrough_booked';

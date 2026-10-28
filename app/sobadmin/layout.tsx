@@ -1,94 +1,268 @@
 'use client';
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react';
-import {
-  LayoutDashboard, Users, Briefcase, UserCheck,
-  Settings, ClipboardList, Waves,
-  Package,
-  TrendingUp, Shield,
-  Menu, X, LogOut,
-} from 'lucide-react';
-
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import {
+  WORKSPACES,
+  WORKSPACE_MAP,
+  STORAGE_KEYS,
+  resolveWorkspaceFromPath,
+  getAllowedWorkspacesForUser,
+  type WorkspaceId,
+  type UserProfileContext,
+  type WorkspaceNavItem,
+} from '@/lib/navigation/workspaces';
+import { type OperationalCounts } from '@/components/admin/layout/WorkspaceSwitcher';
+import { AdminHeader } from '@/components/admin/layout/AdminHeader';
+import { SobOsLaunchpad } from '@/components/admin/layout/SobOsLaunchpad';
 
-const sidebarItems = [
-  { href: '/sobadmin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/sobadmin/leads', label: 'Leads', icon: ClipboardList },
-  { href: '/sobadmin/sales', label: 'Sales OS', icon: Waves },
-  { href: '/sobadmin/jobs', label: 'Jobs', icon: Briefcase },
-  { href: '/sobadmin/customers', label: 'Customers', icon: Users },
-  { href: '/sobadmin/employees', label: 'Employees', icon: UserCheck },
-  { href: '/sobadmin/supply', label: 'Supply', icon: Package },
-  { href: '/sobadmin/finance', label: 'Finance', icon: TrendingUp },
-  { href: '/sobadmin/audit', label: 'Audit Trail', icon: Shield },
-  { href: '/sobadmin/settings', label: 'Settings', icon: Settings },
-];
-
-
-
-export default function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [authChecked, setAuthChecked] = useState(false);
-  const [userEmail, setUserEmail] = useState<string | null>(null);
 
-  // Client-side auth check
+  const [authChecked, setAuthChecked] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfileContext | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [clockTime, setClockTime] = useState('');
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<WorkspaceId>(() =>
+    resolveWorkspaceFromPath(pathname || '/sobadmin')
+  );
+  const [counts, setCounts] = useState<OperationalCounts>({
+    unassignedJobs: 0,
+    activeJobs: 0,
+    newLeads: 0,
+    pendingApplications: 0,
+  });
+
+  // Track browser Fullscreen state & live system clock
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleFullscreenChange = () => {
+      setIsFullscreen(Boolean(document.fullscreenElement));
+      setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 80);
+    };
+
+    setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    const updateClock = () => {
+      setClockTime(
+        new Date().toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+        })
+      );
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 15000);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      clearInterval(timer);
+    };
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    if (typeof document === 'undefined') return;
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+      } else {
+        await document.exitFullscreen();
+      }
+    } catch (err) {
+      console.warn('Fullscreen toggle error:', err);
+    }
+  }, []);
+
+  // Load user & profile from Supabase
   useEffect(() => {
     const supabase = createClient();
 
     async function checkUser() {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        setUserEmail(user?.email ?? null);
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('full_name, role, title')
+            .eq('id', user.id)
+            .maybeSingle();
+
+          setUserProfile({
+            id: user.id,
+            email: user.email,
+            full_name:
+              profile?.full_name ||
+              user.user_metadata?.full_name ||
+              user.email?.split('@')[0] ||
+              'Operator',
+            role: profile?.role || 'admin',
+            title:
+              profile?.title ||
+              (profile?.role === 'admin' ? 'Managing Partner' : 'Operations'),
+          });
+        } else {
+          setUserProfile(null);
+        }
       } catch {
-        setUserEmail(null);
+        setUserProfile(null);
       } finally {
         setAuthChecked(true);
       }
     }
     checkUser();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserEmail(session?.user?.email ?? null);
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session?.user) {
+        setUserProfile(null);
+      }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [pathname, router]);
-
-  // Close sidebar on route change (mobile)
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
-
-  // Close sidebar on escape key
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setSidebarOpen(false);
-    }
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
   }, []);
 
-  // Don't show layout on login page
-  if (pathname === '/sobadmin/login') {
+  // Fetch operational counts for badges
+  const refreshOperationalCounts = useCallback(async () => {
+    if (
+      pathname === '/sobadmin/login' ||
+      pathname === '/sobadmin/forgot-password'
+    ) {
+      return;
+    }
+    try {
+      const [jobsRes, leadsRes, appsRes] = await Promise.allSettled([
+        fetch('/api/jobs'),
+        fetch('/api/leads'),
+        fetch('/api/sobadmin/employee-applications'),
+      ]);
+
+      let unassignedJobs = 0;
+      let activeJobs = 0;
+      let newLeads = 0;
+      let pendingApplications = 0;
+
+      if (jobsRes.status === 'fulfilled' && jobsRes.value.ok) {
+        const jobs = await jobsRes.value.json();
+        if (Array.isArray(jobs)) {
+          unassignedJobs = jobs.filter(
+            (j: any) =>
+              ['confirmed', 'lead_received', 'quoted'].includes(j.status) &&
+              !j.assigned_employee_id
+          ).length;
+          activeJobs = jobs.filter((j: any) =>
+            ['on_the_way', 'in_progress'].includes(j.status)
+          ).length;
+        }
+      }
+
+      if (leadsRes.status === 'fulfilled' && leadsRes.value.ok) {
+        const leads = await leadsRes.value.json();
+        if (Array.isArray(leads)) {
+          newLeads = leads.filter((l: any) => l.status === 'new').length;
+        }
+      }
+
+      if (appsRes.status === 'fulfilled' && appsRes.value.ok) {
+        const apps = await appsRes.value.json();
+        if (Array.isArray(apps)) {
+          pendingApplications = apps.filter(
+            (a: any) => !a.status || a.status === 'New' || a.status === 'Under Review'
+          ).length;
+        }
+      }
+
+      setCounts({ unassignedJobs, activeJobs, newLeads, pendingApplications });
+    } catch {
+      // Ignore background count errors
+    }
+  }, [pathname]);
+
+  useEffect(() => {
+    refreshOperationalCounts();
+  }, [refreshOperationalCounts]);
+
+  // Synchronize activeWorkspaceId with URL
+  useEffect(() => {
+    if (!pathname) return;
+    const matchedWorkspace = resolveWorkspaceFromPath(pathname);
+    setActiveWorkspaceId(matchedWorkspace);
+  }, [pathname, searchParams]);
+
+  const allowedWorkspaces = useMemo(
+    () => getAllowedWorkspacesForUser(userProfile),
+    [userProfile]
+  );
+
+  const activeWorkspace = useMemo(
+    () =>
+      allowedWorkspaces.find((w) => w.id === activeWorkspaceId) ||
+      WORKSPACE_MAP[activeWorkspaceId] ||
+      WORKSPACES[0],
+    [allowedWorkspaces, activeWorkspaceId]
+  );
+
+  // Switch workstation handler
+  const handleSelectWorkspace = useCallback(
+    (workspaceId: WorkspaceId) => {
+      const targetWs = WORKSPACE_MAP[workspaceId];
+      if (!targetWs) return;
+      setActiveWorkspaceId(workspaceId);
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem(STORAGE_KEYS.ACTIVE_WORKSPACE, workspaceId);
+      }
+      router.push(targetWs.defaultHref);
+    },
+    [router]
+  );
+
+  const handleOpenLaunchpad = useCallback(() => {
+    router.push('/sobadmin');
+  }, [router]);
+
+  // Keyboard shortcuts: ⌘1–⌘4 to jump directly to a workstation
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        const idx = ['1', '2', '3', '4'].indexOf(e.key);
+        if (idx !== -1 && allowedWorkspaces[idx]) {
+          e.preventDefault();
+          handleSelectWorkspace(allowedWorkspaces[idx].id);
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [allowedWorkspaces, handleSelectWorkspace]);
+
+  // Don't show OS top bar on login, forgot-password, or Sales OS (Sales OS renders its own integrated OS top bar)
+  if (
+    pathname === '/sobadmin/login' ||
+    pathname === '/sobadmin/forgot-password' ||
+    pathname?.startsWith('/sobadmin/sales')
+  ) {
     return <>{children}</>;
   }
 
-  // Show loading skeleton while checking auth
   if (!authChecked) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3 animate-pulse">
+      <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center bg-[#001326] text-[#fffcf6] font-sans dark">
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
+          <div className="text-sm text-[#88a2c0] font-semibold">
+            Booting Sea of Blue OS...
+          </div>
         </div>
       </div>
     );
@@ -100,105 +274,96 @@ export default function AdminLayout({
     window.location.href = '/sobadmin/login';
   }
 
-  const sidebarContent = (
-    <>
-      <div className="flex flex-col items-center justify-center gap-2 px-6 py-5 border-b border-border text-center">
-        <img src="/logo.png" alt="Sea of Blue Logo" className="w-48 h-48 object-contain" />
-        <div>
-          <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Operations</p>
-        </div>
-      </div>
+  // Determine if we are on the root OS Launchpad (/sobadmin with no ?app= or ?view= or ?timeframe= query param)
+  const isLaunchpadView =
+    pathname === '/sobadmin' &&
+    !searchParams?.get('app') &&
+    !searchParams?.get('view') &&
+    !searchParams?.get('timeframe');
 
-      {/* Nav */}
-      <ScrollArea className="flex-1 py-4">
-        <nav className="space-y-1 px-3">
-          {sidebarItems.map((item) => {
-            const isActive = item.href === '/sobadmin'
-              ? pathname === '/sobadmin'
-              : pathname.startsWith(item.href);
+  function isNavItemActive(item: WorkspaceNavItem): boolean {
+    if (item.id === 'command-center') {
+      return (
+        pathname === '/sobadmin' &&
+        !isLaunchpadView &&
+        searchParams?.get('view') !== 'map'
+      );
+    }
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  isActive
-                    ? 'bg-primary/10 text-primary'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                }`}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
-      </ScrollArea>
+    if (item.id === 'live-map') {
+      return pathname === '/sobadmin' && searchParams?.get('view') === 'map';
+    }
 
-      {/* Footer */}
-      <div className="px-4 py-4 border-t border-border space-y-3">
-        {userEmail && (
-          <p className="text-[10px] text-muted-foreground truncate px-2" title={userEmail}>
-            {userEmail}
-          </p>
-        )}
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 w-full px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign Out
-        </button>
-        <p className="text-[10px] text-muted-foreground px-2">
-          Sea of Blue v3.0
-        </p>
-      </div>
-    </>
-  );
+    if (item.exact) {
+      return pathname === item.href;
+    }
+
+    return pathname.startsWith(item.href);
+  }
+
+  function getItemBadgeCount(item: WorkspaceNavItem): number {
+    if (!item.badgeKey) return 0;
+    return counts[item.badgeKey] || 0;
+  }
 
   return (
-    <div className="flex h-screen bg-background text-foreground dark">
-      {/* Mobile top bar */}
-      <div className="fixed top-0 left-0 right-0 z-50 flex items-center gap-3 px-4 h-14 border-b border-border bg-card lg:hidden">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-2 -ml-2 rounded-lg hover:bg-muted transition-colors shrink-0"
-          aria-label="Toggle menu"
-        >
-          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </button>
-        <div className="flex items-center gap-2 min-w-0">
-          <img src="/logo.png" alt="Sea of Blue Logo" className="w-7 h-7 object-contain shrink-0" />
-          <span className="font-bold text-sm truncate">Sea of Blue Ops</span>
-        </div>
-      </div>
+    <div className="fixed inset-0 flex flex-col h-dvh w-screen overflow-hidden bg-background text-foreground dark">
+      {/* Persistent Top OS Dock Bar (Matches Sales OS) */}
+      <AdminHeader
+        workspaces={allowedWorkspaces}
+        activeWorkspace={activeWorkspace}
+        isLaunchpadView={isLaunchpadView}
+        onOpenLaunchpad={handleOpenLaunchpad}
+        onSelectWorkspace={handleSelectWorkspace}
+        isNavItemActive={isNavItemActive}
+        getItemBadgeCount={getItemBadgeCount}
+        counts={counts}
+        userProfile={userProfile}
+        clockTime={clockTime}
+        isFullscreen={isFullscreen}
+        onToggleFullscreen={toggleFullscreen}
+        onLogout={handleLogout}
+        onRefreshCounts={refreshOperationalCounts}
+      />
 
-      {/* Mobile overlay */}
-      {sidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
-
-      {/* Sidebar — desktop: always visible; mobile: slide-in drawer */}
-      <aside
-        className={`
-          fixed top-0 left-0 z-50 h-full w-72 border-r border-border bg-card flex flex-col
-          transition-transform duration-300 ease-in-out
-          lg:static lg:w-64 lg:translate-x-0
-          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
-      >
-        {sidebarContent}
-      </aside>
-
-      {/* Main content — add top padding on mobile for the top bar */}
-      <main className="flex-1 overflow-auto min-w-0 pt-14 lg:pt-0">
-        <div className={pathname === '/sobadmin' || pathname === '/sobadmin/sales' ? 'p-0 md:p-6 lg:p-8 min-w-0' : 'p-4 md:p-6 lg:p-8 min-w-0'}>
-          {children}
-        </div>
+      {/* Edge-to-Edge OS Workspace Canvas (100% Remaining Viewport) */}
+      <main className="flex-1 w-full h-full min-h-0 overflow-y-auto relative">
+        {isLaunchpadView ? (
+          <SobOsLaunchpad
+            userProfile={userProfile}
+            counts={counts}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            onLogout={handleLogout}
+          />
+        ) : (
+          <div
+            className={
+              pathname === '/sobadmin'
+                ? 'p-0 min-w-0'
+                : 'p-4 md:p-6 lg:p-8 max-w-7xl mx-auto min-w-0'
+            }
+          >
+            {children}
+          </div>
+        )}
       </main>
     </div>
+  );
+}
+
+export default function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <Suspense
+      fallback={
+        <div className="fixed inset-0 flex h-dvh w-screen items-center justify-center bg-[#001326] dark" />
+      }
+    >
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </Suspense>
   );
 }

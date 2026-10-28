@@ -92,6 +92,7 @@ export default function DossierFooterGmailButton({
     if (selectedTemplateOverride) return selectedTemplateOverride;
     if (nextEmailTask?.template_key) return nextEmailTask.template_key;
     if (contact?.status === 'walkthrough_booked') return 'wt_confirm';
+    if (contact?.status === 'info_sent') return 'info_day2';
     if (contact?.status === 'quoted') return 'quote_day2';
     if (contact?.status === 'won' || contact?.status === 'job_won') return 'won_thanks';
     if (contact?.status === 'contacted' || contact?.status === 'convo') return 'pickup_recap';

@@ -7,7 +7,7 @@ describe('normalizeStatus', () => {
     ['no_answers', 'no_answer'],
     ['unreachable', 'no_answer'],
     ['convo', 'contacted'],
-    ['info_sent', 'quoted'],
+    ['info_sent', 'info_sent'],
     ['job_won', 'won'],
     [null, 'new'],
     ['', 'new'],
@@ -38,6 +38,7 @@ describe('nextLeadStatus', () => {
     expect(nextLeadStatus('no_answer', o)).toBe('no_answer');
     expect(nextLeadStatus('voicemail', o)).toBe('no_answer');
     expect(nextLeadStatus('contacted', o)).toBeNull();
+    expect(nextLeadStatus('info_sent', o)).toBeNull();
     expect(nextLeadStatus('walkthrough_booked', o)).toBeNull();
     expect(nextLeadStatus('quoted', o)).toBeNull();
     expect(nextLeadStatus('lost', o)).toBeNull();
@@ -49,6 +50,7 @@ describe('nextLeadStatus', () => {
     expect(nextLeadStatus('lost', o)).toBe('convo');
     expect(nextLeadStatus('contacted', o)).toBeNull();
     expect(nextLeadStatus('convo', o)).toBeNull();
+    expect(nextLeadStatus('info_sent', o)).toBeNull();
     expect(nextLeadStatus('walkthrough_booked', o)).toBeNull();
     expect(nextLeadStatus('quoted', o)).toBeNull();
   });
@@ -57,14 +59,23 @@ describe('nextLeadStatus', () => {
     expect(nextLeadStatus('new', 'CALLBACK')).toBe('contacted');
     expect(nextLeadStatus('lost', 'CALLBACK')).toBe('contacted');
     expect(nextLeadStatus('contacted', 'CALLBACK')).toBeNull();
+    expect(nextLeadStatus('info_sent', 'CALLBACK')).toBeNull();
     expect(nextLeadStatus('quoted', 'CALLBACK')).toBeNull();
   });
 
-  it.each(['INFO_SENT', 'SEND_QUOTE'])('%s writes quoted unless walkthrough_booked', (o) => {
-    expect(nextLeadStatus('new', o)).toBe('quoted');
-    expect(nextLeadStatus('contacted', o)).toBe('quoted');
-    expect(nextLeadStatus('lost', o)).toBe('quoted');
-    expect(nextLeadStatus('walkthrough_booked', o)).toBeNull();
+  it('INFO_SENT writes info_sent unless walkthrough_booked', () => {
+    expect(nextLeadStatus('new', 'INFO_SENT')).toBe('info_sent');
+    expect(nextLeadStatus('contacted', 'INFO_SENT')).toBe('info_sent');
+    expect(nextLeadStatus('lost', 'INFO_SENT')).toBe('info_sent');
+    expect(nextLeadStatus('walkthrough_booked', 'INFO_SENT')).toBeNull();
+  });
+
+  it('SEND_QUOTE writes quoted unless walkthrough_booked', () => {
+    expect(nextLeadStatus('new', 'SEND_QUOTE')).toBe('quoted');
+    expect(nextLeadStatus('contacted', 'SEND_QUOTE')).toBe('quoted');
+    expect(nextLeadStatus('info_sent', 'SEND_QUOTE')).toBe('quoted');
+    expect(nextLeadStatus('lost', 'SEND_QUOTE')).toBe('quoted');
+    expect(nextLeadStatus('walkthrough_booked', 'SEND_QUOTE')).toBeNull();
   });
 
   it('WALKTHROUGH, JOB_WON, SALE, NOT_INTERESTED', () => {

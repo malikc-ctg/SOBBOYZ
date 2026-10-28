@@ -1,0 +1,28 @@
+{
+  "name": "Sea of Blue — Sales OS",
+  "short_name": "Sales OS",
+  "description": "Sea of Blue Sales Operating System — Field Canvassing, Commercial B2B & Tele-Sales Workstation",
+  "start_url": "/sales",
+  "scope": "/sales",
+  "id": "/sales",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone", "window-controls-overlay"],
+  "background_color": "#001326",
+  "theme_color": "#001326",
+  "orientation": "any",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "prefer_related_applications": false
+}

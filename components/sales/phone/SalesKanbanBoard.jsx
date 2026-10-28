@@ -48,6 +48,7 @@ export const STAGES = [
   { key: 'new', label: 'New Leads', shortLabel: 'New', color: '#64748b', bg: 'bg-slate-900/60', border: 'border-slate-800' },
   { key: 'no_answer', label: 'No Answer', shortLabel: 'No Answer', color: '#f59e0b', bg: 'bg-amber-950/20', border: 'border-amber-900/40' },
   { key: 'contacted', label: 'Contacted / In Progress', shortLabel: 'In Progress', color: '#3b82f6', bg: 'bg-blue-950/20', border: 'border-blue-950/40' },
+  { key: 'info_sent', label: 'Info Sent', shortLabel: 'Info Sent', color: '#38bdf8', bg: 'bg-sky-950/20', border: 'border-sky-900/40' },
   { key: 'walkthrough_booked', label: 'Walkthrough Booked', shortLabel: 'Booked', color: '#8b5cf6', bg: 'bg-purple-950/20', border: 'border-purple-950/40' },
   { key: 'quoted', label: 'Quote Sent', shortLabel: 'Quoted', color: '#06b6d4', bg: 'bg-cyan-950/20', border: 'border-cyan-950/40' },
   { key: 'won', label: 'Contract Won', shortLabel: 'Won', color: '#10b981', bg: 'bg-emerald-950/20', border: 'border-emerald-950/40' },
