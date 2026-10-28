@@ -101,12 +101,7 @@ export default function CustomerDetailPage() {
   };
 
   if (loading) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-3">
-        <div className="h-7 w-7 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
-        <p className="text-sm text-muted-foreground">Loading customer profile...</p>
-      </div>
-    );
+    return <div className="min-h-[400px]" />;
   }
 
   if (!customer) {

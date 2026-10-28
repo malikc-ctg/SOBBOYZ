@@ -21,14 +21,7 @@ export default function PartnerDashboard() {
   }, []);
 
   if (loading) {
-    return (
-      <div className="p-8 flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground">Loading your dashboard…</p>
-        </div>
-      </div>
-    );
+    return <div className="p-8 min-h-[400px]" />;
   }
 
   // Fallback demo data

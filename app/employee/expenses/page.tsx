@@ -91,11 +91,7 @@ export default function ExpensesPage() {
     .reduce((sum, e) => sum + e.amount, 0);
 
   if (loading) {
-    return (
-      <div className="flex h-40 items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="h-40" />;
   }
 
   return (

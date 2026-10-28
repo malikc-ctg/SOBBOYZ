@@ -1112,12 +1112,7 @@ export default function Logger({
   });
 
   if (loading) {
-    return (
-      <div className="loading-screen">
-        <div className="loading-spinner"></div>
-        <p>Loading session...</p>
-      </div>
-    );
+    return <div className="loading-screen" />;
   }
 
   const SyncIndicator = () => (

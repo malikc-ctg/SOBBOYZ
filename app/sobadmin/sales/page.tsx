@@ -205,12 +205,7 @@ export default function AdminSalesOSPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center bg-[#001326] text-[#fffcf6] font-sans dark">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-8 w-8 rounded-full border-2 border-blue-500 border-t-transparent animate-spin" />
-          <div className="text-sm text-[#88a2c0] font-semibold">Booting Sales OS...</div>
-        </div>
-      </div>
+      <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center bg-[#001326] text-[#fffcf6] font-sans dark" />
     );
   }
 

@@ -82,11 +82,7 @@ export default function EmployeeJobsPage() {
   const completedJobs = jobs.filter(j => ['completed', 'reviewed', 'paid_out', 'disputed'].includes(j.status));
 
   if (loading) {
-    return (
-      <div className="flex h-[50vh] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    );
+    return <div className="h-[50vh]" />;
   }
 
   function renderJobCard(job: Job) {
