@@ -7,7 +7,6 @@ import {
   Maximize2,
   Minimize2,
   LogOut,
-  AlertCircle,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { CRMPricingModal } from '@/components/admin/leads/CRMPricingModal';
@@ -148,19 +147,8 @@ export function AdminHeader({
           </nav>
         )}
 
-        {/* RIGHT: OS System Tray (Alerts + Quick Actions + Operator Pill + Clock + Fullscreen + Logout) */}
+        {/* RIGHT: OS System Tray (Quick Actions + Operator Pill + Clock + Fullscreen + Logout) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {counts.unassignedJobs > 0 && (
-            <Link
-              href="/sobadmin?app=dispatch&timeframe=unassigned"
-              className="hidden xl:inline-flex items-center gap-1.5 h-8 px-2.5 rounded-lg text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/40 hover:bg-amber-500/25 transition"
-              title="Jobs requiring cleaner dispatch"
-            >
-              <AlertCircle className="w-3.5 h-3.5 text-amber-400" />
-              <span>{counts.unassignedJobs} Unassigned</span>
-            </Link>
-          )}
-
           {!isLaunchpadView && (
             <div className="hidden md:flex items-center gap-1.5">
               <CRMPricingModal onSuccess={onRefreshCounts} />
