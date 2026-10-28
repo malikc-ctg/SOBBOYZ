@@ -8,9 +8,6 @@ import {
   UserCheck,
   TrendingUp,
   ArrowRight,
-  Plus,
-  Map,
-  ClipboardList,
 } from 'lucide-react';
 import { type OperationalCounts } from './WorkspaceSwitcher';
 import { type UserProfileContext, isLeadershipProfile } from '@/lib/navigation/workspaces';
@@ -251,55 +248,6 @@ export function SobOsLaunchpad({
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Bottom OS Telemetry & Quick Action Strip */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-4 border-t border-[#3c6ca8]/20 text-xs text-[#88a2c0]">
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <span className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-[#001b38] border border-[#3c6ca8]/25 text-slate-200 font-medium">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span>
-                Operator:{' '}
-                <strong className="text-white">
-                  {userProfile?.full_name || 'Operator'}
-                </strong>{' '}
-                ({userProfile?.title || 'Managing Partner'})
-              </span>
-            </span>
-
-            <button
-              type="button"
-              onClick={() => handleLaunchWorkstation('/sobadmin/jobs/new')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 border border-blue-500/40 text-blue-300 font-semibold transition cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              Book New Job
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleLaunchWorkstation('/sobadmin?app=dispatch&view=map')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#001b38] hover:bg-[#002855] border border-[#3c6ca8]/30 text-slate-200 font-semibold transition cursor-pointer"
-            >
-              <Map className="w-3.5 h-3.5 text-blue-400" />
-              Live GPS Map
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleLaunchWorkstation('/sobadmin/leads')}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#001b38] hover:bg-[#002855] border border-[#3c6ca8]/30 text-slate-200 font-semibold transition cursor-pointer"
-            >
-              <ClipboardList className="w-3.5 h-3.5 text-indigo-400" />
-              Inbound Leads ({counts.newLeads})
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-[#5a738e] hidden lg:inline">
-              Shortcuts: ⌘1 Dispatch • ⌘2 Sales OS • ⌘3 Workforce • ⌘4 Finance
-            </span>
-          </div>
         </div>
       </div>
     </div>
