@@ -9,7 +9,6 @@ import {
   LogOut,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { CRMPricingModal } from '@/components/admin/leads/CRMPricingModal';
 import {
   type WorkspaceConfig,
   type WorkspaceId,
@@ -151,7 +150,6 @@ export function AdminHeader({
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!isLaunchpadView && (
             <div className="hidden md:flex items-center gap-1.5">
-              <CRMPricingModal onSuccess={onRefreshCounts} />
               <Link
                 href="/sobadmin/jobs/new"
                 className="h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white transition"

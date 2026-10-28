@@ -350,8 +350,8 @@ export function CRMPricingModal({ onSuccess }: { onSuccess?: () => void }) {
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button size="lg" className="font-bold text-md">
-          <Calculator className="h-5 w-5 mr-2" /> New Lead / Quote
+        <Button size="sm" className="h-9 px-3.5 font-semibold text-xs gap-1.5">
+          <Calculator className="h-3.5 w-3.5" /> New Lead / Quote
         </Button>
       </DialogTrigger>
       <DialogContent
