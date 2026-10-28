@@ -11,7 +11,6 @@ import {
   Plus,
   Map,
   ClipboardList,
-  LogOut,
 } from 'lucide-react';
 import { type OperationalCounts } from './WorkspaceSwitcher';
 import { type UserProfileContext, isLeadershipProfile } from '@/lib/navigation/workspaces';
@@ -27,7 +26,6 @@ interface SobOsLaunchpadProps {
 export function SobOsLaunchpad({
   userProfile,
   counts,
-  onLogout,
 }: SobOsLaunchpadProps) {
   const router = useRouter();
 
@@ -301,14 +299,6 @@ export function SobOsLaunchpad({
             <span className="text-[11px] text-[#5a738e] hidden lg:inline">
               Shortcuts: ⌘1 Dispatch • ⌘2 Sales OS • ⌘3 Workforce • ⌘4 Finance
             </span>
-            <button
-              type="button"
-              onClick={onLogout}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 text-red-300 text-xs font-semibold transition cursor-pointer"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              Sign Out
-            </button>
           </div>
         </div>
       </div>

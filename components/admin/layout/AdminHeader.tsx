@@ -226,9 +226,10 @@ export function AdminHeader({
             type="button"
             onClick={onLogout}
             title="Sign Out"
-            className="h-8 px-2 rounded-lg text-xs font-semibold flex items-center gap-1 bg-[#001b38] hover:bg-red-500/20 text-[#88a2c0] hover:text-red-300 border border-[#3c6ca8]/30 hover:border-red-500/40 transition cursor-pointer"
+            className="h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 border border-red-500/40 hover:border-red-500/60 transition cursor-pointer"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-3.5 h-3.5 text-red-400" />
+            <span className="hidden md:inline">Sign Out</span>
           </button>
         </div>
       </header>
