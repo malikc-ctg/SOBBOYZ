@@ -20,6 +20,17 @@ interface SobOsLaunchpadProps {
   onLogout: () => void;
 }
 
+interface WorkstationQuickLink {
+  label: string;
+  href: string;
+}
+
+interface WorkstationQuickGroup {
+  groupLabel: string;
+  groupAccentClass: string;
+  links: WorkstationQuickLink[];
+}
+
 export function SobOsLaunchpad({
   userProfile,
   counts,
@@ -60,6 +71,7 @@ export function SobOsLaunchpad({
         { label: 'Jobs', href: '/sobadmin/jobs' },
         { label: 'Recurring', href: '/sobadmin/recurring' },
       ],
+      quickGroups: undefined as WorkstationQuickGroup[] | undefined,
       actionLabel: 'Launch Dispatch OS',
       visible: true,
     },
@@ -70,26 +82,40 @@ export function SobOsLaunchpad({
       badge:
         counts.newLeads > 0
           ? `${counts.newLeads} New Inbound Leads`
-          : 'Field & Inside Sales',
+          : 'Inbound & Outbound OS',
       badgeColor: 'text-indigo-300 border-indigo-500/30 bg-indigo-500/10',
       iconBg: 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30',
       accentBorder: 'hover:border-indigo-500/60',
       icon: <Waves className="w-6 h-6" />,
-      desc: 'Full-screen field canvassing (KnockLog Residential & Commercial), B2B Inside Phone Sales workstation, inbound leads pipeline, and customer accounts.',
+      desc: 'Split Inbound CRM (Website/LSA leads, instant quotes & customer accounts) and Outbound Sales OS (B2B Phone cold outreach & KnockLog field canvassing).',
       features: [
+        'Inbound Leads',
+        'Customer Accounts',
+        'B2B Phone OS',
         'KnockLog Residential',
         'KnockLog Commercial',
-        'B2B Phone OS',
-        'Inbound Leads',
-        'Customer CRM',
       ],
-      quickLinks: [
-        { label: 'Sales Launchpad', href: '/sobadmin/sales' },
-        { label: 'Inbound Leads', href: '/sobadmin/leads' },
-        { label: 'Customers', href: '/sobadmin/customers' },
-        { label: 'B2B Phone', href: '/sobadmin/sales?app=phone' },
+      quickLinks: [],
+      quickGroups: [
+        {
+          groupLabel: 'Inbound CRM',
+          groupAccentClass: 'text-indigo-300',
+          links: [
+            { label: 'Inbound Leads', href: '/sobadmin/leads' },
+            { label: 'Customers CRM', href: '/sobadmin/customers' },
+          ],
+        },
+        {
+          groupLabel: 'Outbound Sales OS',
+          groupAccentClass: 'text-emerald-400',
+          links: [
+            { label: 'B2B Phone', href: '/sobadmin/sales?app=phone' },
+            { label: 'Residential', href: '/sobadmin/sales?app=residential' },
+            { label: 'Commercial', href: '/sobadmin/sales?app=commercial' },
+          ],
+        },
       ],
-      actionLabel: 'Launch Sales OS',
+      actionLabel: 'Launch Sales & CRM Hub',
       visible: true,
     },
     {
@@ -116,6 +142,7 @@ export function SobOsLaunchpad({
         { label: 'Applicants', href: '/sobadmin/employees/applications' },
         { label: 'Supply OS', href: '/sobadmin/supply' },
       ],
+      quickGroups: undefined as WorkstationQuickGroup[] | undefined,
       actionLabel: 'Launch Workforce OS',
       visible: true,
     },
@@ -142,6 +169,7 @@ export function SobOsLaunchpad({
         { label: 'Audit Vault', href: '/sobadmin/audit' },
         { label: 'Settings', href: '/sobadmin/settings' },
       ],
+      quickGroups: undefined as WorkstationQuickGroup[] | undefined,
       actionLabel: 'Launch Finance OS',
       visible: canViewFinance,
     },
@@ -216,24 +244,55 @@ export function SobOsLaunchpad({
 
                 {/* Direct Sub-Module Jump Pills */}
                 <div className="mt-5 pt-4 border-t border-[#3c6ca8]/20">
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-[#5a738e] mb-2">
-                    Quick Jump Into Module
-                  </p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {ws.quickLinks.map((ql) => (
-                      <button
-                        key={ql.href}
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleLaunchWorkstation(ql.href);
-                        }}
-                        className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#001326]/90 hover:bg-blue-600 hover:text-white border border-[#3c6ca8]/30 text-slate-300 transition-colors cursor-pointer"
-                      >
-                        {ql.label}
-                      </button>
-                    ))}
-                  </div>
+                  {ws.quickGroups ? (
+                    <div className="space-y-3">
+                      {ws.quickGroups.map((group) => (
+                        <div key={group.groupLabel}>
+                          <p
+                            className={`text-[10px] font-bold uppercase tracking-wider mb-1.5 ${group.groupAccentClass}`}
+                          >
+                            {group.groupLabel}
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {group.links.map((ql) => (
+                              <button
+                                key={ql.href}
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLaunchWorkstation(ql.href);
+                                }}
+                                className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#001326]/90 hover:bg-blue-600 hover:text-white border border-[#3c6ca8]/30 text-slate-300 transition-colors cursor-pointer"
+                              >
+                                {ql.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-[#5a738e] mb-2">
+                        Quick Jump Into Module
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {ws.quickLinks.map((ql) => (
+                          <button
+                            key={ql.href}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleLaunchWorkstation(ql.href);
+                            }}
+                            className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-[#001326]/90 hover:bg-blue-600 hover:text-white border border-[#3c6ca8]/30 text-slate-300 transition-colors cursor-pointer"
+                          >
+                            {ql.label}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

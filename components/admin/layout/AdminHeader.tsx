@@ -34,34 +34,23 @@ interface AdminHeaderProps {
   onRefreshCounts?: () => void;
 }
 
-const WORKSTATION_ACTIVE_CLASSES: Record<WorkspaceId, string> = {
-  dispatch: 'bg-blue-600 text-white border-blue-500',
-  sales: 'bg-indigo-600 text-white border-indigo-500',
-  workforce: 'bg-emerald-600 text-white border-emerald-500',
-  finance: 'bg-amber-600 text-white border-amber-500',
-};
-
 export function AdminHeader({
-  workspaces,
   activeWorkspace,
   isLaunchpadView,
   onOpenLaunchpad,
-  onSelectWorkspace,
   isNavItemActive,
   getItemBadgeCount,
-  counts,
   userProfile,
   clockTime,
   isFullscreen,
   onToggleFullscreen,
   onLogout,
-  onRefreshCounts,
 }: AdminHeaderProps) {
   return (
     <div className="shrink-0 z-40 select-none bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 text-[#fffcf6]">
       {/* Primary Top OS Menu Bar */}
       <header className="h-12 px-2.5 sm:px-4 flex items-center justify-between gap-2">
-        {/* LEFT: OS Launchpad Home Button + Direct Workstation Switcher Pills */}
+        {/* LEFT: OS Launchpad Home Button */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button
             type="button"
@@ -76,71 +65,57 @@ export function AdminHeader({
             <LayoutGrid className="h-3.5 w-3.5 text-blue-300" />
             <span className="hidden sm:inline">OS Launchpad</span>
           </button>
-
-          {!isLaunchpadView && (
-            <>
-              <div className="h-4 w-px bg-[#3c6ca8]/25 hidden sm:block" />
-
-              {/* Direct Workstation Switcher Dock */}
-              <div className="flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-[#3c6ca8]/25 overflow-x-auto scrollbar-none">
-                {workspaces.map((ws) => {
-                  const Icon = ws.icon;
-                  const isSelected = activeWorkspace.id === ws.id;
-                  return (
-                    <button
-                      key={ws.id}
-                      type="button"
-                      onClick={() => onSelectWorkspace(ws.id)}
-                      className={`h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition shrink-0 cursor-pointer ${
-                        isSelected
-                          ? WORKSTATION_ACTIVE_CLASSES[ws.id]
-                          : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
-                      }`}
-                      title={`Switch to ${ws.name} (⌘${ws.shortcut})`}
-                    >
-                      <Icon className="w-3.5 h-3.5 shrink-0" />
-                      <span className="hidden md:inline">{ws.shortName}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
         </div>
 
         {/* CENTER: Active Workstation Module Tabs (Desktop) */}
         {!isLaunchpadView && (
           <nav className="hidden lg:flex items-center gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 shrink-0">
-            {activeWorkspace.items.map((item) => {
+            {activeWorkspace.items.map((item, idx) => {
               const TabIcon = item.icon;
               const active = isNavItemActive(item);
               const badgeCount = getItemBadgeCount(item);
+              const prevGroup = idx > 0 ? activeWorkspace.items[idx - 1].group : item.group;
+              const showGroupDivider = idx > 0 && item.group !== prevGroup;
 
               return (
-                <Link
-                  key={item.id}
-                  href={item.href}
-                  className={`px-2.5 xl:px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
-                    active
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
-                  }`}
-                  title={item.description}
-                >
-                  <TabIcon className="w-3.5 h-3.5 shrink-0" />
-                  <span>{item.shortLabel || item.label}</span>
-                  {badgeCount > 0 && (
-                    <span
-                      className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                        active
-                          ? 'bg-black/30 text-white'
-                          : 'bg-amber-500/20 text-amber-300'
-                      }`}
-                    >
-                      {badgeCount}
+                <div key={item.id} className="flex items-center gap-1">
+                  {showGroupDivider && (
+                    <div className="h-4 w-px bg-[#3c6ca8]/30 mx-0.5" />
+                  )}
+                  {item.group === 'Inbound CRM' && prevGroup !== 'Inbound CRM' && (
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-300/80 px-1.5 hidden 2xl:inline">
+                      Inbound
                     </span>
                   )}
-                </Link>
+                  {item.group === 'Outbound Sales OS' && prevGroup !== 'Outbound Sales OS' && (
+                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400/80 px-1.5 hidden 2xl:inline">
+                      Outbound
+                    </span>
+                  )}
+                  <Link
+                    href={item.href}
+                    className={`px-2.5 xl:px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
+                      active
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                    }`}
+                    title={item.description}
+                  >
+                    <TabIcon className="w-3.5 h-3.5 shrink-0" />
+                    <span>{item.shortLabel || item.label}</span>
+                    {badgeCount > 0 && (
+                      <span
+                        className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                          active
+                            ? 'bg-black/30 text-white'
+                            : 'bg-amber-500/20 text-amber-300'
+                        }`}
+                      >
+                        {badgeCount}
+                      </span>
+                    )}
+                  </Link>
+                </div>
               );
             })}
           </nav>

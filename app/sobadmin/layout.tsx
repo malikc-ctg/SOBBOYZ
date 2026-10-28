@@ -170,7 +170,18 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       if (leadsRes.status === 'fulfilled' && leadsRes.value.ok) {
         const leads = await leadsRes.value.json();
         if (Array.isArray(leads)) {
-          newLeads = leads.filter((l: any) => l.status === 'new').length;
+          newLeads = leads.filter((l: any) => {
+            const src = String(l.source || '').toLowerCase();
+            if (
+              src === 'quo_telephony' ||
+              src.includes('quo') ||
+              src === 'contact_import' ||
+              src === 'phone_sales_os'
+            ) {
+              return false;
+            }
+            return l.status === 'new';
+          }).length;
         }
       }
 

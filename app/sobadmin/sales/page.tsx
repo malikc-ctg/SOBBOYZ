@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   LayoutGrid, ArrowLeft, Home, Building2, 
   PhoneCall, Compass, Clock, Users, RefreshCw,
-  Maximize2, Minimize2, MapPin
+  Maximize2, Minimize2, MapPin, ClipboardList
 } from 'lucide-react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import '@/components/sales/styles/knocklog.css';
@@ -232,43 +232,53 @@ export default function AdminSalesOSPage() {
             <span className="hidden sm:inline">OS Launchpad</span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => handleExitToAdmin('/sobadmin/leads')}
-            className="hidden md:flex h-8 px-2.5 rounded-lg text-[11px] font-semibold items-center gap-1 bg-[#001326] hover:bg-[#002855] text-[#88a2c0] hover:text-white border border-[#3c6ca8]/25 transition shrink-0 cursor-pointer"
-            title="Open Inbound Leads CRM"
-          >
-            <span>Leads</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => handleExitToAdmin('/sobadmin/customers')}
-            className="hidden lg:flex h-8 px-2.5 rounded-lg text-[11px] font-semibold items-center gap-1 bg-[#001326] hover:bg-[#002855] text-[#88a2c0] hover:text-white border border-[#3c6ca8]/25 transition shrink-0 cursor-pointer"
-            title="Open Customers & Accounts CRM"
-          >
-            <span>Customers</span>
-          </button>
-
-          <div className="h-4 w-px bg-[#3c6ca8]/25 hidden sm:block" />
-
-          {/* OS Desktop / Suite Home Button */}
+          {/* Sales & CRM Hub Button */}
           <button
             type="button"
             onClick={() => handleSelectApp(null)}
             className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
               !activeApp
-                ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
+                ? 'bg-indigo-600 text-white border-indigo-500 shadow-xs'
                 : 'bg-[#001b38]/80 hover:bg-[#00244c] text-[#88a2c0] hover:text-white border-[#3c6ca8]/25'
             }`}
-            title="Sales OS Desktop Launchpad"
+            title="Sales & CRM Hub (Inbound & Outbound)"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">OS Suite</span>
+            <span className="hidden md:inline">Sales Hub</span>
           </button>
 
-          {/* Direct App Switcher Pills */}
-          <div className="flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-[#3c6ca8]/25">
+          {/* INBOUND CRM PILLS */}
+          <div className="hidden md:flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-indigo-500/25">
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-300/80 px-1.5 hidden xl:inline">
+              Inbound
+            </span>
+            <button
+              type="button"
+              onClick={() => handleExitToAdmin('/sobadmin/leads')}
+              className="h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 text-[#88a2c0] hover:text-white hover:bg-[#001d40] transition shrink-0 cursor-pointer"
+              title="Open Inbound Leads & Quotes"
+            >
+              <ClipboardList className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <span>Leads</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleExitToAdmin('/sobadmin/customers')}
+              className="h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 text-[#88a2c0] hover:text-white hover:bg-[#001d40] transition shrink-0 cursor-pointer"
+              title="Open Customers & Accounts CRM"
+            >
+              <Users className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <span>Customers</span>
+            </button>
+          </div>
+
+          <div className="h-4 w-px bg-[#3c6ca8]/25 hidden sm:block" />
+
+          {/* OUTBOUND SALES OS PILLS */}
+          <div className="flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-emerald-500/25">
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400/80 px-1.5 hidden xl:inline">
+              Outbound
+            </span>
             {OS_APPS.map((app) => {
               const Icon = app.icon;
               const isSelected = activeApp === app.id;
@@ -404,6 +414,7 @@ export default function AdminSalesOSPage() {
             repTitle={repTitle}
             user={user}
             onSelectApp={handleSelectApp}
+            onNavigateHref={handleExitToAdmin}
             onLogout={() => {}}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}

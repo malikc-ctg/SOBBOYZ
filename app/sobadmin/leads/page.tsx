@@ -111,16 +111,32 @@ export default function LeadsPage() {
     }
   }, [form.service_type]);
 
-  const filtered = leads.filter(
-    (lead) => (lead.source as string) !== 'quo_telephony' && !(lead.source as string)?.toLowerCase().includes('quo')
-  );
+  const filtered = leads.filter((lead) => {
+    const src = (lead.source as string)?.toLowerCase() || '';
+    if (
+      src === 'quo_telephony' ||
+      src.includes('quo') ||
+      src === 'contact_import' ||
+      src === 'phone_sales_os'
+    ) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-5 min-w-0">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold tracking-tight">Leads</h1>
-          <p className="text-muted-foreground text-sm">Manage incoming leads and quotes</p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl md:text-2xl font-bold tracking-tight">Inbound Leads</h1>
+            <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 border-indigo-500/40 bg-indigo-500/10 text-indigo-300">
+              Inbound CRM
+            </Badge>
+          </div>
+          <p className="text-muted-foreground text-sm mt-0.5">
+            Website inquiries, Local Service Ads (LSA), inbound calls, and instant quotes
+          </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <CRMPricingModal onSuccess={fetchLeads} />
