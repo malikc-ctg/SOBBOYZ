@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Radio,
@@ -8,15 +8,11 @@ import {
   UserCheck,
   TrendingUp,
   ArrowRight,
-  Maximize2,
-  Minimize2,
-  Monitor,
   Plus,
   Map,
   ClipboardList,
   LogOut,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { type OperationalCounts } from './WorkspaceSwitcher';
 import { type UserProfileContext, isLeadershipProfile } from '@/lib/navigation/workspaces';
 
@@ -31,12 +27,9 @@ interface SobOsLaunchpadProps {
 export function SobOsLaunchpad({
   userProfile,
   counts,
-  isFullscreen,
-  onToggleFullscreen,
   onLogout,
 }: SobOsLaunchpadProps) {
   const router = useRouter();
-  const [autoFullscreenOnLaunch, setAutoFullscreenOnLaunch] = useState(false);
 
   const canViewFinance = isLeadershipProfile(userProfile);
 
@@ -160,14 +153,6 @@ export function SobOsLaunchpad({
   ].filter((w) => w.visible);
 
   const handleLaunchWorkstation = (href: string) => {
-    if (
-      autoFullscreenOnLaunch &&
-      typeof document !== 'undefined' &&
-      !document.fullscreenElement &&
-      document.documentElement.requestFullscreen
-    ) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
     router.push(href);
   };
 
@@ -198,41 +183,6 @@ export function SobOsLaunchpad({
                 Choose an operational environment below. Use the persistent top OS dock bar inside any workstation to switch modules or return here anytime.
               </p>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setAutoFullscreenOnLaunch(!autoFullscreenOnLaunch)}
-              className={`h-9 px-3 rounded-lg text-xs font-semibold border transition flex items-center gap-2 cursor-pointer ${
-                autoFullscreenOnLaunch
-                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
-                  : 'bg-[#001d40]/80 border-[#3c6ca8]/30 text-[#88a2c0] hover:text-white'
-              }`}
-              title="Automatically enter native OS Full Screen when launching a workstation"
-            >
-              <Monitor className="w-3.5 h-3.5" />
-              <span>Auto Full Screen: {autoFullscreenOnLaunch ? 'ON' : 'OFF'}</span>
-            </button>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={onToggleFullscreen}
-              className="h-9 px-3.5 text-xs font-bold gap-2 bg-[#001d40] hover:bg-[#002855] text-white border-[#3c6ca8]/40 cursor-pointer"
-            >
-              {isFullscreen ? (
-                <>
-                  <Minimize2 className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Exit Full Screen</span>
-                </>
-              ) : (
-                <>
-                  <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
-                  <span>Enter Full Screen</span>
-                </>
-              )}
-            </Button>
           </div>
         </div>
 

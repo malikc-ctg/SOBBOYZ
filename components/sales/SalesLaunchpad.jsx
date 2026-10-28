@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React from 'react';
 import { 
   Home, Building2, PhoneCall, 
-  ArrowRight, Waves, Maximize2, Minimize2, Sparkles, Monitor
+  ArrowRight, Waves
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 
 export default function SalesLaunchpad({
   repName,
@@ -18,7 +16,6 @@ export default function SalesLaunchpad({
   onToggleFullscreen,
   pendingSyncCount = 0,
 }) {
-  const [autoFullscreenOnLaunch, setAutoFullscreenOnLaunch] = useState(true);
 
   const APPS = [
     {
@@ -60,14 +57,6 @@ export default function SalesLaunchpad({
   ];
 
   const handleLaunchApp = (appId) => {
-    if (
-      autoFullscreenOnLaunch &&
-      typeof document !== 'undefined' &&
-      !document.fullscreenElement &&
-      document.documentElement.requestFullscreen
-    ) {
-      document.documentElement.requestFullscreen().catch(() => {});
-    }
     onSelectApp(appId);
   };
 
@@ -87,43 +76,6 @@ export default function SalesLaunchpad({
             <p className="text-sm text-[#88a2c0] mt-1.5 max-w-2xl">
               Select a workspace environment below. All applications run edge-to-edge with real-time cloud telemetry and offline resilience.
             </p>
-          </div>
-
-          <div className="flex items-center gap-2.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setAutoFullscreenOnLaunch(!autoFullscreenOnLaunch)}
-              className={`h-9 px-3 rounded-lg text-xs font-semibold border transition flex items-center gap-2 cursor-pointer ${
-                autoFullscreenOnLaunch
-                  ? 'bg-blue-500/15 border-blue-500/40 text-blue-300'
-                  : 'bg-[#001d40]/80 border-[#3c6ca8]/30 text-[#88a2c0] hover:text-white'
-              }`}
-              title="Automatically enter native OS Full Screen when launching an app"
-            >
-              <Monitor className="w-3.5 h-3.5" />
-              <span>Auto Full Screen: {autoFullscreenOnLaunch ? 'ON' : 'OFF'}</span>
-            </button>
-
-            {onToggleFullscreen && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onToggleFullscreen}
-                className="h-9 px-3.5 text-xs font-bold gap-2 bg-[#001d40] hover:bg-[#002855] text-white border-[#3c6ca8]/40 cursor-pointer"
-              >
-                {isFullscreen ? (
-                  <>
-                    <Minimize2 className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Exit Full Screen</span>
-                  </>
-                ) : (
-                  <>
-                    <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Enter Full Screen</span>
-                  </>
-                )}
-              </Button>
-            )}
           </div>
         </div>
 
