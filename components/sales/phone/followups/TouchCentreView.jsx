@@ -75,7 +75,7 @@ export default function TouchCentreView({
 
   useEffect(() => {
     fetchInboxAlertsAndGmailStatus(false);
-    // Heartbeat every 3 minutes to auto-send 20m buffered No-Answer drips and scan rep inboxes
+    // Heartbeat every 3 minutes to auto-send 10m buffered No-Answer drips and scan rep inboxes
     const interval = setInterval(() => {
       fetchInboxAlertsAndGmailStatus(true);
     }, 3 * 60 * 1000);

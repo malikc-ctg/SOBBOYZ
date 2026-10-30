@@ -11,7 +11,7 @@ import { callClaudeSonnet, extractJsonFromClaude, getFollowupSystemSecrets } fro
 import { sendWebPush } from '@/lib/web-push';
 import { Resend } from 'resend';
 
-export const AUTO_SEND_DELAY_MINUTES = 0; // Auto-send immediately when marked No Answer
+export const AUTO_SEND_DELAY_MINUTES = 10; // 10-minute buffer after logging No Answer
 
 export interface StoredGmailOAuth {
   rep_id: string;
@@ -479,7 +479,7 @@ export async function runNoAnswerAutoSender(options: {
             preDraftedWarm.push({
               taskId: task.id,
               leadId: task.lead_id,
-              subject: 'Pre-drafted during 20m auto-send buffer',
+              subject: 'Pre-drafted during 10m auto-send buffer',
             });
           } catch (err) {
             console.warn('[AutoSender] Pre-draft failed:', err);
