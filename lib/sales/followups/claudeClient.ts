@@ -3,7 +3,61 @@
  * Uses prompt caching ($0.10/MTok cache hits) and optional native web search.
  */
 
+import { createServiceClient } from '@/lib/supabase/server';
+
 export const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
+
+let cachedSystemConfig: {
+  ANTHROPIC_API_KEY?: string;
+  GOOGLE_CLIENT_ID?: string;
+  GOOGLE_CLIENT_SECRET?: string;
+} | null = null;
+
+export async function getFollowupSystemSecrets() {
+  if (
+    process.env.ANTHROPIC_API_KEY &&
+    process.env.GOOGLE_CLIENT_ID &&
+    process.env.GOOGLE_CLIENT_SECRET
+  ) {
+    return {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
+    };
+  }
+
+  if (cachedSystemConfig?.ANTHROPIC_API_KEY) {
+    return {
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || cachedSystemConfig.ANTHROPIC_API_KEY,
+      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || cachedSystemConfig.GOOGLE_CLIENT_ID || '',
+      GOOGLE_CLIENT_SECRET:
+        process.env.GOOGLE_CLIENT_SECRET || cachedSystemConfig.GOOGLE_CLIENT_SECRET || '',
+    };
+  }
+
+  try {
+    const supabase = await createServiceClient();
+    const { data } = await supabase
+      .from('sales_followup_processed_events')
+      .select('summary')
+      .eq('event_id', '00000000-0000-0000-0000-000000000001')
+      .eq('outcome_type', 'SYSTEM_CONFIG')
+      .maybeSingle();
+
+    if (data?.summary) {
+      cachedSystemConfig = data.summary;
+    }
+  } catch {
+    // ignore
+  }
+
+  return {
+    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || cachedSystemConfig?.ANTHROPIC_API_KEY || '',
+    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || cachedSystemConfig?.GOOGLE_CLIENT_ID || '',
+    GOOGLE_CLIENT_SECRET:
+      process.env.GOOGLE_CLIENT_SECRET || cachedSystemConfig?.GOOGLE_CLIENT_SECRET || '',
+  };
+}
 
 export interface ClaudeCallOptions {
   systemPrompt: string;
@@ -29,7 +83,8 @@ export interface ClaudeResponse {
  * Calls Anthropic's Messages API with claude-sonnet-5-5 and ephemeral prompt caching on the system prompt.
  */
 export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<ClaudeResponse> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+  const secrets = await getFollowupSystemSecrets();
+  const apiKey = secrets.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error('ANTHROPIC_API_KEY is not configured in environment variables.');
   }

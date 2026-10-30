@@ -7,12 +7,9 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { SALES_REP_LIST, resolveRepConfig, SalesRepConfig } from './config';
 import { draftDossierEmailWithClaude } from './aiDrafter';
 import { runEngineForTaskAction, runEngineForLeadSignal } from './executor';
-import { callClaudeSonnet, extractJsonFromClaude } from './claudeClient';
+import { callClaudeSonnet, extractJsonFromClaude, getFollowupSystemSecrets } from './claudeClient';
 import { sendWebPush } from '@/lib/web-push';
 import { Resend } from 'resend';
-
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || '';
 
 export const AUTO_SEND_DELAY_MINUTES = 20; // 20-minute buffer after logging No Answer
 
@@ -64,7 +61,8 @@ export interface InboxAlertItem {
 /**
  * Generates Google OAuth 2.0 authorization URL for a Sales Rep.
  */
-export function getGmailOAuthUrl(repIdentifier: string, redirectUri: string): string {
+export async function getGmailOAuthUrl(repIdentifier: string, redirectUri: string): Promise<string> {
+  const secrets = await getFollowupSystemSecrets();
   const rep = resolveRepConfig(repIdentifier);
   const statePayload = Buffer.from(
     JSON.stringify({
@@ -75,7 +73,7 @@ export function getGmailOAuthUrl(repIdentifier: string, redirectUri: string): st
   ).toString('base64url');
 
   const params = new URLSearchParams({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: secrets.GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: 'code',
     access_type: 'offline',
@@ -100,6 +98,7 @@ export async function exchangeGmailCodeAndSave(
   stateBase64: string,
   redirectUri: string
 ): Promise<StoredGmailOAuth> {
+  const secrets = await getFollowupSystemSecrets();
   let stateObj: any = {};
   try {
     stateObj = JSON.parse(Buffer.from(stateBase64, 'base64url').toString('utf8'));
@@ -114,8 +113,8 @@ export async function exchangeGmailCodeAndSave(
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       code,
-      client_id: GOOGLE_CLIENT_ID,
-      client_secret: GOOGLE_CLIENT_SECRET,
+      client_id: secrets.GOOGLE_CLIENT_ID,
+      client_secret: secrets.GOOGLE_CLIENT_SECRET,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     }),
@@ -199,20 +198,21 @@ export async function getRepGmailOAuth(repIdentifier?: string | null): Promise<S
   const stored = data.summary as StoredGmailOAuth;
 
   // Refresh if expiring within 2 minutes
+  const secrets = await getFollowupSystemSecrets();
   if (
     stored.refresh_token &&
     stored.expiry_date &&
     Date.now() > stored.expiry_date - 2 * 60 * 1000 &&
-    GOOGLE_CLIENT_ID &&
-    GOOGLE_CLIENT_SECRET
+    secrets.GOOGLE_CLIENT_ID &&
+    secrets.GOOGLE_CLIENT_SECRET
   ) {
     try {
       const refreshRes = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: GOOGLE_CLIENT_ID,
-          client_secret: GOOGLE_CLIENT_SECRET,
+          client_id: secrets.GOOGLE_CLIENT_ID,
+          client_secret: secrets.GOOGLE_CLIENT_SECRET,
           refresh_token: stored.refresh_token,
           grant_type: 'refresh_token',
         }),
