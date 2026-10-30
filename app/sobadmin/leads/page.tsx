@@ -17,7 +17,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, ClipboardCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { SERVICE_TYPE_LABELS, DEFAULT_PRICING, LEAD_SOURCE_LABELS } from '@/types';
@@ -117,7 +117,11 @@ export default function LeadsPage() {
       src === 'quo_telephony' ||
       src.includes('quo') ||
       src === 'contact_import' ||
-      src === 'phone_sales_os'
+      src === 'phone_sales_os' ||
+      src === 'apollo' ||
+      src === 'bid_tender' ||
+      src === 'vendor_list' ||
+      (lead.status as string) === 'vendor_list'
     ) {
       return false;
     }
@@ -126,6 +130,26 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-5 min-w-0">
+      {/* Inbound CRM Section Switcher Strip */}
+      <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto">
+        <Link href="/sobadmin/leads">
+          <Button variant="default" size="sm" className="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">
+            Standard Inbound Leads
+          </Button>
+        </Link>
+        <Link href="/sobadmin/tenders">
+          <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
+            <ClipboardCheck className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
+            Vendor Lists &amp; Commercial Tenders
+          </Button>
+        </Link>
+        <Link href="/sobadmin/customers">
+          <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
+            Customer Accounts CRM
+          </Button>
+        </Link>
+      </div>
+
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <div className="flex items-center gap-2">

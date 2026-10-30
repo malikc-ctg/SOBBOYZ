@@ -7,6 +7,7 @@ export type CanonicalStatus =
   | 'no_answer'
   | 'contacted'
   | 'info_sent'
+  | 'vendor_list'
   | 'walkthrough_booked'
   | 'quoted'
   | 'won'
@@ -17,6 +18,7 @@ const RANK: Record<string, number> = {
   no_answer: 1,
   contacted: 2,
   info_sent: 3,
+  vendor_list: 3.5,
   walkthrough_booked: 4,
   quoted: 5,
   won: 6,
@@ -68,6 +70,9 @@ export function nextLeadStatus(
       return cur === 'lost' || (rank !== null && rank < 2) ? 'contacted' : null;
     case 'INFO_SENT':
       return cur === 'walkthrough_booked' ? null : 'info_sent';
+    case 'VENDOR_LIST':
+    case 'BID_TENDER':
+      return 'vendor_list';
     case 'SEND_QUOTE':
     case 'QUOTE_SENT':
       return cur === 'walkthrough_booked' ? null : 'quoted';

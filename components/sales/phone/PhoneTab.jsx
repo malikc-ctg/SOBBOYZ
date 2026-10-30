@@ -72,6 +72,7 @@ import JobResultModal from './followups/JobResultModal';
 import OutOfOfficeModal from './followups/OutOfOfficeModal';
 import FollowupSettingsModal from './followups/FollowupSettingsModal';
 import ContactedChoiceModal from './followups/ContactedChoiceModal';
+import VendorListModal from './followups/VendorListModal';
 import './phoneStyles.css';
 
 /**
@@ -261,6 +262,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [showCallbackModal, setShowCallbackModal] = useState(false);
   const [showNotInterestedModal, setShowNotInterestedModal] = useState(false);
   const [showJobWonModal, setShowJobWonModal] = useState(false);
+  const [showVendorListModal, setShowVendorListModal] = useState(false);
   const [showContactedDropMenu, setShowContactedDropMenu] = useState(false);
   const [followupBoardData, setFollowupBoardData] = useState(null);
   const [followupMeta, setFollowupMeta] = useState({ mailingAddressSet: false });
@@ -1101,6 +1103,11 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       setShowWalkthroughModal(true);
       return { pending: true };
     }
+    if (outcomeType === 'VENDOR_LIST' || outcomeType === 'BID_TENDER') {
+      setActiveCaptureLead(contact);
+      setShowVendorListModal(true);
+      return { pending: true };
+    }
 
     let notes = `Outcome: ${outcomeType}`;
     let duration = 0;
@@ -1187,6 +1194,59 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       });
     } catch (e) {
       toast.error(e?.message || 'Failed to log job won');
+    }
+  };
+
+  const handleVendorListSubmit = async (payload) => {
+    if (!activeCaptureLead) return;
+    try {
+      const res = await fetch('/api/sales/vendor-list', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'roll_up_company',
+          ...payload,
+          rep_id: activeRepId,
+          rep_name: activeRepName,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to roll company into Vendor Lists & Tenders');
+
+      const rolledIds = new Set((data.rolled_up_lead_ids || [String(activeCaptureLead.id)]).map(String));
+      const targetCompanyNorm = normalizeCompanyName(activeCaptureLead.company || '');
+
+      // Remove all contacts belonging to this company from the Outbound cold-call board
+      setContacts((prev) =>
+        prev.filter((c) => {
+          if (rolledIds.has(String(c.id))) return false;
+          if (targetCompanyNorm && normalizeCompanyName(c.company || '') === targetCompanyNorm) return false;
+          return true;
+        })
+      );
+
+      // Broadcast removal to all online reps on the Kanban board
+      rolledIds.forEach((idStr) => {
+        releaseLeadLock(idStr, { skipDb: true });
+        broadcastLeadDelete(idStr);
+      });
+
+      if (showDossierModal && dossierModalContact) {
+        const dossierNorm = normalizeCompanyName(dossierModalContact.company || '');
+        if (rolledIds.has(String(dossierModalContact.id)) || (targetCompanyNorm && dossierNorm === targetCompanyNorm)) {
+          setShowDossierModal(false);
+          setDossierModalContact(null);
+        }
+      }
+
+      refreshStats();
+      fetchFollowupBoard();
+
+      toast.success(
+        `Moved ${data.company_name || activeCaptureLead.company} (${data.rolled_up_count || rolledIds.size} contact${(data.rolled_up_count || rolledIds.size) === 1 ? '' : 's'}) to Inbound CRM → Vendor Lists & Tenders`
+      );
+    } catch (e) {
+      toast.error(e?.message || 'Failed to log Vendor List / Tender outcome');
     }
   };
 
@@ -2435,6 +2495,15 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         onClose={() => setShowContactedDropMenu(false)}
         onChoosePickup={() => setShowPickupModal(true)}
         onChooseCallback={() => setShowCallbackModal(true)}
+        onChooseVendorList={() => setShowVendorListModal(true)}
+      />
+
+      <VendorListModal
+        isOpen={showVendorListModal}
+        contact={activeCaptureLead}
+        allContacts={contacts}
+        onClose={() => setShowVendorListModal(false)}
+        onSubmit={handleVendorListSubmit}
       />
 
       <ReplyModal

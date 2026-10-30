@@ -4,6 +4,7 @@ import {
   Repeat,
   Globe,
   ClipboardList,
+  ClipboardCheck,
   Users,
   Waves,
   Home,
@@ -142,6 +143,15 @@ export const WORKSPACES: WorkspaceConfig[] = [
         description: 'New inquiries, instant pricing quotes & conversion queue',
         icon: ClipboardList,
         badgeKey: 'newLeads',
+        group: 'Inbound CRM',
+      },
+      {
+        id: 'tenders',
+        href: '/sobadmin/tenders',
+        label: 'Vendor Lists & Tenders',
+        shortLabel: 'Vendor & Tenders',
+        description: 'Commercial subcontractor pre-qualification & active project bids',
+        icon: ClipboardCheck,
         group: 'Inbound CRM',
       },
       {
@@ -302,6 +312,7 @@ export interface UserProfileContext {
 export function resolveWorkspaceFromPath(pathname: string): WorkspaceId {
   if (
     pathname.startsWith('/sobadmin/leads') ||
+    pathname.startsWith('/sobadmin/tenders') ||
     pathname.startsWith('/sobadmin/customers') ||
     pathname.startsWith('/sobadmin/sales') ||
     pathname.startsWith('/sales')

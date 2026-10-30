@@ -6,6 +6,7 @@ import {
   Building2,
   PhoneCall,
   ClipboardList,
+  ClipboardCheck,
   Users,
   ArrowRight,
   Waves,
@@ -16,6 +17,7 @@ import {
 export default function SalesLaunchpad({
   onSelectApp,
   onNavigateHref,
+  ..._rest
 }) {
   const INBOUND_MODULES = [
     {
@@ -27,6 +29,16 @@ export default function SalesLaunchpad({
       icon: <ClipboardList className="w-6 h-6" />,
       desc: 'Manage incoming quote inquiries from website forms, Google LSA, referrals, and inbound calls.',
       actionLabel: 'Open Inbound Leads',
+    },
+    {
+      id: 'vendor-tenders',
+      href: '/sobadmin/tenders',
+      title: 'Vendor Lists & Tenders',
+      iconBg: 'bg-amber-500/15 text-amber-300 border border-amber-500/30',
+      accentBorder: 'hover:border-amber-500/60',
+      icon: <ClipboardCheck className="w-6 h-6" />,
+      desc: 'Manage rolled-up B2B vendor pre-qualifications (COI, WSIB, portals) and active commercial project tenders.',
+      actionLabel: 'Open Vendor & Tenders',
     },
     {
       id: 'customers-crm',
@@ -116,7 +128,7 @@ export default function SalesLaunchpad({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-5">
             {INBOUND_MODULES.map((mod) => (
               <div
                 key={mod.id}

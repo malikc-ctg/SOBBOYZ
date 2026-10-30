@@ -77,6 +77,15 @@ const OUTCOME_OPTIONS = [
     iconColor: 'text-sky-400'
   },
   {
+    key: 'VENDOR_LIST',
+    label: 'Vendor List / Bids & Tenders',
+    subtext: 'Roll Company to Inbound Tenders (+1 Dial)',
+    badge: 'Vendor/Bid',
+    icon: Shield,
+    color: 'text-indigo-300 hover:text-white hover:bg-indigo-950/60',
+    iconColor: 'text-indigo-400'
+  },
+  {
     key: 'WALKTHROUGH',
     label: 'Book Site Walkthrough',
     subtext: 'Primary Goal (+1 Dial)',

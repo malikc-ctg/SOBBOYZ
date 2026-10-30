@@ -1,5 +1,5 @@
 import React from 'react';
-import { PhoneCall, Calendar, X } from 'lucide-react';
+import { PhoneCall, Calendar, ClipboardCheck, X } from 'lucide-react';
 
 export default function ContactedChoiceModal({
   isOpen,
@@ -7,6 +7,7 @@ export default function ContactedChoiceModal({
   onClose,
   onChoosePickup,
   onChooseCallback,
+  onChooseVendorList,
 }) {
   if (!isOpen) return null;
 
@@ -55,6 +56,27 @@ export default function ContactedChoiceModal({
               <div className="text-xs text-slate-400">Log call notes and start follow-up</div>
             </div>
           </button>
+
+          {onChooseVendorList && (
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onChooseVendorList();
+              }}
+              className="w-full p-3 rounded-lg bg-slate-800/80 hover:bg-slate-800 border border-slate-700/80 hover:border-indigo-500 text-left transition flex items-center gap-3 group"
+            >
+              <div className="p-2 rounded-md bg-indigo-600/20 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition">
+                <ClipboardCheck className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">Vendor List / Bids &amp; Tenders</div>
+                <div className="text-xs text-slate-400">
+                  Pre-qualify or bid — rolls company into Inbound CRM
+                </div>
+              </div>
+            </button>
+          )}
 
           <button
             type="button"

@@ -247,6 +247,26 @@ export async function GET(request: NextRequest) {
       };
     });
 
+    // Exclude companies that have been rolled up into Inbound CRM -> Vendor Lists & Tenders
+    const vendorCompanyNorms = new Set<string>();
+    for (const c of b2bQueue) {
+      if (c.status === 'vendor_list') {
+        const norm = normalizeComp(c.company || '');
+        if (norm && norm !== 'commercialprospect') {
+          vendorCompanyNorms.add(norm);
+        }
+      }
+    }
+
+    if (filter !== 'vendor_list') {
+      b2bQueue = b2bQueue.filter((c: any) => {
+        if (c.status === 'vendor_list') return false;
+        const norm = normalizeComp(c.company || '');
+        if (norm && vendorCompanyNorms.has(norm)) return false;
+        return true;
+      });
+    }
+
     if (filter === 'hot') {
       b2bQueue = b2bQueue.filter((c: any) => c.status === 'new' || c.status === 'info_sent' || c.status === 'quoted');
     } else if (filter === 'construction') {

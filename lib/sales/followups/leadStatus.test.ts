@@ -78,11 +78,13 @@ describe('nextLeadStatus', () => {
     expect(nextLeadStatus('walkthrough_booked', 'SEND_QUOTE')).toBeNull();
   });
 
-  it('WALKTHROUGH, JOB_WON, SALE, NOT_INTERESTED', () => {
+  it('WALKTHROUGH, JOB_WON, SALE, NOT_INTERESTED, VENDOR_LIST', () => {
     expect(nextLeadStatus('quoted', 'WALKTHROUGH')).toBe('walkthrough_booked');
     expect(nextLeadStatus('new', 'JOB_WON')).toBe('won');
     expect(nextLeadStatus('lost', 'SALE')).toBe('won');
     expect(nextLeadStatus('quoted', 'NOT_INTERESTED')).toBe('lost');
+    expect(nextLeadStatus('new', 'VENDOR_LIST')).toBe('vendor_list');
+    expect(nextLeadStatus('contacted', 'BID_TENDER')).toBe('vendor_list');
   });
 
   it('no change outcomes', () => {
