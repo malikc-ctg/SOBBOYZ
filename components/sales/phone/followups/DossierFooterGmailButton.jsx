@@ -40,6 +40,8 @@ export default function DossierFooterGmailButton({
   const [selectedTemplateOverride, setSelectedTemplateOverride] = useState(null);
   const [wasOpened, setWasOpened] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [aiDrafting, setAiDrafting] = useState(false);
+  const [aiDraftOverride, setAiDraftOverride] = useState(null);
 
   const fetchData = useCallback(async () => {
     if (!contact?.id) return;
@@ -56,6 +58,7 @@ export default function DossierFooterGmailButton({
   useEffect(() => {
     fetchData();
     setSelectedTemplateOverride(null);
+    setAiDraftOverride(null);
     setWasOpened(false);
   }, [fetchData]);
 
@@ -99,28 +102,42 @@ export default function DossierFooterGmailButton({
     return 'drip_1';
   }, [selectedTemplateOverride, nextEmailTask, contact?.status]);
 
-  // Pre-render Gmail URL
+  // Pre-render Gmail URL (uses Claude Sonnet 5.5 draft if available, or deterministic fallback)
   const composeInfo = useMemo(() => {
     if (!contact?.email) return null;
 
     try {
-      const rendered = renderEmail({
-        templateKey: activeTemplateKey,
-        lead: {
-          customer_name: contact.name,
-          company_name: contact.company,
-          city: contact.city,
-          sector: contact.sector,
-        },
-        rep: {
-          signature_name: effectiveRep.name,
-          signature_title: effectiveRep.title,
-          signature_phone: effectiveRep.phone,
-        },
-        context: activeEnr?.context || {},
-        anchorAt: activeEnr?.anchor_at,
-        mailingAddressOverride: mailingAddress || undefined,
-      });
+      const cachedAiDraft =
+        aiDraftOverride ||
+        activeEnr?.context?.ai_drafts?.[activeTemplateKey] ||
+        (nextEmailTask?.template_key === activeTemplateKey &&
+        nextEmailTask?.rendered_subject &&
+        nextEmailTask?.rendered_body
+          ? {
+              subject: nextEmailTask.rendered_subject,
+              body: nextEmailTask.rendered_body,
+            }
+          : null);
+
+      const rendered = cachedAiDraft?.subject && cachedAiDraft?.body
+        ? { subject: cachedAiDraft.subject, body: cachedAiDraft.body, isAiDraft: true }
+        : renderEmail({
+            templateKey: activeTemplateKey,
+            lead: {
+              customer_name: contact.name,
+              company_name: contact.company,
+              city: contact.city,
+              sector: contact.sector,
+            },
+            rep: {
+              signature_name: effectiveRep.name,
+              signature_title: effectiveRep.title,
+              signature_phone: effectiveRep.phone,
+            },
+            context: activeEnr?.context || {},
+            anchorAt: activeEnr?.anchor_at,
+            mailingAddressOverride: mailingAddress || undefined,
+          });
 
       return {
         rendered,
@@ -140,7 +157,72 @@ export default function DossierFooterGmailButton({
       console.warn('[DossierFooterGmailButton] renderEmail failed:', err);
       return null;
     }
-  }, [contact, activeTemplateKey, effectiveRep, activeEnr, mailingAddress]);
+  }, [contact, activeTemplateKey, effectiveRep, activeEnr, mailingAddress, aiDraftOverride, nextEmailTask]);
+
+  // Scope Website/LinkedIn & Draft with Claude Sonnet 5.5
+  const handleDraftWithClaude = async () => {
+    if (!contact?.id || aiDrafting) return;
+    setAiDrafting(true);
+    try {
+      const res = await fetch('/api/sales/followups/ai-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'draft',
+          leadId: contact.id,
+          templateKey: activeTemplateKey,
+          taskId: nextEmailTask?.id,
+          repIdentifier: effectiveRep.key,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Claude draft failed');
+      setAiDraftOverride({
+        subject: json.draft.subject,
+        body: json.draft.body,
+      });
+      toast.success('Claude Sonnet 5.5 scoped dossier & personalized the email draft');
+      await fetchData();
+      if (onTriggerRefresh) onTriggerRefresh();
+    } catch (err) {
+      toast.error(err.message || 'Failed to draft with Claude');
+    } finally {
+      setAiDrafting(false);
+    }
+  };
+
+  // Send directly via Rep's connected Gmail API (or Resend fallback) & mark sent
+  const handleSendDirectViaGmail = async () => {
+    if (!contact?.email || actionLoading) return;
+    setActionLoading(true);
+    try {
+      const res = await fetch('/api/sales/followups/ai-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'send_now',
+          leadId: contact.id,
+          templateKey: activeTemplateKey,
+          taskId: nextEmailTask?.id,
+          repIdentifier: effectiveRep.key,
+          to: contact.email,
+          subject: composeInfo?.rendered?.subject,
+          emailBody: composeInfo?.rendered?.body,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to send email');
+      toast.success(`Sent as ${effectiveRep.name} (${json.channel === 'gmail_api' ? 'Gmail API' : 'Resend'})`);
+      setMenuOpen(false);
+      setWasOpened(false);
+      await fetchData();
+      if (onTriggerRefresh) onTriggerRefresh();
+    } catch (err) {
+      toast.error(err.message || 'Direct send failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   // Click handler for Open in Gmail
   const handleOpenGmailClick = async () => {
@@ -237,6 +319,18 @@ export default function DossierFooterGmailButton({
 
   return (
     <div className="relative flex items-center gap-1.5">
+      {/* Claude Sonnet 5.5 Scope & Draft Button */}
+      <button
+        type="button"
+        disabled={aiDrafting}
+        onClick={handleDraftWithClaude}
+        className="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
+        title="Scope Website & LinkedIn + Personalize Draft with Claude Sonnet 5.5"
+      >
+        <Sparkles size={13} className={aiDrafting ? 'animate-spin text-amber-300' : 'text-amber-300'} />
+        <span>{aiDrafting ? 'Scoping...' : composeInfo?.rendered?.isAiDraft ? 'Re-Draft (Claude)' : 'Claude Draft'}</span>
+      </button>
+
       {/* Primary Open in Gmail Button Group */}
       <div className="inline-flex rounded-xl shadow-md shadow-blue-950/40 overflow-hidden border border-blue-500/40">
         <a
@@ -361,6 +455,33 @@ export default function DossierFooterGmailButton({
               </div>
             ) : (
               <div className="space-y-0.5 pt-1 border-t border-slate-800">
+                {/* 1-Click Direct Send via Connected Gmail */}
+                <button
+                  type="button"
+                  disabled={actionLoading}
+                  onClick={handleSendDirectViaGmail}
+                  className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-bold text-emerald-300 bg-emerald-950/30 hover:bg-emerald-950/60 border border-emerald-800/40 transition flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <Mail size={13} className="text-emerald-400" />
+                    <span>Send now as {effectiveRep.name.split(' ')[0]} (Direct Gmail)</span>
+                  </span>
+                  <Check size={12} className="text-emerald-400" />
+                </button>
+
+                {/* Scope & Personalize with Claude Sonnet 5.5 */}
+                <button
+                  type="button"
+                  disabled={aiDrafting}
+                  onClick={handleDraftWithClaude}
+                  className="w-full text-left px-2.5 py-2 rounded-xl text-xs font-medium text-indigo-200 hover:bg-indigo-950/50 transition flex items-center justify-between"
+                >
+                  <span className="flex items-center gap-2">
+                    <Sparkles size={13} className="text-amber-300" />
+                    <span>{aiDrafting ? 'Scoping Website & LinkedIn...' : 'Personalize draft with Claude 5.5'}</span>
+                  </span>
+                </button>
+
                 {/* Switch Template */}
                 <button
                   type="button"

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   Phone,
   Mail,
@@ -17,6 +17,7 @@ import {
   Flame,
   Settings,
   X,
+  Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { matchContactSearch } from '@/lib/sales/searchUtils';
@@ -49,9 +50,75 @@ export default function TouchCentreView({
   const [refreshing, setRefreshing] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [inboxAlerts, setInboxAlerts] = useState([]);
+  const [repsGmailStatus, setRepsGmailStatus] = useState([]);
+  const [runningClaudeCycle, setRunningClaudeCycle] = useState(false);
 
   const repSettings = followupMeta?.repSettings;
   const mailingAddressSet = followupMeta?.mailingAddressSet;
+
+  const fetchInboxAlertsAndGmailStatus = useCallback(async (runBackgroundCycle = false) => {
+    try {
+      const url = `/api/sales/followups/cron/agent${runBackgroundCycle ? '?run=1' : ''}`;
+      const res = await fetch(url);
+      if (!res.ok) return;
+      const json = await res.json();
+      setInboxAlerts(json.alerts || []);
+      setRepsGmailStatus(json.repsGmail || []);
+      if (runBackgroundCycle && json.cycleResult?.sendResult?.autoSent?.length > 0) {
+        if (onRefreshFollowups) onRefreshFollowups();
+      }
+    } catch {
+      // ignore
+    }
+  }, [onRefreshFollowups]);
+
+  useEffect(() => {
+    fetchInboxAlertsAndGmailStatus(false);
+    // Heartbeat every 3 minutes to auto-send 20m buffered No-Answer drips and scan rep inboxes
+    const interval = setInterval(() => {
+      fetchInboxAlertsAndGmailStatus(true);
+    }, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [fetchInboxAlertsAndGmailStatus]);
+
+  const handleRunClaudeAgentCycle = async () => {
+    setRunningClaudeCycle(true);
+    try {
+      const res = await fetch('/api/sales/followups/cron/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'run_all' }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Agent cycle failed');
+      const sentCount = json.sendResult?.autoSent?.length || 0;
+      const draftedCount = json.sendResult?.preDraftedWarm?.length || 0;
+      const newReplies = json.inboxResult?.newAlertsCount || 0;
+      toast.success(
+        `Claude Sonnet 5.5: ${sentCount} No-Answer drips auto-sent, ${draftedCount} warm drafts prepared, ${newReplies} new inbox replies detected.`
+      );
+      await fetchInboxAlertsAndGmailStatus(false);
+      if (onRefreshFollowups) await onRefreshFollowups();
+    } catch (err) {
+      toast.error(err.message || 'Claude agent run failed');
+    } finally {
+      setRunningClaudeCycle(false);
+    }
+  };
+
+  const handleDismissAlert = async (alertId) => {
+    setInboxAlerts((prev) => prev.filter((a) => a.id !== alertId));
+    try {
+      await fetch('/api/sales/followups/cron/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'dismiss_alert', alertId }),
+      });
+    } catch {
+      // ignore
+    }
+  };
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -128,27 +195,36 @@ export default function TouchCentreView({
         dueBucket = 'needs_attention';
       }
 
-      // Pre-compute Gmail Compose URL if email task
+      // Pre-compute Gmail Compose URL if email task (prioritizing Claude Sonnet 5.5 draft when present)
       let composeInfo = null;
       if (nextTask?.kind === 'email' && nextTask?.template_key && contact.email && mailingAddressSet) {
         try {
-          const rendered = renderEmail({
-            templateKey: nextTask.template_key,
-            lead: {
-              customer_name: contact.name,
-              company_name: contact.company,
-              city: contact.city,
-              sector: contact.sector,
-            },
-            rep: {
-              signature_name: effectiveRep.name,
-              signature_title: effectiveRep.title,
-              signature_phone: effectiveRep.phone,
-            },
-            context: openEnr?.context || {},
-            anchorAt: openEnr?.anchor_at,
-            mailingAddressOverride: repSettings?.mailingAddress || undefined,
-          });
+          const cachedDraft =
+            (nextTask.rendered_subject && nextTask.rendered_body
+              ? { subject: nextTask.rendered_subject, body: nextTask.rendered_body, isAiDraft: true }
+              : null) ||
+            openEnr?.context?.ai_drafts?.[nextTask.template_key] ||
+            null;
+
+          const rendered = cachedDraft?.subject && cachedDraft?.body
+            ? { subject: cachedDraft.subject, body: cachedDraft.body, isAiDraft: true }
+            : renderEmail({
+                templateKey: nextTask.template_key,
+                lead: {
+                  customer_name: contact.name,
+                  company_name: contact.company,
+                  city: contact.city,
+                  sector: contact.sector,
+                },
+                rep: {
+                  signature_name: effectiveRep.name,
+                  signature_title: effectiveRep.title,
+                  signature_phone: effectiveRep.phone,
+                },
+                context: openEnr?.context || {},
+                anchorAt: openEnr?.anchor_at,
+                mailingAddressOverride: repSettings?.mailingAddress || undefined,
+              });
 
           composeInfo = {
             rendered,
@@ -525,6 +601,107 @@ export default function TouchCentreView({
             </button>
           )}
         </div>
+      </div>
+
+      {/* Claude Sonnet 5.5 Copilot Strip: Multi-Rep Gmail Status, Auto-Drip Runner & Inbox Alerts */}
+      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-950/60 via-[#01162b] to-blue-950/60 border border-indigo-500/30 space-y-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-200 uppercase tracking-wider">
+              <Sparkles size={14} className="text-amber-400" />
+              <span>Claude Sonnet 5.5 Follow-Up & Inbox Agent</span>
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {repsGmailStatus.map((r) => (
+                <a
+                  key={r.key}
+                  href={`/api/sales/followups/gmail/connect?rep=${r.key}`}
+                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border transition ${
+                    r.connected
+                      ? 'bg-emerald-950/70 border-emerald-700/50 text-emerald-300'
+                      : 'bg-amber-950/70 border-amber-700/50 text-amber-300 hover:bg-amber-900/60'
+                  }`}
+                  title={
+                    r.connected
+                      ? `${r.name} (${r.email}) connected for auto-drip & inbox scanning`
+                      : `Click to connect ${r.name}'s Gmail (${r.email})`
+                  }
+                >
+                  <Mail size={10} />
+                  <span>{r.name.split(' ')[0]}: {r.connected ? 'Gmail Connected' : 'Connect Gmail'}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            disabled={runningClaudeCycle}
+            onClick={handleRunClaudeAgentCycle}
+            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition disabled:opacity-50 cursor-pointer"
+          >
+            <RefreshCw size={12} className={runningClaudeCycle ? 'animate-spin' : ''} />
+            <span>{runningClaudeCycle ? 'Scanning & Drafting...' : 'Scan Inboxes & Run Auto-Drips'}</span>
+          </button>
+        </div>
+
+        {/* Live Inbox Alerts Banner */}
+        {inboxAlerts.length > 0 && (
+          <div className="space-y-1.5 pt-2 border-t border-indigo-900/40">
+            <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+              <Mail size={12} />
+              <span>Live Prospect Inbox Replies & Reminders ({inboxAlerts.length})</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {inboxAlerts.slice(0, 4).map((alert) => {
+                const matchedContact = contacts.find((c) => c.id === alert.lead_id);
+                return (
+                  <div
+                    key={alert.id}
+                    className="p-2.5 rounded-xl bg-slate-950/90 border border-indigo-800/50 flex items-start justify-between gap-2 text-xs"
+                  >
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="font-bold text-white truncate">{alert.lead_name}</span>
+                        <span className="text-slate-400">•</span>
+                        <span className="text-blue-300 font-semibold truncate">{alert.company_name}</span>
+                        <span className="px-1.5 py-0.5 rounded bg-indigo-950 border border-indigo-700 text-indigo-200 text-[10px] font-bold uppercase">
+                          {alert.classification.replace('_', ' ')}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">→ {alert.rep_name.split(' ')[0]}</span>
+                      </div>
+                      <div className="text-[11px] text-slate-200">{alert.ai_summary}</div>
+                      {alert.ai_suggested_reply && (
+                        <div className="text-[11px] text-emerald-300/90 italic truncate">
+                          Suggested Reply: &ldquo;{alert.ai_suggested_reply}&rdquo;
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {matchedContact && onOpenDossier && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenDossier(matchedContact)}
+                          className="px-2 py-1 rounded-lg bg-blue-600/30 hover:bg-blue-600/50 border border-blue-500/40 text-blue-200 text-[10px] font-bold"
+                        >
+                          Dossier
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleDismissAlert(alert.id)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800"
+                        title="Dismiss alert"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* KPI Cards: Overdue, Due Today, Upcoming, Needs Attention */}

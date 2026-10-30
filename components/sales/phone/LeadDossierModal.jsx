@@ -408,6 +408,10 @@ export default function LeadDossierModal({
   const [expandedTranscripts, setExpandedTranscripts] = useState({});
   const [copiedTranscriptId, setCopiedTranscriptId] = useState(null);
 
+  // Claude Sonnet 5.5 Website & LinkedIn Recon + Pre-Call Whisper Card State
+  const [aiRecon, setAiRecon] = useState(contact?.ai_recon || null);
+  const [isScopingRecon, setIsScopingRecon] = useState(false);
+
   // Synchronize state when selected contact updates
   useEffect(() => {
     if (contact) {
@@ -423,6 +427,16 @@ export default function LeadDossierModal({
       setEditCity(contact.city || '');
       setEditValue(contact.estimated_value || '2500');
       setIsEditingLiveNote(false);
+      setAiRecon(contact.ai_recon || null);
+
+      if (!contact.ai_recon && contact.id) {
+        fetch(`/api/sales/followups/ai-draft?leadId=${contact.id}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => {
+            if (json?.recon) setAiRecon(json.recon);
+          })
+          .catch(() => {});
+      }
     }
   }, [
     contact?.id,
@@ -597,6 +611,31 @@ export default function LeadDossierModal({
     navigator.clipboard.writeText(email);
     setCopiedEmail(true);
     setTimeout(() => setCopiedEmail(false), 2000);
+  }
+
+  async function handleScopeWebsiteAndLinkedin(forceRefresh = false) {
+    if (!contact?.id || isScopingRecon) return;
+    setIsScopingRecon(true);
+    try {
+      const res = await fetch('/api/sales/followups/ai-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'recon',
+          leadId: contact.id,
+          forceReconRefresh: forceRefresh,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.recon) {
+        setAiRecon(json.recon);
+        if (onTriggerRefresh) onTriggerRefresh();
+      }
+    } catch (err) {
+      console.error('[LeadDossierModal] Recon error:', err);
+    } finally {
+      setIsScopingRecon(false);
+    }
   }
 
   const directLock = contact?.id ? activeLocks?.[String(contact.id)] : null;
@@ -1227,6 +1266,86 @@ export default function LeadDossierModal({
                 </a>
               )}
             </div>
+          </div>
+
+          {/* SECTION: Claude Sonnet 5.5 Website & LinkedIn Recon + Pre-Call Whisper Card */}
+          <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-950/60 via-slate-900/90 to-blue-950/50 border border-indigo-500/30 space-y-3">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Sparkles size={15} className="text-amber-400 shrink-0" />
+                <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-200">
+                  Claude Sonnet 5.5 Website & LinkedIn Recon + Whisper Card
+                </span>
+                {aiRecon?.build_specialty && (
+                  <span className="px-2 py-0.5 rounded-full bg-indigo-900/70 border border-indigo-600/50 text-[10px] font-bold text-indigo-200">
+                    {aiRecon.build_specialty}
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                disabled={isScopingRecon}
+                onClick={() => handleScopeWebsiteAndLinkedin(Boolean(aiRecon))}
+                className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
+              >
+                <Sparkles size={12} className={isScopingRecon ? 'animate-spin' : ''} />
+                <span>
+                  {isScopingRecon
+                    ? 'Scoping Website & LinkedIn...'
+                    : aiRecon
+                    ? 'Refresh Recon'
+                    : 'Scope Website & LinkedIn'}
+                </span>
+              </button>
+            </div>
+
+            {aiRecon ? (
+              <div className="space-y-2.5 text-xs">
+                <div className="p-2.5 rounded-lg bg-slate-950/70 border border-slate-800/80 text-slate-200 leading-relaxed">
+                  <strong className="text-indigo-300">Company Summary: </strong>
+                  {aiRecon.company_summary}
+                </div>
+
+                {aiRecon.whisper_card && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div className="p-2.5 rounded-lg bg-slate-950/80 border border-blue-900/40">
+                      <div className="text-[10px] font-bold uppercase text-blue-400 mb-1">1. What They Build</div>
+                      <div className="text-slate-200 text-[11px] leading-snug">{aiRecon.whisper_card.what_they_build}</div>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-950/80 border border-purple-900/40">
+                      <div className="text-[10px] font-bold uppercase text-purple-400 mb-1">2. Company Touch Intel</div>
+                      <div className="text-slate-200 text-[11px] leading-snug">{aiRecon.whisper_card.company_touch_intel}</div>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-slate-950/80 border border-emerald-900/40">
+                      <div className="text-[10px] font-bold uppercase text-emerald-400 mb-1">3. Recommended Call Opener</div>
+                      <div className="text-emerald-100 text-[11px] leading-snug font-medium">
+                        &ldquo;{aiRecon.whisper_card.recommended_opener}&rdquo;
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+                  {aiRecon.notable_projects?.length > 0 && (
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+                      <strong className="text-slate-400">Projects / Sectors: </strong>
+                      {aiRecon.notable_projects.join(' • ')}
+                    </span>
+                  )}
+                  {aiRecon.contact_role_angle && (
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+                      <strong className="text-slate-400">Role Angle: </strong>
+                      {aiRecon.contact_role_angle}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400">
+                Click <strong className="text-indigo-300">Scope Website & LinkedIn</strong> to have Claude Sonnet 5.5 research{' '}
+                <span className="text-slate-200 font-semibold">{contact.company || 'this company'}</span>&apos;s active builds, LinkedIn role angle, and generate a 3-bullet Pre-Call Whisper Card + personalized email angle.
+              </div>
+            )}
           </div>
 
           {/* SECTION: Rep Notes & Strategy Intel */}

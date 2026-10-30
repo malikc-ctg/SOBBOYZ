@@ -242,6 +242,8 @@ export async function GET(request: NextRequest) {
         linkedin: intel.linkedin || '',
         website: intel.website || '',
         technologies: intel.technologies || '',
+        ai_recon: intel.ai_recon || null,
+        last_autopilot: intel.last_autopilot || null,
       };
     });
 
