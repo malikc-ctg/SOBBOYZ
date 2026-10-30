@@ -325,7 +325,8 @@ export async function sendEmailViaRepGmail(options: {
   }
 
   // 2. Fallback: Send via Resend impersonating the rep's name & reply-to address
-  const resendKey = process.env.RESEND_API_KEY;
+  const secrets = await getFollowupSystemSecrets();
+  const resendKey = secrets.RESEND_API_KEY || process.env.RESEND_API_KEY;
   if (!resendKey) {
     throw new Error('Neither Rep Gmail OAuth nor RESEND_API_KEY is available to send email.');
   }
@@ -824,7 +825,8 @@ async function notifyRepViaWebPush(rep: SalesRepConfig, alert: InboxAlertItem) {
 }
 
 async function sendRepReminderDigests(newAlerts: InboxAlertItem[]) {
-  const resendKey = process.env.RESEND_API_KEY;
+  const secrets = await getFollowupSystemSecrets();
+  const resendKey = secrets.RESEND_API_KEY || process.env.RESEND_API_KEY;
   if (!resendKey) return;
 
   const supabase = await createServiceClient();

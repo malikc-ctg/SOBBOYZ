@@ -11,51 +11,37 @@ let cachedSystemConfig: {
   ANTHROPIC_API_KEY?: string;
   GOOGLE_CLIENT_ID?: string;
   GOOGLE_CLIENT_SECRET?: string;
+  RESEND_API_KEY?: string;
 } | null = null;
 
 export async function getFollowupSystemSecrets() {
-  if (
-    process.env.ANTHROPIC_API_KEY &&
-    process.env.GOOGLE_CLIENT_ID &&
-    process.env.GOOGLE_CLIENT_SECRET
-  ) {
-    return {
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
-      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
-      GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
-    };
-  }
+  if (!cachedSystemConfig) {
+    try {
+      const supabase = await createServiceClient();
+      const { data } = await supabase
+        .from('sales_followup_processed_events')
+        .select('summary')
+        .eq('event_id', '00000000-0000-0000-0000-000000000001')
+        .eq('outcome_type', 'SYSTEM_CONFIG')
+        .maybeSingle();
 
-  if (cachedSystemConfig?.ANTHROPIC_API_KEY) {
-    return {
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || cachedSystemConfig.ANTHROPIC_API_KEY,
-      GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || cachedSystemConfig.GOOGLE_CLIENT_ID || '',
-      GOOGLE_CLIENT_SECRET:
-        process.env.GOOGLE_CLIENT_SECRET || cachedSystemConfig.GOOGLE_CLIENT_SECRET || '',
-    };
-  }
-
-  try {
-    const supabase = await createServiceClient();
-    const { data } = await supabase
-      .from('sales_followup_processed_events')
-      .select('summary')
-      .eq('event_id', '00000000-0000-0000-0000-000000000001')
-      .eq('outcome_type', 'SYSTEM_CONFIG')
-      .maybeSingle();
-
-    if (data?.summary) {
-      cachedSystemConfig = data.summary;
+      if (data?.summary) {
+        cachedSystemConfig = data.summary;
+      }
+    } catch {
+      // ignore
     }
-  } catch {
-    // ignore
   }
 
   return {
-    ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || cachedSystemConfig?.ANTHROPIC_API_KEY || '',
-    GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || cachedSystemConfig?.GOOGLE_CLIENT_ID || '',
+    ANTHROPIC_API_KEY:
+      cachedSystemConfig?.ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY || '',
+    GOOGLE_CLIENT_ID:
+      cachedSystemConfig?.GOOGLE_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || '',
     GOOGLE_CLIENT_SECRET:
-      process.env.GOOGLE_CLIENT_SECRET || cachedSystemConfig?.GOOGLE_CLIENT_SECRET || '',
+      cachedSystemConfig?.GOOGLE_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || '',
+    RESEND_API_KEY:
+      cachedSystemConfig?.RESEND_API_KEY || process.env.RESEND_API_KEY || '',
   };
 }
 
