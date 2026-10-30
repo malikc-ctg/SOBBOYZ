@@ -150,7 +150,21 @@ export async function POST(request: NextRequest) {
         body: finalBody,
       });
 
-      if (taskId) {
+      let resolvedTaskId = taskId;
+      if (!resolvedTaskId) {
+        const { data: pendingTask } = await supabase
+          .from('sales_followup_tasks')
+          .select('id')
+          .eq('lead_id', rawLeadId)
+          .eq('status', 'pending')
+          .eq('kind', 'email')
+          .order('due_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        resolvedTaskId = pendingTask?.id;
+      }
+
+      if (resolvedTaskId) {
         const nowIso = new Date().toISOString();
         const repCfg = resolveRepConfig(effectiveRepId);
         await supabase
@@ -163,11 +177,11 @@ export async function POST(request: NextRequest) {
             rendered_body: finalBody,
             updated_at: nowIso,
           })
-          .eq('id', taskId)
+          .eq('id', resolvedTaskId)
           .eq('status', 'pending');
 
         await runEngineForTaskAction(
-          taskId,
+          resolvedTaskId,
           'sent',
           user?.id || repCfg.auth_user_id || 'system',
           {

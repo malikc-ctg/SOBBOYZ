@@ -83,11 +83,13 @@ export async function GET(
       success: true,
       leadId: rawLeadId,
       enrollments: enrollmentsWithTasks,
+      tasks: tasks || [],
       flags,
       sentEmails,
       meta: {
         repSettings: resolvedRepSettings,
         mailingAddress: FOLLOWUP_CONFIG.company.mailingAddress || '',
+        mailingAddressSet: Boolean(FOLLOWUP_CONFIG.company.mailingAddress),
       },
     });
   } catch (err: any) {

@@ -11,7 +11,7 @@ import { callClaudeSonnet, extractJsonFromClaude, getFollowupSystemSecrets } fro
 import { sendWebPush } from '@/lib/web-push';
 import { Resend } from 'resend';
 
-export const AUTO_SEND_DELAY_MINUTES = 20; // 20-minute buffer after logging No Answer
+export const AUTO_SEND_DELAY_MINUTES = 0; // Auto-send immediately when marked No Answer
 
 export interface StoredGmailOAuth {
   rep_id: string;
@@ -393,6 +393,7 @@ export function getTaskAutoSendAt(task: {
  */
 export async function runNoAnswerAutoSender(options: {
   forceTaskId?: string;
+  leadId?: string;
   limit?: number;
 } = {}) {
   const supabase = await createServiceClient();
@@ -413,6 +414,14 @@ export async function runNoAnswerAutoSender(options: {
       .select('*, sales_followup_enrollments!inner(*)')
       .eq('id', options.forceTaskId)
       .eq('status', 'pending');
+  } else if (options.leadId) {
+    query = supabase
+      .from('sales_followup_tasks')
+      .select('*, sales_followup_enrollments!inner(*)')
+      .eq('lead_id', options.leadId)
+      .eq('status', 'pending')
+      .eq('kind', 'email')
+      .order('due_at', { ascending: true });
   }
 
   const { data: pendingTasks } = await query;

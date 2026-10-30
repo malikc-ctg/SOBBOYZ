@@ -6,6 +6,7 @@ import { parseTorontoLocal, TORONTO_TZ } from '@/lib/sales/followups/tz';
 import { runEngineForEvent } from '@/lib/sales/followups/executor';
 import { autoLogWonSale } from '@/lib/sales/autoJobLogging';
 import { draftDossierEmailWithClaude, runTranscriptAutopilot } from '@/lib/sales/followups/aiDrafter';
+import { runNoAnswerAutoSender } from '@/lib/sales/followups/gmailAgent';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const TORONTO_DATE_FMT = new Intl.DateTimeFormat('en-CA', {
@@ -277,12 +278,18 @@ export async function POST(request: NextRequest) {
             .eq('id', rawLeadId);
         }
 
-        // Asynchronously trigger Claude Sonnet 5.5 Website/LinkedIn Recon + Email Pre-Draft + Transcript Autopilot
+        // Asynchronously trigger Claude Sonnet 5.5 Website/LinkedIn Recon + Auto-Send (for No Answer) or Pre-Draft (for Warm)
         if (engineSummary?.started && engineSummary.started.length > 0) {
-          draftDossierEmailWithClaude({
-            leadId: rawLeadId,
-            repIdentifier: finalRepId,
-          }).catch((err) => console.warn('[Calls API] Background Claude pre-draft skipped:', err?.message));
+          if (engineSummary.started.includes('no_answer_drip')) {
+            runNoAnswerAutoSender({ leadId: rawLeadId }).catch((err) =>
+              console.warn('[Calls API] Background No-Answer auto-send failed:', err?.message)
+            );
+          } else {
+            draftDossierEmailWithClaude({
+              leadId: rawLeadId,
+              repIdentifier: finalRepId,
+            }).catch((err) => console.warn('[Calls API] Background Claude pre-draft skipped:', err?.message));
+          }
         }
         if (notes && notes.trim().length > 25) {
           runTranscriptAutopilot(rawLeadId, notes).catch((err) =>
