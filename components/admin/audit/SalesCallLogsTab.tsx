@@ -309,7 +309,7 @@ export function SalesCallLogsTab() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+            <table className="w-full text-left text-xs min-w-[700px]">
               <thead className="bg-muted/50 border-b border-border/60 text-muted-foreground font-semibold">
                 <tr>
                   <th className="py-3 px-4">Date &amp; Time</th>

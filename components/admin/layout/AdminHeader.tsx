@@ -47,24 +47,42 @@ export function AdminHeader({
   onLogout,
 }: AdminHeaderProps) {
   return (
-    <div className="shrink-0 z-40 select-none bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 text-[#fffcf6]">
+    <div className="shrink-0 z-40 select-none bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 text-[#fffcf6] safe-top">
       {/* Primary Top OS Menu Bar */}
-      <header className="h-12 px-2.5 sm:px-4 flex items-center justify-between gap-2">
+      <header className="h-14 md:h-12 px-3 sm:px-4 flex items-center justify-between gap-2">
         {/* LEFT: OS Launchpad Home Button */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button
             type="button"
             onClick={onOpenLaunchpad}
-            className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
+            aria-label="Open OS Launchpad"
+            className={`h-10 w-10 justify-center md:w-auto md:justify-start md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
               isLaunchpadView
                 ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
                 : 'bg-[#001b38]/90 hover:bg-[#002855] text-slate-200 hover:text-white border-[#3c6ca8]/30'
             }`}
             title="Sea of Blue OS Launchpad (All Workstations)"
           >
-            <LayoutGrid className="h-3.5 w-3.5 text-blue-300" />
-            <span className="hidden sm:inline">OS Launchpad</span>
+            <LayoutGrid className="h-4 w-4 md:h-3.5 md:w-3.5 text-blue-300" />
+            <span className="hidden md:inline">OS Launchpad</span>
           </button>
+
+          {/* Phone: current location label (desktop shows module tabs instead) */}
+          <div className="md:hidden min-w-0 leading-tight">
+            {isLaunchpadView ? (
+              <p className="text-sm font-bold text-white truncate">Sea of Blue OS</p>
+            ) : (
+              <>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-[#88a2c0] truncate">
+                  {activeWorkspace.shortName}
+                </p>
+                <p className="text-sm font-bold text-white truncate">
+                  {(activeWorkspace.items.find((item) => isNavItemActive(item))?.label) ||
+                    activeWorkspace.name}
+                </p>
+              </>
+            )}
+          </div>
         </div>
 
         {/* CENTER: Active Workstation Module Tabs (Desktop) */}
@@ -124,12 +142,13 @@ export function AdminHeader({
         {/* RIGHT: OS System Tray (Quick Actions + Operator Pill + Clock + Fullscreen + Logout) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!isLaunchpadView && (
-            <div className="hidden md:flex items-center gap-1.5">
+            <div className="flex items-center gap-1.5">
               <Link
                 href="/sobadmin/jobs/new"
-                className="h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white transition"
+                aria-label="New Job"
+                className="h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white transition"
               >
-                <Plus className="w-3.5 h-3.5" />
+                <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 <span className="hidden xl:inline">New Job</span>
               </Link>
             </div>
@@ -139,7 +158,7 @@ export function AdminHeader({
           {userProfile && (
             <Badge
               variant="outline"
-              className="hidden sm:inline-flex h-8 px-2.5 text-[11px] gap-1.5 border-[#3c6ca8]/30 bg-[#001b38] text-slate-200 font-sans"
+              className="hidden md:inline-flex h-8 px-2.5 text-[11px] gap-1.5 border-[#3c6ca8]/30 bg-[#001b38] text-slate-200 font-sans"
             >
               <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
               <span className="font-bold text-white truncate max-w-[110px]">
@@ -163,7 +182,7 @@ export function AdminHeader({
             type="button"
             onClick={onToggleFullscreen}
             title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Enter Full Screen OS Mode'}
-            className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
+            className={`hidden md:flex h-8 px-2.5 rounded-lg text-xs font-bold items-center gap-1.5 border transition cursor-pointer ${
               isFullscreen
                 ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30'
                 : 'bg-[#001b38] text-slate-200 border-[#3c6ca8]/35 hover:bg-[#002855] hover:text-white'
@@ -187,7 +206,8 @@ export function AdminHeader({
             type="button"
             onClick={onLogout}
             title="Sign Out"
-            className="h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 border border-red-500/40 hover:border-red-500/60 transition cursor-pointer"
+            aria-label="Sign Out"
+            className={`${isLaunchpadView ? 'flex' : 'hidden md:flex'} h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-semibold items-center gap-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 border border-red-500/40 hover:border-red-500/60 transition cursor-pointer`}
           >
             <LogOut className="w-3.5 h-3.5 text-red-400" />
             <span className="hidden md:inline">Sign Out</span>
@@ -195,9 +215,9 @@ export function AdminHeader({
         </div>
       </header>
 
-      {/* Mobile / Tablet Module Tab Bar (shown below top bar on screens < lg when inside a workstation) */}
+      {/* Tablet Module Tab Bar (shown below top bar on screens md..lg when inside a workstation; phones use MobileBottomNav) */}
       {!isLaunchpadView && (
-        <div className="lg:hidden flex items-center gap-1 px-2.5 py-1.5 bg-[#001326] border-t border-[#3c6ca8]/20 overflow-x-auto scrollbar-none">
+        <div className="hidden md:flex lg:hidden items-center gap-1 px-2.5 py-1.5 bg-[#001326] border-t border-[#3c6ca8]/20 overflow-x-auto scrollbar-none">
           {activeWorkspace.items.map((item) => {
             const TabIcon = item.icon;
             const active = isNavItemActive(item);

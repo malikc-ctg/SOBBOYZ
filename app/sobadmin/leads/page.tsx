@@ -131,19 +131,19 @@ export default function LeadsPage() {
   return (
     <div className="space-y-5 min-w-0">
       {/* Inbound CRM Section Switcher Strip */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto">
-        <Link href="/sobadmin/leads">
+      <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto scrollbar-none">
+        <Link href="/sobadmin/leads" className="shrink-0">
           <Button variant="default" size="sm" className="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">
             Standard Inbound Leads
           </Button>
         </Link>
-        <Link href="/sobadmin/tenders">
+        <Link href="/sobadmin/tenders" className="shrink-0">
           <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
             <ClipboardCheck className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
             Vendor Lists &amp; Commercial Tenders
           </Button>
         </Link>
-        <Link href="/sobadmin/customers">
+        <Link href="/sobadmin/customers" className="shrink-0">
           <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
             Customer Accounts CRM
           </Button>
@@ -151,8 +151,8 @@ export default function LeadsPage() {
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl md:text-2xl font-bold tracking-tight">Inbound Leads</h1>
             <Badge variant="outline" className="text-xs font-semibold px-2 py-0.5 border-indigo-500/40 bg-indigo-500/10 text-indigo-300">
               Inbound CRM
@@ -174,7 +174,7 @@ export default function LeadsPage() {
             key={s}
             variant={statusFilter === s ? 'default' : 'outline'}
             size="sm"
-            className="shrink-0"
+            className="shrink-0 whitespace-nowrap h-10 md:h-9"
             onClick={() => setStatusFilter(s)}
           >
             {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
@@ -182,8 +182,51 @@ export default function LeadsPage() {
         ))}
       </div>
 
+      {/* Mobile card list */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <p className="text-center text-sm text-muted-foreground py-6">Loading...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center text-sm text-muted-foreground py-6">No leads found</p>
+        ) : (
+          filtered.map((lead) => (
+            <Link key={lead.id} href={`/sobadmin/leads/${lead.id}`} className="block">
+              <Card className="active:bg-muted/40 transition-colors">
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm text-foreground leading-tight truncate">
+                        {lead.company_name || lead.customer_name || '—'}
+                      </div>
+                      {lead.company_name && (
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate">
+                          Attn: {lead.customer_name || 'Main Contact'}
+                          {lead.contact_title ? ` · ${lead.contact_title}` : ''}
+                        </div>
+                      )}
+                    </div>
+                    <Badge variant="outline" className={`border-0 text-xs shrink-0 ${LEAD_STATUS_COLORS[lead.status] ?? ''}`}>
+                      {lead.status}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                    <span className="truncate">{lead.service_type ? SERVICE_TYPE_LABELS[lead.service_type] : '—'}</span>
+                    <span className="truncate text-right">{format(new Date(lead.created_at), 'MMM d')} · {LEAD_SOURCE_LABELS[lead.source as keyof typeof LEAD_SOURCE_LABELS] || lead.source}</span>
+                    <span className="truncate">{lead.city ?? '—'}</span>
+                    <span className="truncate text-right font-medium text-foreground">{lead.quoted_price ? `$${lead.quoted_price}` : '—'}</span>
+                  </div>
+                  {lead.customer_phone && (
+                    <div className="text-xs text-muted-foreground truncate">{lead.customer_phone}</div>
+                  )}
+                </CardContent>
+              </Card>
+            </Link>
+          ))
+        )}
+      </div>
+
       {/* Table */}
-      <Card>
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[600px]">
             <TableHeader>

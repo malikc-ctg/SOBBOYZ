@@ -140,6 +140,19 @@ export default function EmployeesPage() {
     }
   }
 
+  function getEmployeeWage(c: Employee): number {
+    let wage = 25;
+    try {
+      const notes = c.notes ? JSON.parse(c.notes) : {};
+      if (notes.hourly_wage) wage = Number(notes.hourly_wage);
+      else if ((c as any).hourly_wage) wage = Number((c as any).hourly_wage);
+    } catch { /* no-op */ }
+    return wage;
+  }
+
+  function statusBadgeClass(status: string) {
+    return status === 'active' ? 'bg-green-100 text-green-700' : status === 'probation' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700';
+  }
 
   return (
     <div className="space-y-5 min-w-0">
@@ -180,7 +193,7 @@ export default function EmployeesPage() {
       </div>
 
       <Tabs defaultValue="active" className="w-full">
-        <TabsList className="mb-4 overflow-x-auto w-full justify-start">
+        <TabsList className="mb-4 overflow-x-auto scrollbar-none w-full justify-start">
           <TabsTrigger value="active" className="shrink-0">Active ({employees.length})</TabsTrigger>
           <TabsTrigger value="timesheets" className="flex items-center gap-1.5 shrink-0">
             <Clock className="h-4 w-4" />
@@ -189,7 +202,56 @@ export default function EmployeesPage() {
         </TabsList>
 
         <TabsContent value="active">
-          <Card>
+          {/* Mobile card list */}
+          <div className="md:hidden space-y-2">
+            {loadingEmployees ? (
+              <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Loading...</CardContent></Card>
+            ) : employees.length === 0 ? (
+              <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No employees yet</CardContent></Card>
+            ) : employees.map(c => {
+              const wage = getEmployeeWage(c);
+              return (
+                <Card key={c.id}>
+                  <CardContent className="p-3 space-y-2">
+                    <Link href={`/sobadmin/employees/${c.id}`} className="block min-w-0 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-medium min-w-0 truncate">{c.full_name}</span>
+                        <Badge variant="outline" className={`text-xs capitalize shrink-0 ${statusBadgeClass(c.status)}`}>{c.status}</Badge>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                        {c.phone && <span className="truncate">{c.phone}</span>}
+                        <span>{(c as any).zone?.name ?? '—'}</span>
+                        <span className="inline-flex items-center"><Star className="h-3 w-3 mr-1 text-amber-500" />{c.score}</span>
+                        <span>Supplies {c.brings_own_supplies ? '✓' : '—'}</span>
+                      </div>
+                    </Link>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        onClick={() => openWageModal(c.id, c.full_name, wage)}
+                        className="flex items-center gap-1.5 h-10 text-xs font-semibold text-indigo-700 bg-indigo-50 dark:bg-indigo-950/50 px-3 rounded border border-indigo-200"
+                      >
+                        ${wage.toFixed(2)}/hr
+                        <Pencil className="h-3 w-3" />
+                      </button>
+                      {c.status === 'invited' && (
+                        <Button variant="ghost" size="sm" className="h-10 text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleActivate(c.id, c.full_name)}>
+                          <Check className="h-4 w-4 mr-1" /> Activate
+                        </Button>
+                      )}
+                      <Link href={`/sobadmin/employees/${c.id}`} className="ml-auto">
+                        <Button variant="outline" size="sm" className="h-10">View</Button>
+                      </Link>
+                      <Button variant="ghost" size="sm" className="h-10 w-10 p-0 text-red-500 hover:text-red-700 hover:bg-red-50" onClick={() => handleDelete(c.id, c.full_name)} aria-label="Delete employee">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Card className="hidden md:block">
             <CardContent className="p-0 overflow-x-auto">
               <Table className="min-w-[700px]">
                 <TableHeader>
@@ -211,18 +273,13 @@ export default function EmployeesPage() {
                   ) : employees.length === 0 ? (
                     <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No employees yet</TableCell></TableRow>
                   ) : employees.map(c => {
-                    let wage = 25;
-                    try {
-                      const notes = c.notes ? JSON.parse(c.notes) : {};
-                      if (notes.hourly_wage) wage = Number(notes.hourly_wage);
-                      else if ((c as any).hourly_wage) wage = Number((c as any).hourly_wage);
-                    } catch { /* no-op */ }
+                    const wage = getEmployeeWage(c);
                     return (
                       <TableRow key={c.id}>
                         <TableCell className="font-medium">{c.full_name}</TableCell>
                         <TableCell className="text-xs">{c.phone}</TableCell>
                         <TableCell className="text-xs">{(c as any).zone?.name ?? '—'}</TableCell>
-                        <TableCell><Badge variant="outline" className={`text-xs capitalize ${c.status === 'active' ? 'bg-green-100 text-green-700' : c.status === 'probation' ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'}`}>{c.status}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className={`text-xs capitalize ${statusBadgeClass(c.status)}`}>{c.status}</Badge></TableCell>
                         <TableCell>
                           <button
                             onClick={() => openWageModal(c.id, c.full_name, wage)}

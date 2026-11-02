@@ -87,16 +87,18 @@ export default function ApplicationDetailPage() {
   const jobTypes = Array.isArray(app.preferred_job_types) ? app.preferred_job_types : JSON.parse(app.preferred_job_types || '[]');
 
   return (
-    <div className="space-y-6 max-w-5xl mx-auto pb-12">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => router.push('/sobadmin/employees')} className="h-8 w-8">
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Application: {app.full_name}</h1>
-          <p className="text-muted-foreground">Submitted on {new Date(app.created_at).toLocaleString()}</p>
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 justify-between min-w-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <Button variant="ghost" size="icon" onClick={() => router.push('/sobadmin/employees')} className="h-10 w-10 sm:h-8 sm:w-8 shrink-0">
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight truncate">Application: {app.full_name}</h1>
+            <p className="text-xs sm:text-sm text-muted-foreground">Submitted on {new Date(app.created_at).toLocaleString()}</p>
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Badge variant="outline" className={getStatusBadgeVariant(app.status)}>{app.status}</Badge>
         </div>
       </div>

@@ -614,8 +614,8 @@ export default function SupplyPage() {
 
       {/* Main Operational Tabs */}
       <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)} className="space-y-6">
-        <div className="bg-muted/40 p-1 rounded-xl border">
-          <TabsList className="grid grid-cols-3 h-auto gap-1 bg-transparent p-0">
+        <div className="bg-muted/40 p-1 rounded-xl border overflow-x-auto scrollbar-none">
+          <TabsList className="flex overflow-x-auto scrollbar-none sm:grid sm:grid-cols-3 h-auto gap-1 bg-transparent p-0">
             <TabsTrigger
               value="caddy_standard"
               className="data-[state=active]:bg-background data-[state=active]:shadow-sm text-xs py-2.5 font-semibold"
@@ -782,7 +782,8 @@ export default function SupplyPage() {
               </div>
 
               {/* Standard Caddy Checklist Table */}
-              <Table>
+              <div className="overflow-x-auto">
+                <Table className="min-w-[500px]">
                 <TableHeader>
                   <TableRow className="bg-muted/30 text-xs">
                     <TableHead className="w-[300px]">Caddy Item</TableHead>
@@ -827,6 +828,7 @@ export default function SupplyPage() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -893,9 +895,119 @@ export default function SupplyPage() {
             </div>
           </div>
 
-          {/* Main Supply Stash Table */}
-          <Card className="shadow-sm overflow-hidden">
-            <Table>
+          {/* Mobile Supply Cards (< md) */}
+          <div className="md:hidden space-y-2.5">
+            {loading ? (
+              <p className="text-center py-10 text-xs text-muted-foreground">Loading supplies...</p>
+            ) : filteredInventory.length === 0 ? (
+              <p className="text-center py-10 text-xs text-muted-foreground">No supplies found matching this filter.</p>
+            ) : (
+              filteredInventory.map((row) => {
+                const cat = (row.item?.category || '').toLowerCase();
+                const isDurable = cat === 'tool' || cat === 'equipment';
+                return (
+                  <Card key={row.id} className="shadow-xs border-border/80">
+                    <CardContent className="p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-semibold text-foreground text-sm leading-tight truncate">{row.item?.name}</p>
+                          <div className="flex items-center gap-1.5 mt-1 font-mono text-[10px] text-muted-foreground flex-wrap">
+                            <Badge variant="outline" className="capitalize text-[10px] py-0">{row.item?.category || 'consumable'}</Badge>
+                            {row.item?.home_depot_sku && (
+                              <span className="px-1.5 py-0.5 rounded bg-orange-50 text-orange-800 border border-orange-200">
+                                HD #{row.item.home_depot_sku}
+                              </span>
+                            )}
+                            {row.item?.amazon_asin && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                                ASIN: {row.item.amazon_asin}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="shrink-0">
+                          {isDurable ? (
+                            <Badge variant="outline" className="bg-slate-50 text-slate-700 border-slate-200 text-[10px]">Durable</Badge>
+                          ) : row.is_low_stock ? (
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px] font-semibold">Low</Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] font-semibold">Stocked</Badge>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Count:</span>
+                          <div className="inline-flex items-center border rounded-lg overflow-hidden bg-background shadow-xs">
+                            <button
+                              onClick={() => handleQuickAdjust(row, -1)}
+                              disabled={updatingId === row.id || row.quantity_on_hand <= 0}
+                              className="p-1.5 hover:bg-muted text-muted-foreground disabled:opacity-30"
+                            >
+                              <ChevronDown className="h-4 w-4" />
+                            </button>
+                            <span className="px-2.5 py-1 text-xs font-bold min-w-[2rem] text-center">
+                              {row.quantity_on_hand}
+                            </span>
+                            <button
+                              onClick={() => handleQuickAdjust(row, +1)}
+                              disabled={updatingId === row.id}
+                              className="p-1.5 hover:bg-muted text-muted-foreground"
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                            </button>
+                          </div>
+                          <span className="text-[10px] text-muted-foreground">{row.item?.unit || 'units'}</span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          {row.item?.home_depot_sku ? (
+                            <a
+                              href={`https://www.homedepot.ca/en/home/search.html?q=${encodeURIComponent(row.item.home_depot_sku)}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg border text-orange-600 hover:bg-orange-50"
+                              title="Home Depot"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          ) : row.item?.amazon_asin ? (
+                            <a
+                              href={`https://www.amazon.ca/dp/${row.item.amazon_asin}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 rounded-lg border text-blue-600 hover:bg-blue-50"
+                              title="Amazon"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                            </a>
+                          ) : null}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+                            onClick={() => {
+                              setSelectedRow(row);
+                              setRestockQty(4);
+                              setRestockOpen(true);
+                            }}
+                          >
+                            + Refill
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Supply Stash Table (>= md) */}
+          <Card className="hidden md:block shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <Table className="min-w-[760px]">
               <TableHeader>
                 <TableRow className="bg-muted/30 text-xs">
                   <TableHead className="w-[340px]">Supply Item & Store Code</TableHead>
@@ -1090,6 +1202,7 @@ export default function SupplyPage() {
                 )}
               </TableBody>
             </Table>
+            </div>
           </Card>
         </TabsContent>
 

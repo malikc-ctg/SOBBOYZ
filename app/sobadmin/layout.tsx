@@ -16,6 +16,7 @@ import {
 import { type OperationalCounts } from '@/components/admin/layout/WorkspaceSwitcher';
 import { AdminHeader } from '@/components/admin/layout/AdminHeader';
 import { SobOsLaunchpad } from '@/components/admin/layout/SobOsLaunchpad';
+import { MobileBottomNav } from '@/components/admin/layout/MobileBottomNav';
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -352,6 +353,19 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </main>
+
+      {/* Mobile Bottom Navigation (< md) for active workstation */}
+      {!isLaunchpadView && (
+        <MobileBottomNav
+          workspaces={allowedWorkspaces}
+          activeWorkspace={activeWorkspace}
+          onSelectWorkspace={handleSelectWorkspace}
+          onOpenLaunchpad={handleOpenLaunchpad}
+          isNavItemActive={isNavItemActive}
+          getItemBadgeCount={getItemBadgeCount}
+          onLogout={handleLogout}
+        />
+      )}
     </div>
   );
 }

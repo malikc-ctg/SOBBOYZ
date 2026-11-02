@@ -136,7 +136,7 @@ export default function CustomerDetailPage() {
 
           <div className="space-y-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-bold tracking-tight text-white">
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white truncate">
                 {isCommercial ? customer.company_name || customer.full_name : customer.full_name}
               </h1>
 
@@ -188,7 +188,7 @@ export default function CustomerDetailPage() {
         <div className="flex flex-wrap items-center gap-2">
           {customer.phone && customer.phone !== '—' && (
             <a href={`tel:${customer.phone.replace(/\D/g, '')}`}>
-              <Button variant="outline" size="sm" className="h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white">
+              <Button variant="outline" size="sm" className="h-10 md:h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white">
                 <Phone className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
                 Call
               </Button>
@@ -197,7 +197,7 @@ export default function CustomerDetailPage() {
 
           {customer.email && !customer.email.startsWith('no-email-') && (
             <a href={`mailto:${customer.email}`}>
-              <Button variant="outline" size="sm" className="h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white">
+              <Button variant="outline" size="sm" className="h-10 md:h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white">
                 <Mail className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
                 Email
               </Button>
@@ -208,7 +208,7 @@ export default function CustomerDetailPage() {
             variant="outline"
             size="sm"
             onClick={() => setEditModalOpen(true)}
-            className="h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white"
+            className="h-10 md:h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white"
           >
             <Edit2 className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
             Edit Profile
@@ -217,7 +217,7 @@ export default function CustomerDetailPage() {
           <Button
             onClick={() => openAddService('recurring')}
             size="sm"
-            className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-9 text-xs"
+            className="bg-blue-600 hover:bg-blue-700 text-white shadow-sm h-10 md:h-9 text-xs font-semibold"
           >
             <Repeat className="h-3.5 w-3.5 mr-1.5" />
             + Recurring Contract
@@ -227,7 +227,7 @@ export default function CustomerDetailPage() {
             onClick={() => openAddService('one_time')}
             variant="outline"
             size="sm"
-            className="h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white"
+            className="h-10 md:h-9 text-xs border-slate-700 bg-slate-900/80 text-slate-200 hover:bg-slate-800 hover:text-white"
           >
             <Plus className="h-3.5 w-3.5 mr-1.5" />
             + One-Time Clean

@@ -25,11 +25,11 @@ export function ZoneSwitcher({ zones, selected, onSelect }: ZoneSwitcherProps) {
   }));
 
   return (
-    <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-background overflow-x-auto">
+    <div className="flex items-center gap-2 px-4 py-2.5 border-b bg-background overflow-x-auto scrollbar-none min-w-0">
       <span className="text-xs text-muted-foreground font-medium mr-1 shrink-0">Zone:</span>
       <button
         onClick={() => onSelect('all')}
-        className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 ${
+        className={`px-3 py-2.5 md:py-1.5 rounded-full text-xs font-medium transition-colors shrink-0 whitespace-nowrap ${
           selected === 'all'
             ? 'bg-foreground text-background'
             : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -41,7 +41,7 @@ export function ZoneSwitcher({ zones, selected, onSelect }: ZoneSwitcherProps) {
         <button
           key={zone.id}
           onClick={() => onSelect(zone.id)}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all shrink-0 flex items-center gap-1.5 ${
+          className={`px-3 py-2.5 md:py-1.5 rounded-full text-xs font-medium transition-all shrink-0 whitespace-nowrap flex items-center gap-1.5 ${
             selected === zone.id
               ? 'text-white shadow-sm'
               : 'bg-muted text-muted-foreground hover:bg-accent hover:text-foreground'

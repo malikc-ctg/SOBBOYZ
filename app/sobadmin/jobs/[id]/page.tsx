@@ -241,29 +241,36 @@ export default function JobDetailPage() {
   const estimatedCleanerPay = estimatedDurationHours * cleanerWage;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/sobadmin/jobs"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back</Button></Link>
-        <div>
-          <h1 className="text-2xl font-bold">{job.job_number}</h1>
-          <StatusBadge status={job.status} />
+    <div className="space-y-6 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link href="/sobadmin/jobs">
+            <Button variant="ghost" size="sm" className="h-10 md:h-8">
+              <ArrowLeft className="h-4 w-4 mr-1" />Back
+            </Button>
+          </Link>
+          <div className="min-w-0">
+            <h1 className="text-xl sm:text-2xl font-bold truncate">{job.job_number}</h1>
+            <div className="mt-0.5"><StatusBadge status={job.status} /></div>
+          </div>
         </div>
       </div>
 
       {/* Actions bar */}
-      <div className="flex gap-3 flex-wrap">
+      <div className="flex gap-2 sm:gap-3 flex-wrap">
         {nextStatuses.map((ns) => (
           <Button
             key={ns}
             variant={ns === 'cancelled' ? 'destructive' : 'outline'}
             size="sm"
+            className="h-10 md:h-8 text-xs font-semibold"
             onClick={() => handleStatusChange(ns)}
           >
             → {JOB_STATUS_LABELS[ns]}
           </Button>
         ))}
         {(job.status === 'confirmed' || job.status === 'rescheduled') && (
-          <Button onClick={openDispatch} size="sm">
+          <Button onClick={openDispatch} size="sm" className="h-10 md:h-8 text-xs font-semibold">
             <Send className="h-4 w-4 mr-2" />Dispatch
           </Button>
         )}

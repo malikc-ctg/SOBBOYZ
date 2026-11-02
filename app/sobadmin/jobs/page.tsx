@@ -78,7 +78,7 @@ export default function JobsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <DatePickerWithRange date={dateRange} onDateChange={setDateRange} />
           <Link href="/sobadmin/jobs/new">
-            <Button size="sm"><Plus className="h-4 w-4 mr-2" />Create Job</Button>
+            <Button size="sm" className="h-10 md:h-8"><Plus className="h-4 w-4 mr-2" />Create Job</Button>
           </Link>
         </div>
       </div>
@@ -90,7 +90,7 @@ export default function JobsPage() {
             key={f.label}
             variant={activeFilter === i ? 'default' : 'outline'}
             size="sm"
-            className="shrink-0"
+            className="shrink-0 whitespace-nowrap h-10 md:h-8"
             onClick={() => setActiveFilter(i)}
           >
             {f.label}
@@ -98,7 +98,57 @@ export default function JobsPage() {
         ))}
       </div>
 
-      <Card>
+      {/* Mobile: stacked job cards */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Loading...</CardContent></Card>
+        ) : filtered.length === 0 ? (
+          <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No jobs found</CardContent></Card>
+        ) : (
+          filtered.map((job) => {
+            const crewIds = (job as any).assigned_employee_ids as string[] | undefined;
+            const employeeName = (job as any).employee?.full_name as string | undefined;
+            const assignee = crewIds && crewIds.length > 1
+              ? `${employeeName?.split(' ')[0] || 'Lead'} + ${crewIds.length - 1}`
+              : employeeName ?? 'Unassigned';
+            return (
+              <Link key={job.id} href={`/sobadmin/jobs/${job.id}`} className="block">
+                <Card className="active:bg-muted/50 transition-colors">
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{(job as any).customer?.full_name ?? '-'}</p>
+                        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+                          <span className="font-mono text-[11px] text-muted-foreground">{job.job_number}</span>
+                          {job.recurring_booking_id && (
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200 dark:bg-blue-950/40 dark:text-blue-300 dark:border-blue-800">
+                              🔁 Recur
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="shrink-0"><StatusBadge status={job.status} /></div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                      <span className="text-muted-foreground">
+                        {format(new Date(job.scheduled_date), 'MMM d, yyyy')} · {formatJobTimeSlot(job)}
+                      </span>
+                      <span className="text-right font-semibold">${job.quoted_price?.toFixed(0) ?? '0'}</span>
+                      <span className="text-muted-foreground truncate">{SERVICE_TYPE_LABELS[job.service_type]}</span>
+                      <span className="text-right truncate">👤 {assignee}</span>
+                    </div>
+                    {(job.address_line1 || job.city) && (
+                      <p className="text-xs text-muted-foreground truncate">{job.address_line1}, {job.city}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </Link>
+            );
+          })
+        )}
+      </div>
+
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[640px]">
             <TableHeader>

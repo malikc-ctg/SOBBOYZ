@@ -475,7 +475,7 @@ function SettingsContent() {
             <CardContent>
               {qboStatus?.recentLogs && qboStatus.recentLogs.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="w-full text-xs">
+                  <table className="w-full text-xs min-w-[550px]">
                     <thead>
                       <tr className="border-b text-left text-muted-foreground">
                         <th className="pb-2 font-medium">Type</th>

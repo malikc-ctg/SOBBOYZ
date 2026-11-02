@@ -226,7 +226,7 @@ export default function CustomersPage() {
             variant="outline"
             size="sm"
             onClick={() => handleOpenCreate('residential')}
-            className="text-blue-400 border-blue-800/80 bg-blue-950/30 hover:bg-blue-900/50 hover:text-blue-200 h-9 font-semibold"
+            className="text-blue-400 border-blue-800/80 bg-blue-950/30 hover:bg-blue-900/50 hover:text-blue-200 h-11 md:h-9 font-semibold"
           >
             <Home className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">+ </span>Residential
@@ -235,7 +235,7 @@ export default function CustomersPage() {
           <Button
             size="sm"
             onClick={() => handleOpenCreate('commercial')}
-            className="bg-purple-600 hover:bg-purple-500 text-white shadow-sm h-9 font-semibold"
+            className="bg-purple-600 hover:bg-purple-500 text-white shadow-sm h-11 md:h-9 font-semibold"
           >
             <Building2 className="h-4 w-4 mr-1.5" />
             <span className="hidden sm:inline">+ </span>Commercial
@@ -335,7 +335,7 @@ export default function CustomersPage() {
             variant={activeTab === 'all' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setActiveTab('all')}
-            className={`h-8 text-xs whitespace-nowrap font-semibold ${
+            className={`h-10 md:h-8 shrink-0 text-xs whitespace-nowrap font-semibold ${
               activeTab === 'all'
                 ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500'
                 : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -348,7 +348,7 @@ export default function CustomersPage() {
             variant={activeTab === 'residential' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setActiveTab('residential')}
-            className={`h-8 text-xs whitespace-nowrap font-semibold ${
+            className={`h-10 md:h-8 shrink-0 text-xs whitespace-nowrap font-semibold ${
               activeTab === 'residential'
                 ? 'bg-blue-600 hover:bg-blue-500 text-white border-blue-500'
                 : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -362,7 +362,7 @@ export default function CustomersPage() {
             variant={activeTab === 'commercial' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setActiveTab('commercial')}
-            className={`h-8 text-xs whitespace-nowrap font-semibold ${
+            className={`h-10 md:h-8 shrink-0 text-xs whitespace-nowrap font-semibold ${
               activeTab === 'commercial'
                 ? 'bg-purple-600 hover:bg-purple-500 text-white border-purple-500'
                 : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -376,7 +376,7 @@ export default function CustomersPage() {
             variant={activeTab === 'recurring' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setActiveTab('recurring')}
-            className={`h-8 text-xs whitespace-nowrap font-semibold ${
+            className={`h-10 md:h-8 shrink-0 text-xs whitespace-nowrap font-semibold ${
               activeTab === 'recurring'
                 ? 'bg-emerald-600 hover:bg-emerald-500 text-white border-emerald-500'
                 : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -390,7 +390,7 @@ export default function CustomersPage() {
             variant={activeTab === 'at_risk' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setActiveTab('at_risk')}
-            className={`h-8 text-xs whitespace-nowrap font-semibold ${
+            className={`h-10 md:h-8 shrink-0 text-xs whitespace-nowrap font-semibold ${
               activeTab === 'at_risk'
                 ? 'bg-amber-600 hover:bg-amber-500 text-white border-amber-500'
                 : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -405,7 +405,7 @@ export default function CustomersPage() {
               variant={activeTab === 'balances' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setActiveTab('balances')}
-              className={`h-8 text-xs whitespace-nowrap font-semibold ${
+              className={`h-10 md:h-8 shrink-0 text-xs whitespace-nowrap font-semibold ${
                 activeTab === 'balances'
                   ? 'bg-red-600 hover:bg-red-500 text-white border-red-500'
                   : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800 hover:text-white'
@@ -417,12 +417,12 @@ export default function CustomersPage() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           {cities.length > 0 && (
             <select
               value={cityFilter}
               onChange={(e) => setCityFilter(e.target.value)}
-              className="h-9 px-2.5 text-xs rounded-lg border border-slate-700 bg-slate-900 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="h-11 md:h-9 max-w-[40%] md:max-w-none shrink-0 px-2.5 text-xs rounded-lg border border-slate-700 bg-slate-900 text-slate-200 focus:outline-none focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Cities ({cities.length})</option>
               {cities.map((city) => (
@@ -433,20 +433,180 @@ export default function CustomersPage() {
             </select>
           )}
 
-          <div className="relative w-full sm:w-64">
+          <div className="relative w-full min-w-0 flex-1 sm:flex-none sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-slate-400" />
             <Input
               placeholder="Search by name, company, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-8 h-9 text-xs bg-slate-900 border-slate-700 text-slate-200 placeholder:text-slate-500 focus-visible:ring-blue-500"
+              className="pl-8 h-11 md:h-9 text-base md:text-xs bg-slate-900 border-slate-700 text-slate-200 placeholder:text-slate-500 focus-visible:ring-blue-500"
             />
           </div>
         </div>
       </div>
 
+      {/* Mobile Customer Cards */}
+      <div className="md:hidden space-y-2">
+        {loading ? (
+          <div className="flex flex-col items-center justify-center space-y-2 py-12 text-slate-400">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <span className="text-xs">Loading customer directory...</span>
+          </div>
+        ) : filteredCustomers.length === 0 ? (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/90 px-4 py-10 text-center space-y-2">
+            <UserCheck className="h-8 w-8 text-slate-600 mx-auto" />
+            <p className="text-sm font-semibold text-slate-200">No matching accounts found</p>
+            <p className="text-xs text-slate-400 break-words">
+              {search
+                ? `No results matching "${search}" in this category`
+                : 'No accounts present in this tab.'}
+            </p>
+            <div className="pt-2 flex flex-wrap items-center justify-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleOpenCreate('residential')}
+                className="h-11 text-blue-400 border-blue-800 hover:bg-blue-950/60 text-xs"
+              >
+                + New Residential
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => handleOpenCreate('commercial')}
+                className="h-11 bg-purple-600 hover:bg-purple-500 text-white text-xs"
+              >
+                + New Commercial
+              </Button>
+            </div>
+          </div>
+        ) : (
+          filteredCustomers.map((c) => {
+            const isCommercial = c.customer_type === 'commercial' || Boolean(c.company_name);
+            const displayName = isCommercial ? c.company_name || c.full_name : c.full_name;
+
+            return (
+              <div
+                key={c.id}
+                className="rounded-xl border border-slate-800 bg-slate-900/90 shadow-sm"
+              >
+                <Link href={`/sobadmin/customers/${c.id}`} className="block p-3.5 space-y-2 min-w-0">
+                  {/* Row 1: name + type badge */}
+                  <div className="flex items-start justify-between gap-2 min-w-0">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      {isCommercial ? (
+                        <Building2 className="h-3.5 w-3.5 text-purple-400 shrink-0" />
+                      ) : (
+                        <Home className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                      )}
+                      <span className="font-bold text-sm text-white truncate">{displayName}</span>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {c.has_recurring && (
+                        <Badge className="bg-emerald-950/80 text-emerald-300 border border-emerald-800 text-[10px] font-medium flex items-center gap-1">
+                          <Repeat className="h-2.5 w-2.5" />
+                          Recurring
+                        </Badge>
+                      )}
+                      {isCommercial ? (
+                        <Badge className="bg-purple-950/80 hover:bg-purple-900/80 text-purple-300 border border-purple-800 text-[10px] font-medium">
+                          Commercial
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-blue-950/80 hover:bg-blue-900/80 text-blue-300 border border-blue-800 text-[10px] font-medium">
+                          Residential
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  {isCommercial && c.company_name && (
+                    <p className="text-xs text-slate-400 truncate">
+                      Attn: <strong className="text-slate-200 font-medium">{c.full_name}</strong>
+                    </p>
+                  )}
+
+                  {/* Key fields */}
+                  <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                    <div className="flex items-center gap-1.5 text-slate-200 min-w-0">
+                      <Phone className="h-3 w-3 text-slate-400 shrink-0" />
+                      <span className="truncate">{c.phone || '—'}</span>
+                    </div>
+                    <div className="flex items-center gap-1 text-slate-300 min-w-0">
+                      <span className="truncate">{c.city ?? '—'}</span>
+                      {c.zone && (
+                        <Badge variant="outline" className="text-[9px] py-0 px-1 border-slate-700 bg-slate-800 text-slate-300 shrink-0">
+                          {c.zone.name}
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="text-slate-400">
+                      <span className="font-semibold text-white">{c.jobs_count ?? 0}</span> jobs ·{' '}
+                      <span className="font-bold text-emerald-400">${(c.lifetime_spend || 0).toLocaleString()}</span>
+                    </div>
+                    <div className="text-slate-400 truncate">
+                      {c.has_recurring && c.mrr_amount && c.mrr_amount > 0
+                        ? <span className="font-bold text-emerald-400">${c.mrr_amount.toFixed(0)}<span className="font-normal text-slate-400">/mo</span></span>
+                        : c.last_clean_date
+                          ? `Last: ${new Date(c.last_clean_date).toLocaleDateString()}`
+                          : 'No cleans yet'}
+                    </div>
+                  </div>
+                </Link>
+
+                {/* Row actions */}
+                <div className="flex items-center gap-2 border-t border-slate-800/60 px-3.5 py-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 h-10 text-blue-400 border-blue-800 bg-blue-950/40 hover:bg-blue-900/60 hover:text-blue-200 text-xs font-medium"
+                    onClick={() => {
+                      setServiceCustomer(c);
+                      setServiceModalOpen(true);
+                    }}
+                  >
+                    <Plus className="h-3.5 w-3.5 mr-1" />
+                    Service
+                  </Button>
+                  {c.phone && (
+                    <a
+                      href={`tel:${c.phone}`}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-md text-slate-300 hover:text-white hover:bg-slate-800"
+                      title="Call"
+                      aria-label={`Call ${displayName}`}
+                    >
+                      <Phone className="h-4 w-4" />
+                    </a>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0 text-slate-400 hover:text-white hover:bg-slate-800"
+                    onClick={() => handleOpenEdit(c)}
+                    title="Edit Customer Profile"
+                    aria-label="Edit Customer Profile"
+                  >
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-10 w-10 p-0 text-slate-500 hover:text-red-400 hover:bg-red-950/40"
+                    onClick={() => handleDelete(c.id, displayName)}
+                    disabled={deletingId === c.id}
+                    title="Delete Customer"
+                    aria-label="Delete Customer"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
       {/* Main Customers Table */}
-      <Card className="bg-slate-900/90 border-slate-800 shadow-xl rounded-xl">
+      <Card className="hidden md:block bg-slate-900/90 border-slate-800 shadow-xl rounded-xl">
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[800px]">
             <TableHeader>

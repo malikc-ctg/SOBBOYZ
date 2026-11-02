@@ -289,7 +289,7 @@ function QuickAssignDrawer({
   };
 
   return (
-    <div className="absolute top-14 left-3 z-30 w-80 max-h-[calc(100vh-140px)] flex flex-col bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-200">
+    <div className="absolute top-14 left-3 z-30 w-[calc(100vw-24px)] sm:w-80 max-h-[calc(100vh-140px)] flex flex-col bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-200">
       {/* Drawer Header */}
       <div className="p-3.5 border-b border-white/10 flex items-start justify-between bg-white/[0.03]">
         <div>
@@ -474,7 +474,7 @@ function QuickSaleDrawer({
   const price = sale.price || sale.deal_value || sale.expected_mrr;
 
   return (
-    <div className="absolute top-14 left-3 z-30 w-96 max-h-[calc(100vh-140px)] flex flex-col bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-200">
+    <div className="absolute top-14 left-3 z-30 w-[calc(100vw-24px)] sm:w-96 max-h-[calc(100vh-140px)] flex flex-col bg-black/95 backdrop-blur-2xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-left-4 duration-200">
       {/* Drawer Header */}
       <div className="p-3.5 border-b border-white/10 flex items-start justify-between bg-white/[0.03]">
         <div className="min-w-0 flex-1 mr-2">
@@ -823,6 +823,7 @@ function ZoneSidebar({
   onSelectJob,
   collapsed,
   onToggleCollapse,
+  isMobile = false,
 }: {
   zones: ZoneMetric[];
   selectedZoneName: string | null;
@@ -830,6 +831,7 @@ function ZoneSidebar({
   onSelectJob?: (job: any) => void;
   collapsed: boolean;
   onToggleCollapse: () => void;
+  isMobile?: boolean;
 }) {
   const [showIdleZones, setShowIdleZones] = useState(false);
   const [expandedZoneId, setExpandedZoneId] = useState<string | null>(null);
@@ -854,17 +856,21 @@ function ZoneSidebar({
 
   return (
     <div
-      className="absolute top-0 right-0 z-20 h-full flex flex-col bg-black/95 backdrop-blur-2xl border-l border-white/10 transition-all duration-300 shadow-2xl"
-      style={{ width: collapsed ? '44px' : '320px' }}
+      className={`absolute top-0 right-0 z-30 h-full flex flex-col bg-black/95 backdrop-blur-2xl border-l border-white/10 transition-all duration-300 shadow-2xl ${
+        isMobile && collapsed ? 'hidden' : ''
+      }`}
+      style={{ width: collapsed ? '44px' : (isMobile ? '100%' : '320px'), maxWidth: '100vw' }}
     >
-      {/* Collapse toggle */}
-      <button
-        onClick={onToggleCollapse}
-        className="absolute -left-3.5 top-16 z-30 w-7 h-7 bg-black/90 border border-white/15 rounded-full flex items-center justify-center text-white/50 hover:text-white transition-colors shadow-md"
-        title={collapsed ? 'Expand Zone Intel' : 'Collapse Sidebar'}
-      >
-        {collapsed ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-      </button>
+      {/* Collapse toggle (desktop only) */}
+      {!isMobile && (
+        <button
+          onClick={onToggleCollapse}
+          className="absolute -left-3.5 top-16 z-30 w-7 h-7 bg-black/90 border border-white/15 rounded-full flex items-center justify-center text-white/50 hover:text-white transition-colors shadow-md"
+          title={collapsed ? 'Expand Zone Intel' : 'Collapse Sidebar'}
+        >
+          {collapsed ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+        </button>
+      )}
 
       {collapsed ? (
         <div className="flex-1 flex flex-col items-center justify-center gap-6 cursor-pointer" onClick={onToggleCollapse}>
@@ -887,10 +893,21 @@ function ZoneSidebar({
               </div>
               <p className="text-white/40 text-[10px] mt-0.5">Live regional revenue & dispatch capacity</p>
             </div>
-            <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400 font-bold">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>LIVE</span>
-            </div>
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={onToggleCollapse}
+                className="p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors"
+                aria-label="Close Zone Intelligence"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : (
+              <div className="flex items-center gap-1 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded text-[10px] font-mono text-emerald-400 font-bold">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span>LIVE</span>
+              </div>
+            )}
           </div>
 
           {/* KPI Summary Banner */}
@@ -1160,7 +1177,21 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
   const [selectedZoneName, setSelectedZoneName] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
   const [selectedSale, setSelectedSale] = useState<any | null>(null);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setSidebarCollapsed(true);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Preset State: 'operations' | 'sales' | 'hybrid'
   const [preset, setPreset] = useState<MapPreset>(initialPreset);
@@ -2258,7 +2289,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
     ];
   }, [preset]);
 
-  const sidebarWidth = sidebarCollapsed ? 44 : 320;
+  const sidebarWidth = isMobile ? 0 : (sidebarCollapsed ? 44 : 320);
 
   return (
     <div className="relative w-full h-[calc(100vh-64px)] bg-black overflow-hidden font-sans select-none">
@@ -2277,8 +2308,8 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         style={{ right: `${sidebarWidth}px` }}
       >
         {/* Row 1: Nav, Presets, Scope, Weather Pill, Layer Controls */}
-        <div className="flex items-center justify-between gap-2 flex-wrap">
-          <div className="flex items-center gap-2 flex-wrap">
+        <div className="flex items-center justify-between gap-2 overflow-x-auto scrollbar-none pb-0.5">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Dashboard Back */}
             <button
               onClick={onBack}
@@ -2462,6 +2493,22 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
               <span className="uppercase">{currentStyle === 'dark' ? 'Sat' : 'Dark'}</span>
             </button>
 
+            {/* Mobile Zone Intel Drawer Toggle */}
+            {isMobile && (
+              <button
+                onClick={() => setSidebarCollapsed(p => !p)}
+                className={`flex items-center gap-1 px-2 py-1 rounded-lg border text-[10px] font-bold transition-all shrink-0 ${
+                  !sidebarCollapsed
+                    ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
+                    : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/10'
+                }`}
+                title="Zone Intel"
+              >
+                <MapPin className="h-3 w-3 text-blue-400" />
+                <span>Zones</span>
+              </button>
+            )}
+
             {/* Refresh */}
             <button
               onClick={() => { setLoading(true); fetchData(); fetchWeather(); }}
@@ -2475,7 +2522,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
 
         {/* Row 2: Preset-Aware Filters & Controls */}
         {preset === 'sales' ? (
-          <div className="flex items-center gap-2 flex-wrap w-full">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5 w-full">
             {/* Rep Scope Indicator */}
             <div className="flex items-center gap-2 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-xs text-white/70 shrink-0">
               <Users className="h-3.5 w-3.5 text-blue-400" />
@@ -2519,7 +2566,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
             </button>
           </div>
         ) : (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-none pb-0.5 w-full">
             {/* Search Input */}
             <div className="relative min-w-[160px] flex-1 max-w-sm">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/35 pointer-events-none" />
@@ -2696,6 +2743,7 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
         onSelectJob={setSelectedJob}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(p => !p)}
+        isMobile={isMobile}
       />
     </div>
   );

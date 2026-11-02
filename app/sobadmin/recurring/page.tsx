@@ -464,8 +464,8 @@ export default function RecurringPage() {
                 </div>
 
                 {/* Location Fields */}
-                <div className="grid grid-cols-4 gap-2">
-                  <div className="col-span-2 space-y-1">
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                  <div className="sm:col-span-2 space-y-1">
                     <Label className="text-xs">Street Address</Label>
                     <AddressAutocomplete
                       value={formAddress}
@@ -632,8 +632,83 @@ export default function RecurringPage() {
         </div>
       </div>
 
-      {/* Recurring Contracts Table */}
-      <div className="bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
+      {/* Mobile: stacked cards */}
+      <div className="md:hidden space-y-2.5">
+        {filteredBookings.length === 0 ? (
+          <div className="py-8 text-center text-sm text-muted-foreground bg-card border border-border rounded-xl">
+            No recurring service agreements found.
+          </div>
+        ) : (
+          filteredBookings.map((b) => {
+            const scheduleSummary = formatRecurrenceSchedule(
+              b.frequency,
+              b.days_of_week || [],
+              b.preferred_day_of_week,
+              b.preferred_start_time || '09:00'
+            );
+            const mrr = b.monthly_amount || calculateMonthlyMRR(b.quoted_price, b.frequency, b.days_of_week || []);
+            return (
+              <div key={b.id} className="bg-card border border-border rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-foreground truncate">
+                      {b.customer?.full_name || 'Commercial Facility'}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                      <MapPin className="h-3 w-3 shrink-0" />
+                      {b.address_line1}, {b.city}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Switch
+                      checked={b.is_active}
+                      onCheckedChange={() => handleToggleActive(b.id, b.is_active)}
+                    />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      onClick={() => handleDelete(b.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <Badge variant="secondary" className="text-[10px] font-semibold">
+                    {SERVICE_TYPE_LABELS[b.service_type] || b.service_type?.replace(/_/g, ' ')}
+                  </Badge>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="font-semibold text-foreground">{scheduleSummary}</span>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60 text-xs">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Per Clean</span>
+                    <span className="font-bold text-foreground">${b.quoted_price}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Monthly MRR</span>
+                    <span className="font-extrabold text-emerald-600">${mrr.toLocaleString()}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Cleaner</span>
+                    <span className="truncate block font-medium">{b.employee?.full_name || 'Unassigned'}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Next Run</span>
+                    <span className="font-mono text-muted-foreground">{b.next_job_date || '—'}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Recurring Contracts Table */}
+      <div className="hidden md:block bg-card border border-border rounded-2xl overflow-hidden shadow-xs">
         <div className="overflow-x-auto">
           <table className="w-full text-xs text-left">
             <thead className="bg-muted/40 text-muted-foreground uppercase font-bold text-[10px] border-b">

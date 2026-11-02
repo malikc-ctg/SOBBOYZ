@@ -132,27 +132,28 @@ export default function AdminZonesPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div className="flex justify-between items-center">
+    <div className="space-y-6 max-w-6xl min-w-0">
+      <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Globe className="h-6 w-6 text-blue-600" /> Regional Zones
+          <h1 className="text-xl sm:text-2xl font-bold flex items-center gap-2">
+            <Globe className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" /> Regional Zones
           </h1>
           <p className="text-muted-foreground text-sm">Manage service areas and neighborhood dispersal groups.</p>
         </div>
         {!newZoneMode && !editingId && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Button
               variant="outline"
               onClick={handleScanAllAddresses}
               disabled={scanning}
-              className="gap-2"
+              className="gap-2 h-10 md:h-9 text-xs font-semibold"
             >
               <RefreshCw className={`h-4 w-4 ${scanning ? 'animate-spin text-blue-600' : ''}`} />
-              {scanning ? 'Scanning Addresses...' : 'Scan & Auto-Sync Zones'}
+              <span className="hidden sm:inline">{scanning ? 'Scanning Addresses...' : 'Scan & Auto-Sync Zones'}</span>
+              <span className="sm:hidden">{scanning ? 'Scanning...' : 'Auto-Sync'}</span>
             </Button>
-            <Button onClick={() => { setNewZoneMode(true); resetForm(); }} className="gap-2">
-              <Plus className="h-4 w-4" /> Add New Zone
+            <Button onClick={() => { setNewZoneMode(true); resetForm(); }} className="gap-2 h-10 md:h-9 text-xs font-semibold">
+              <Plus className="h-4 w-4" /> Add Zone
             </Button>
           </div>
         )}
@@ -164,7 +165,7 @@ export default function AdminZonesPage() {
             <CardTitle className="text-lg">{editingId ? 'Edit Zone' : 'Create New Zone'}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Zone Name (e.g. Downtown Toronto)</Label>
                 <Input 
@@ -239,7 +240,7 @@ export default function AdminZonesPage() {
           zones.map(zone => (
             <Card key={zone.id} className="hover:border-blue-200 transition-colors">
               <CardContent className="p-5">
-                <div className="flex justify-between items-start">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
                   <div className="space-y-2">
                     <div className="flex items-center gap-3">
                       <h3 className="font-bold text-lg">{zone.name}</h3>

@@ -111,16 +111,16 @@ export default function DisputeDetailPage() {
   const isResolved = ['resolved_customer', 'resolved_company', 'escalated'].includes(dispute.status);
 
   return (
-    <div className="p-8 space-y-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3">
+    <div className="p-3 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto min-w-0">
+      <div className="flex flex-wrap items-center gap-3">
         <Link href="/sobadmin/disputes" className="p-2 hover:bg-muted rounded-lg transition-colors">
           <ArrowLeft className="h-4 w-4 text-muted-foreground" />
         </Link>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">Dispute — {CATEGORY_LABELS[dispute.category]}</h1>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">Dispute — {CATEGORY_LABELS[dispute.category]}</h1>
           <p className="text-xs text-muted-foreground mt-0.5">Opened {format(new Date(dispute.created_at), 'MMMM d, yyyy')}</p>
         </div>
-        <span className={`ml-auto px-3 py-1 rounded-full text-xs font-medium capitalize ${
+        <span className={`px-3 py-1 rounded-full text-xs font-medium capitalize shrink-0 ${
           dispute.status === 'open' ? 'bg-red-100 text-red-700'
           : dispute.status === 'under_review' ? 'bg-amber-100 text-amber-700'
           : 'bg-green-100 text-green-700'
@@ -129,10 +129,10 @@ export default function DisputeDetailPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Customer & Job info */}
-        <div className="col-span-2 space-y-4">
-          <div className="bg-card border border-border rounded-xl p-5">
+        <div className="lg:col-span-2 space-y-4">
+          <div className="bg-card border border-border rounded-xl p-4 sm:p-5">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Complaint</h2>
             <p className="text-sm text-foreground mb-4">{dispute.description}</p>
             {dispute.evidence_urls && dispute.evidence_urls.length > 0 && (
@@ -146,7 +146,7 @@ export default function DisputeDetailPage() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {/* Customer */}
             <div className="bg-card border border-border rounded-xl p-5">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Customer</h2>

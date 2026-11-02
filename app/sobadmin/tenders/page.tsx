@@ -45,7 +45,6 @@ import { toast } from 'sonner';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { SERVICE_TYPE_LABELS } from '@/types';
 import type { ServiceType } from '@/types';
-import { CRMPricingModal } from '@/components/admin/leads/CRMPricingModal';
 
 const CHECKLIST_LABELS: Record<string, string> = {
   coi: 'COI Insurance',
@@ -483,7 +482,6 @@ export default function VendorListsAndTendersPage() {
             <Plus className="w-3.5 h-3.5" />
             Log New Tender / Bid
           </Button>
-          <CRMPricingModal onSuccess={fetchVendorAndTenders} />
         </div>
       </div>
 
@@ -927,95 +925,165 @@ export default function VendorListsAndTendersPage() {
 
       {/* TAB 2: ACTIVE PROJECT BIDS & TENDERS */}
       {activeTab === 'tenders' && (
-        <Card>
-          <CardContent className="p-0 overflow-x-auto">
-            <Table className="min-w-[750px]">
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Project / Tender</TableHead>
-                  <TableHead>GC / Company &amp; Estimator</TableHead>
-                  <TableHead>Scope</TableHead>
-                  <TableHead>Bid Due Date</TableHead>
-                  <TableHead>Bid Status</TableHead>
-                  <TableHead>Bid Amount</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
+        <>
+          {/* Mobile Tenders Card List (< md) */}
+          <div className="md:hidden space-y-2.5">
+            {loading ? (
+              <p className="text-center text-sm text-muted-foreground py-8">Loading commercial tenders...</p>
+            ) : filteredTenders.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-8">
+                No active project bids or tenders yet. Click &ldquo;Log New Tender / Bid&rdquo; when an Invitation to Bid (ITB) arrives.
+              </p>
+            ) : (
+              filteredTenders.map((tender) => {
+                const statusMeta =
+                  BID_STATUS_META[tender.bid_status] || BID_STATUS_META.itb_received;
+                return (
+                  <Card key={tender.id} className="bg-card/70 border-border/70">
+                    <CardContent className="p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-sm text-foreground truncate">{tender.project_name}</h4>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {tender.company_name} · Attn: {tender.customer_name}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-sm font-bold text-foreground block">
+                            {tender.quoted_price ? `$${Number(tender.quoted_price).toLocaleString()}` : '—'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                        <span className="bg-muted px-2 py-0.5 rounded text-[10px] font-medium text-foreground">
+                          {SERVICE_TYPE_LABELS[tender.service_type as ServiceType] || tender.service_type}
+                        </span>
+                        {tender.sqft && (
+                          <span>{Number(tender.sqft).toLocaleString()} sq ft</span>
+                        )}
+                        <span>{tender.city}</span>
+                        <span>•</span>
+                        {renderDueBadge(tender.bid_due_date)}
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-border/60">
+                        <select
+                          value={tender.bid_status}
+                          onChange={(e) => handleUpdateTenderStatus(tender.id, e.target.value)}
+                          className={`h-8 rounded-lg border px-2 text-xs font-semibold bg-background ${statusMeta.badgeClass}`}
+                        >
+                          <option value="itb_received">ITB Received / Pricing</option>
+                          <option value="site_visit">Site Visit / Walkthrough</option>
+                          <option value="bid_submitted">Bid Submitted</option>
+                          <option value="awarded">Awarded / Won</option>
+                          <option value="not_awarded">Not Awarded</option>
+                        </select>
+
+                        <Link href={`/sobadmin/leads/${tender.id}`}>
+                          <Button variant="outline" size="sm" className="h-8 text-xs font-semibold">
+                            Open Bid
+                          </Button>
+                        </Link>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
+
+          {/* Desktop Tenders Table (>= md) */}
+          <Card className="hidden md:block">
+            <CardContent className="p-0 overflow-x-auto">
+              <Table className="min-w-[750px]">
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      Loading commercial tenders...
-                    </TableCell>
+                    <TableHead>Project / Tender</TableHead>
+                    <TableHead>GC / Company &amp; Estimator</TableHead>
+                    <TableHead>Scope</TableHead>
+                    <TableHead>Bid Due Date</TableHead>
+                    <TableHead>Bid Status</TableHead>
+                    <TableHead>Bid Amount</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ) : filteredTenders.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                      No active project bids or tenders yet. Click &ldquo;Log New Tender / Bid&rdquo; when an Invitation to Bid (ITB) arrives.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredTenders.map((tender) => {
-                    const statusMeta =
-                      BID_STATUS_META[tender.bid_status] || BID_STATUS_META.itb_received;
-                    return (
-                      <TableRow key={tender.id}>
-                        <TableCell>
-                          <div className="font-bold text-sm text-foreground">
-                            {tender.project_name}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {tender.city}
-                            {tender.sqft ? ` · ${Number(tender.sqft).toLocaleString()} sq ft` : ''}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="font-semibold text-sm">{tender.company_name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {tender.customer_name}
-                            {tender.customer_email ? ` · ${tender.customer_email}` : ''}
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs">
-                          {SERVICE_TYPE_LABELS[tender.service_type as ServiceType] ||
-                            tender.service_type}
-                        </TableCell>
-                        <TableCell>{renderDueBadge(tender.bid_due_date)}</TableCell>
-                        <TableCell>
-                          <select
-                            value={tender.bid_status}
-                            onChange={(e) =>
-                              handleUpdateTenderStatus(tender.id, e.target.value)
-                            }
-                            className={`h-7 rounded-md border px-2 text-xs font-semibold bg-background ${statusMeta.badgeClass}`}
-                          >
-                            <option value="itb_received">ITB Received / Pricing</option>
-                            <option value="site_visit">Site Visit / Walkthrough</option>
-                            <option value="bid_submitted">Bid Submitted</option>
-                            <option value="awarded">Awarded / Won</option>
-                            <option value="not_awarded">Not Awarded</option>
-                          </select>
-                        </TableCell>
-                        <TableCell className="text-sm font-bold">
-                          {tender.quoted_price
-                            ? `$${Number(tender.quoted_price).toLocaleString()}`
-                            : '—'}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Link href={`/sobadmin/leads/${tender.id}`}>
-                            <Button variant="ghost" size="sm" className="text-xs">
-                              Open Bid
-                            </Button>
-                          </Link>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        Loading commercial tenders...
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredTenders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        No active project bids or tenders yet. Click &ldquo;Log New Tender / Bid&rdquo; when an Invitation to Bid (ITB) arrives.
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredTenders.map((tender) => {
+                      const statusMeta =
+                        BID_STATUS_META[tender.bid_status] || BID_STATUS_META.itb_received;
+                      return (
+                        <TableRow key={tender.id}>
+                          <TableCell>
+                            <div className="font-bold text-sm text-foreground">
+                              {tender.project_name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {tender.city}
+                              {tender.sqft ? ` · ${Number(tender.sqft).toLocaleString()} sq ft` : ''}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="font-semibold text-sm">{tender.company_name}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {tender.customer_name}
+                              {tender.customer_email ? ` · ${tender.customer_email}` : ''}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs">
+                            {SERVICE_TYPE_LABELS[tender.service_type as ServiceType] ||
+                              tender.service_type}
+                          </TableCell>
+                          <TableCell>{renderDueBadge(tender.bid_due_date)}</TableCell>
+                          <TableCell>
+                            <select
+                              value={tender.bid_status}
+                              onChange={(e) =>
+                                handleUpdateTenderStatus(tender.id, e.target.value)
+                              }
+                              className={`h-7 rounded-md border px-2 text-xs font-semibold bg-background ${statusMeta.badgeClass}`}
+                            >
+                              <option value="itb_received">ITB Received / Pricing</option>
+                              <option value="site_visit">Site Visit / Walkthrough</option>
+                              <option value="bid_submitted">Bid Submitted</option>
+                              <option value="awarded">Awarded / Won</option>
+                              <option value="not_awarded">Not Awarded</option>
+                            </select>
+                          </TableCell>
+                          <TableCell className="text-sm font-bold">
+                            {tender.quoted_price
+                              ? `$${Number(tender.quoted_price).toLocaleString()}`
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <Link href={`/sobadmin/leads/${tender.id}`}>
+                              <Button variant="ghost" size="sm" className="text-xs">
+                                Open Bid
+                              </Button>
+                            </Link>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </>
       )}
 
       {/* LOG NEW COMMERCIAL TENDER / BID MODAL */}

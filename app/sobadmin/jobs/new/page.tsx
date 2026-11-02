@@ -280,7 +280,7 @@ function NewJobForm() {
         <Card>
           <CardHeader><CardTitle>Service Details</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Service Type *</Label>
                 <Select value={form.service_type} onValueChange={v => update('service_type', v)}>
@@ -303,7 +303,7 @@ function NewJobForm() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
                 <Label>Date *</Label>
                 <DatePicker value={form.scheduled_date} onChange={(val) => update('scheduled_date', val)} />
@@ -332,7 +332,7 @@ function NewJobForm() {
               <span>Time Slot:</span>
               <span className="font-bold">{format12Hour(form.scheduled_start_time)} → {calculateEndTime(form.scheduled_start_time, form.estimated_duration_minutes)}</span>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Address *</Label>
                 <AddressAutocomplete 
@@ -351,7 +351,7 @@ function NewJobForm() {
                 <Input value={form.city} onChange={e => update('city', e.target.value)} />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label>Postal Code *</Label>
                 <Input value={form.postal_code} onChange={e => update('postal_code', e.target.value)} />
@@ -370,7 +370,7 @@ function NewJobForm() {
         <Card>
           <CardHeader><CardTitle>Job Scope</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
                 <Label>Bedrooms</Label>
                 <Input type="number" min="0" max="8" value={form.home_bedrooms} onChange={e => update('home_bedrooms', e.target.value)} />

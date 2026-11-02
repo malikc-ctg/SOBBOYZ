@@ -103,8 +103,60 @@ export default function PayoutsPage() {
         </div>
       )}
 
-      {/* Vendor Payouts Table */}
-      <Card>
+      {/* Vendor Payouts Cards (< md) */}
+      <div className="md:hidden space-y-2.5">
+        {loading ? (
+          <div className="p-8 text-center text-muted-foreground text-sm">
+            <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
+            Loading payout data from QuickBooks…
+          </div>
+        ) : payouts.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground text-sm bg-card border rounded-xl">
+            <DollarSign className="h-8 w-8 mx-auto mb-2 text-muted-foreground/60" />
+            <p className="font-medium text-foreground">No payout data found</p>
+            <p className="text-xs mt-1">Vendor payments will appear here once recorded in QuickBooks.</p>
+          </div>
+        ) : (
+          payouts.map((vendor) => {
+            const isExpanded = expandedVendor === vendor.vendorName;
+            return (
+              <Card key={vendor.vendorName} className="shadow-xs border-border/80">
+                <CardContent className="p-3.5 space-y-2.5">
+                  <div
+                    className="flex items-start justify-between gap-2 cursor-pointer"
+                    onClick={() => setExpandedVendor(isExpanded ? null : vendor.vendorName)}
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-foreground truncate">{vendor.vendorName}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Last Paid: {vendor.lastPaymentDate ? new Date(vendor.lastPaymentDate).toLocaleDateString('en-CA') : '—'}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <span className="font-extrabold text-sm text-emerald-600 block">{formatCAD(vendor.totalPaid)}</span>
+                      <span className="text-[10px] text-muted-foreground">{vendor.transactions.length} payouts {isExpanded ? '▲' : '▼'}</span>
+                    </div>
+                  </div>
+
+                  {isExpanded && vendor.transactions.length > 0 && (
+                    <div className="pt-2 border-t border-border/60 space-y-1.5 text-xs">
+                      {vendor.transactions.map((txn, i) => (
+                        <div key={i} className="flex items-center justify-between p-1.5 bg-muted/40 rounded">
+                          <span className="text-muted-foreground">{new Date(txn.date).toLocaleDateString('en-CA')}</span>
+                          <span className="font-medium text-foreground">{formatCAD(txn.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Vendor Payouts Table (>= md) */}
+      <Card className="hidden md:block">
         <CardHeader className="pb-3">
           <CardTitle className="text-sm font-semibold">Contractor Payouts — Year to Date</CardTitle>
         </CardHeader>

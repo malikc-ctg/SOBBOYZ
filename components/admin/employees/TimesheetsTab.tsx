@@ -59,6 +59,26 @@ interface TimesheetsTabProps {
   employees: any[];
 }
 
+function calcMinutesBetweenTimes(clockIn?: string, clockOut?: string): number | null {
+  if (!clockIn || !clockOut) return null;
+  const inParts = clockIn.split(':').map((p) => parseInt(p, 10));
+  const outParts = clockOut.split(':').map((p) => parseInt(p, 10));
+  if (inParts.length < 2 || outParts.length < 2) return null;
+  const [inH, inM] = inParts;
+  const [outH, outM] = outParts;
+  if (isNaN(inH) || isNaN(inM) || isNaN(outH) || isNaN(outM)) return null;
+
+  const startMinutes = inH * 60 + inM;
+  const endMinutes = outH * 60 + outM;
+
+  let diff = endMinutes - startMinutes;
+  // If end is earlier than start, assume overnight shift (e.g. 10:00 PM to 6:00 AM)
+  if (diff < 0) {
+    diff += 24 * 60;
+  }
+  return diff;
+}
+
 export function TimesheetsTab({ employees }: TimesheetsTabProps) {
   const [timesheets, setTimesheets] = useState<any[]>([]);
   const [summary, setSummary] = useState<any>({
@@ -104,6 +124,43 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
     status: '',
     notes: '',
   });
+
+  const openManualModal = () => {
+    setManualForm({
+      employee_id: '',
+      work_date: format(new Date(), 'yyyy-MM-dd'),
+      clock_in_time: '08:30',
+      clock_out_time: '16:30',
+      total_minutes: '480',
+      status: 'approved',
+      notes: '',
+    });
+    setManualModalOpen(true);
+  };
+
+  const handleManualClockChange = (field: 'clock_in_time' | 'clock_out_time', val: string) => {
+    const nextClockIn = field === 'clock_in_time' ? val : manualForm.clock_in_time;
+    const nextClockOut = field === 'clock_out_time' ? val : manualForm.clock_out_time;
+    const diff = calcMinutesBetweenTimes(nextClockIn, nextClockOut);
+
+    setManualForm((prev) => ({
+      ...prev,
+      [field]: val,
+      ...(diff !== null ? { total_minutes: String(diff) } : {}),
+    }));
+  };
+
+  const handleEditClockChange = (field: 'clock_in_time' | 'clock_out_time', val: string) => {
+    const nextClockIn = field === 'clock_in_time' ? val : editForm.clock_in_time;
+    const nextClockOut = field === 'clock_out_time' ? val : editForm.clock_out_time;
+    const diff = calcMinutesBetweenTimes(nextClockIn, nextClockOut);
+
+    setEditForm((prev) => ({
+      ...prev,
+      [field]: val,
+      ...(diff !== null ? { total_minutes: String(diff) } : {}),
+    }));
+  };
 
   // Calculate dates based on preset
   useEffect(() => {
@@ -234,7 +291,14 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
         inIso = new Date(`${manualForm.work_date}T${manualForm.clock_in_time}:00`).toISOString();
       }
       if (manualForm.clock_out_time) {
-        outIso = new Date(`${manualForm.work_date}T${manualForm.clock_out_time}:00`).toISOString();
+        const outDate = new Date(`${manualForm.work_date}T${manualForm.clock_out_time}:00`);
+        if (manualForm.clock_in_time) {
+          const inDate = new Date(`${manualForm.work_date}T${manualForm.clock_in_time}:00`);
+          if (outDate < inDate) {
+            outDate.setDate(outDate.getDate() + 1);
+          }
+        }
+        outIso = outDate.toISOString();
       }
 
       const totalMins = parseInt(manualForm.total_minutes, 10);
@@ -278,11 +342,19 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
   // Open Edit Dialog
   function openEdit(ts: any) {
     setSelectedTimesheet(ts);
+    const clockIn = ts.clock_in_time ? format(new Date(ts.clock_in_time), 'HH:mm') : '';
+    const clockOut = ts.clock_out_time ? format(new Date(ts.clock_out_time), 'HH:mm') : '';
+    let totalMins = ts.total_minutes !== null ? String(ts.total_minutes) : '';
+    if (!totalMins && clockIn && clockOut) {
+      const diff = calcMinutesBetweenTimes(clockIn, clockOut);
+      if (diff !== null) totalMins = String(diff);
+    }
+
     setEditForm({
       work_date: ts.work_date,
-      clock_in_time: ts.clock_in_time ? format(new Date(ts.clock_in_time), 'HH:mm') : '',
-      clock_out_time: ts.clock_out_time ? format(new Date(ts.clock_out_time), 'HH:mm') : '',
-      total_minutes: ts.total_minutes !== null ? String(ts.total_minutes) : '',
+      clock_in_time: clockIn,
+      clock_out_time: clockOut,
+      total_minutes: totalMins,
       status: ts.status,
       notes: ts.notes || '',
     });
@@ -302,7 +374,14 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
         inIso = new Date(`${editForm.work_date}T${editForm.clock_in_time}:00`).toISOString();
       }
       if (editForm.clock_out_time) {
-        outIso = new Date(`${editForm.work_date}T${editForm.clock_out_time}:00`).toISOString();
+        const outDate = new Date(`${editForm.work_date}T${editForm.clock_out_time}:00`);
+        if (editForm.clock_in_time) {
+          const inDate = new Date(`${editForm.work_date}T${editForm.clock_in_time}:00`);
+          if (outDate < inDate) {
+            outDate.setDate(outDate.getDate() + 1);
+          }
+        }
+        outIso = outDate.toISOString();
       }
 
       const totalMins = editForm.total_minutes ? parseInt(editForm.total_minutes, 10) : undefined;
@@ -462,7 +541,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
               <Button
                 size="sm"
                 className="h-8 text-xs gap-1.5 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
-                onClick={() => setManualModalOpen(true)}
+                onClick={openManualModal}
               >
                 <Plus className="h-4 w-4" />
                 Log Manual Hours
@@ -500,7 +579,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
             </div>
 
             {/* Employee Filter */}
-            <div className="flex items-center gap-2 min-w-[200px]">
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:min-w-[200px]">
               <span className="text-xs text-muted-foreground whitespace-nowrap">Staff:</span>
               <Select value={selectedEmployeeId} onValueChange={setSelectedEmployeeId}>
                 <SelectTrigger className="h-8 text-xs">
@@ -518,7 +597,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
             </div>
 
             {/* Status Filter */}
-            <div className="flex items-center gap-2 min-w-[170px]">
+            <div className="flex items-center gap-2 w-full sm:w-auto sm:min-w-[170px]">
               <span className="text-xs text-muted-foreground whitespace-nowrap">Status:</span>
               <Select value={selectedStatus} onValueChange={setSelectedStatus}>
                 <SelectTrigger className="h-8 text-xs">
@@ -536,8 +615,113 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
           </div>
         </div>
 
+        {/* Mobile Timesheets Card List (< md) */}
+        <div className="md:hidden divide-y divide-border/60">
+          {loading ? (
+            <div className="py-12 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
+              <RefreshCw className="h-4 w-4 animate-spin" />
+              Loading timesheets...
+            </div>
+          ) : timesheets.length === 0 ? (
+            <div className="py-10 text-center text-muted-foreground text-xs p-4">
+              <Clock className="h-6 w-6 text-muted-foreground/50 mx-auto mb-1.5" />
+              <p className="font-semibold text-sm text-foreground">No timesheets found</p>
+              <p className="text-muted-foreground mt-0.5">No work shifts match the selected filters.</p>
+            </div>
+          ) : (
+            timesheets.map((ts) => {
+              const emp = ts.employee || {};
+              const isLive = ts.status === 'open';
+              return (
+                <div key={ts.id} className="p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center justify-center shrink-0 border">
+                        {emp.full_name ? emp.full_name.charAt(0).toUpperCase() : '?'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-semibold text-xs text-foreground truncate">{emp.full_name || 'Staff'}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {ts.work_date ? format(new Date(ts.work_date + 'T12:00:00'), 'EEE, MMM d') : '—'}
+                        </p>
+                      </div>
+                    </div>
+                    <div>
+                      {ts.status === 'open' && (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-emerald-50 text-emerald-700 border-emerald-200">
+                          🟢 Clocked In
+                        </Badge>
+                      )}
+                      {ts.status === 'completed' && (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-amber-50 text-amber-700 border-amber-200">
+                          🟡 Review
+                        </Badge>
+                      )}
+                      {ts.status === 'approved' && (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-blue-50 text-blue-700 border-blue-200">
+                          ✅ Approved
+                        </Badge>
+                      )}
+                      {ts.status === 'rejected' && (
+                        <Badge variant="outline" className="text-[10px] font-semibold bg-red-50 text-red-700 border-red-200">
+                          ❌ Rejected
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 p-2.5 rounded-lg border border-border/40">
+                    <div>
+                      <span className="text-[10px] text-muted-foreground block uppercase font-bold">Shift</span>
+                      {isLive ? (
+                        <span className="text-emerald-500 font-semibold">🟢 In: {ts.clock_in_time ? format(new Date(ts.clock_in_time), 'h:mm a') : '—'}</span>
+                      ) : (
+                        <span className="font-mono text-[11px]">{ts.clock_in_time ? format(new Date(ts.clock_in_time), 'h:mm a') : '—'} → {ts.clock_out_time ? format(new Date(ts.clock_out_time), 'h:mm a') : '—'}</span>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] text-muted-foreground block uppercase font-bold">Pay & Hours</span>
+                      <span className="font-bold text-foreground">${ts.est_pay?.toFixed(2)}</span>
+                      <span className="text-[11px] text-muted-foreground font-mono ml-1">({(ts.effective_minutes / 60).toFixed(1)}h)</span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-1.5 pt-1">
+                    {ts.status === 'completed' && (
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white"
+                        onClick={() => handleStatusChange(ts.id, 'approved')}
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Approve
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs"
+                      onClick={() => openEdit(ts)}
+                    >
+                      <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0 text-red-500 hover:text-red-700"
+                      onClick={() => handleDeleteTimesheet(ts.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
         {/* Timesheets Table */}
-        <CardContent className="p-0 border-t overflow-x-auto">
+        <CardContent className="hidden md:block p-0 border-t overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
@@ -574,7 +758,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                         variant="outline"
                         size="sm"
                         className="mt-3 text-xs"
-                        onClick={() => setManualModalOpen(true)}
+                        onClick={openManualModal}
                       >
                         <Plus className="h-3.5 w-3.5 mr-1" /> Log Hours
                       </Button>
@@ -818,7 +1002,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                   <Input
                     type="time"
                     value={manualForm.clock_in_time}
-                    onChange={(e) => setManualForm({ ...manualForm, clock_in_time: e.target.value })}
+                    onChange={(e) => handleManualClockChange('clock_in_time', e.target.value)}
                     className="mt-1 font-mono"
                   />
                 </div>
@@ -827,7 +1011,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                   <Input
                     type="time"
                     value={manualForm.clock_out_time}
-                    onChange={(e) => setManualForm({ ...manualForm, clock_out_time: e.target.value })}
+                    onChange={(e) => handleManualClockChange('clock_out_time', e.target.value)}
                     className="mt-1 font-mono"
                   />
                 </div>
@@ -835,7 +1019,21 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold">Total Minutes</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Total Minutes</Label>
+                    {calcMinutesBetweenTimes(manualForm.clock_in_time, manualForm.clock_out_time) !== null && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const diff = calcMinutesBetweenTimes(manualForm.clock_in_time, manualForm.clock_out_time);
+                          if (diff !== null) setManualForm((prev) => ({ ...prev, total_minutes: String(diff) }));
+                        }}
+                        className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                      >
+                        Auto-calc
+                      </button>
+                    )}
+                  </div>
                   <Input
                     type="number"
                     min="1"
@@ -846,7 +1044,9 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                     className="mt-1 font-mono"
                   />
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {manualForm.total_minutes ? `${(parseInt(manualForm.total_minutes, 10) / 60 || 0).toFixed(2)} hours` : 'Auto-calc from times'}
+                    {manualForm.total_minutes
+                      ? `${(parseInt(manualForm.total_minutes, 10) / 60 || 0).toFixed(2)} hrs (${formatMinutes(parseInt(manualForm.total_minutes, 10) || 0)})`
+                      : 'Auto-calc from times'}
                   </p>
                 </div>
                 <div>
@@ -922,7 +1122,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                   <Input
                     type="time"
                     value={editForm.clock_in_time}
-                    onChange={(e) => setEditForm({ ...editForm, clock_in_time: e.target.value })}
+                    onChange={(e) => handleEditClockChange('clock_in_time', e.target.value)}
                     className="mt-1 font-mono"
                   />
                 </div>
@@ -931,7 +1131,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                   <Input
                     type="time"
                     value={editForm.clock_out_time}
-                    onChange={(e) => setEditForm({ ...editForm, clock_out_time: e.target.value })}
+                    onChange={(e) => handleEditClockChange('clock_out_time', e.target.value)}
                     className="mt-1 font-mono"
                   />
                 </div>
@@ -939,7 +1139,21 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <Label className="text-xs font-semibold">Total Minutes</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Total Minutes</Label>
+                    {calcMinutesBetweenTimes(editForm.clock_in_time, editForm.clock_out_time) !== null && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const diff = calcMinutesBetweenTimes(editForm.clock_in_time, editForm.clock_out_time);
+                          if (diff !== null) setEditForm((prev) => ({ ...prev, total_minutes: String(diff) }));
+                        }}
+                        className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                      >
+                        Auto-calculate
+                      </button>
+                    )}
+                  </div>
                   <Input
                     type="number"
                     min="0"
@@ -949,7 +1163,9 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                     className="mt-1 font-mono"
                   />
                   <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {editForm.total_minutes ? `${(parseInt(editForm.total_minutes, 10) / 60 || 0).toFixed(2)} hours` : 'Auto-calc from times'}
+                    {editForm.total_minutes
+                      ? `${(parseInt(editForm.total_minutes, 10) / 60 || 0).toFixed(2)} hrs (${formatMinutes(parseInt(editForm.total_minutes, 10) || 0)})`
+                      : 'Auto-calc from times'}
                   </p>
                 </div>
                 <div>

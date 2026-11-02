@@ -199,8 +199,48 @@ export default function EmployeeApplicationsPage() {
         </div>
       </div>
 
-      {/* Applications Table */}
-      <Card>
+      {/* Mobile applications cards (< md) */}
+      <div className="md:hidden space-y-2.5">
+        {loading ? (
+          <p className="text-center py-10 text-muted-foreground text-sm">Loading applications...</p>
+        ) : filtered.length === 0 ? (
+          <p className="text-center py-10 text-muted-foreground text-sm">No applications match the selected filter.</p>
+        ) : (
+          filtered.map((app) => (
+            <Link key={app.id} href={`/sobadmin/employees/applications/${app.id}`} className="block">
+              <Card className="active:bg-muted/50 transition-colors">
+                <CardContent className="p-3.5 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-sm text-foreground truncate">{app.full_name}</div>
+                      <div className="text-xs text-muted-foreground truncate">{app.phone} • {app.email}</div>
+                    </div>
+                    <Badge variant="outline" className={`text-xs shrink-0 ${getStatusStyle(app.status || 'New')}`}>
+                      {app.status || 'New'}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                    <span>{app.city || 'GTA'}</span>
+                    <span>•</span>
+                    <span>{app.years_experience || '0'} yrs exp</span>
+                    <span>•</span>
+                    <span>{app.has_vehicle ? 'Vehicle ✓' : 'No Vehicle'}</span>
+                    <span>•</span>
+                    <span>{app.brings_own_supplies ? 'Supplies ✓' : 'Needs Kit'}</span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 text-xs text-muted-foreground">
+                    <span>Submitted {app.created_at ? format(new Date(app.created_at), 'MMM d, yyyy') : '—'}</span>
+                    <span className="font-semibold text-primary flex items-center gap-1">Review <ArrowRight className="h-3 w-3" /></span>
+                  </div>
+                </CardContent>
+              </Card>
+            </Link>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Applications Table (>= md) */}
+      <Card className="hidden md:block">
         <CardContent className="p-0 overflow-x-auto">
           <Table className="min-w-[680px]">
             <TableHeader>

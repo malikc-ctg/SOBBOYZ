@@ -214,7 +214,7 @@ export default function AdminSalesOSPage() {
       {/* =========================================================
           PERSISTENT OS SYSTEM MENU BAR (Top Dock & Status Tray)
          ========================================================= */}
-      <header className="h-12 px-2.5 sm:px-4 bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 flex items-center justify-between gap-2 shrink-0 z-50 select-none">
+      <header className="h-14 sm:h-12 px-2.5 sm:px-4 bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 flex items-center justify-between gap-2 shrink-0 z-50 select-none safe-top">
         {/* LEFT: Workspace Return + OS Home Launcher + Direct App Dock */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button
@@ -297,9 +297,9 @@ export default function AdminSalesOSPage() {
           </div>
         </div>
 
-        {/* CENTER: Field KnockLog Sub-Workspace Switcher (Knock | Map | Team | History) */}
+        {/* CENTER: Field KnockLog Sub-Workspace Switcher (Desktop: Knock | Map | Team | History) */}
         {(activeApp === 'residential' || activeApp === 'commercial') && (
-          <div className="flex items-center gap-0.5 sm:gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 shrink-0">
+          <div className="hidden md:flex items-center gap-0.5 sm:gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 shrink-0">
             {([
               { id: 'KNOCK', label: 'Knock', icon: MapPin },
               { id: 'MAP', label: 'Map', icon: Compass },
@@ -477,6 +477,28 @@ export default function AdminSalesOSPage() {
                 salesMode={activeApp}
               />
             </div>
+
+            {/* Mobile Bottom Dock for Field KnockLog (< md) */}
+            <nav className="md:hidden shrink-0 z-40 bg-[#000d1a]/95 border-t border-[#3c6ca8]/25 safe-bottom flex items-center justify-around h-14">
+              {([
+                { id: 'KNOCK', label: 'Knock', icon: MapPin },
+                { id: 'MAP', label: 'Map', icon: Compass },
+                { id: 'TEAM', label: 'Team', icon: Users },
+                { id: 'HISTORY', label: 'History', icon: Clock },
+              ] as const).map(({ id, label, icon: TabIcon }) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => handleSelectFieldTab(id)}
+                  className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-bold transition-colors ${
+                    fieldTab === id ? 'text-blue-400' : 'text-[#88a2c0] active:text-white'
+                  }`}
+                >
+                  <TabIcon className="w-4 h-4" />
+                  <span>{label}</span>
+                </button>
+              ))}
+            </nav>
           </div>
         )}
 

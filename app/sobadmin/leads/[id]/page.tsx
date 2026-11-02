@@ -143,10 +143,14 @@ export default function LeadDetailPage() {
   const calculatedEndTime = calculateEndTime(convertForm.scheduled_start_time, convertForm.estimated_duration_minutes);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/sobadmin/leads"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back</Button></Link>
-        <h1 className="text-2xl font-bold">
+    <div className="space-y-6 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
+        <Link href="/sobadmin/leads" className="shrink-0">
+          <Button variant="ghost" size="sm" className="h-10 md:h-8">
+            <ArrowLeft className="h-4 w-4 mr-1" />Back
+          </Button>
+        </Link>
+        <h1 className="text-xl sm:text-2xl font-bold truncate">
           Lead: {lead.company_name ? `${lead.company_name} (Attn: ${lead.customer_name ?? 'Main Contact'})` : (lead.customer_name ?? 'Unknown')}
         </h1>
       </div>
@@ -278,7 +282,7 @@ export default function LeadDetailPage() {
                 </div>
                 <div><Label className="text-white/80">Scheduled Date</Label><DatePicker value={convertForm.scheduled_date} onChange={(val) => setConvertForm({ ...convertForm, scheduled_date: val })} className="bg-black/40 border-white/10 text-white" /></div>
                 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <Label className="text-white/80">Start Time</Label>
                     <Select value={convertForm.scheduled_start_time} onValueChange={v => setConvertForm({ ...convertForm, scheduled_start_time: v })}>

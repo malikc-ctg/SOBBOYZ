@@ -148,12 +148,16 @@ export default function EmployeeDetailPage() {
   const hasPhoto = !!photoUrl;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/sobadmin/employees"><Button variant="ghost" size="sm"><ArrowLeft className="h-4 w-4 mr-1" />Back</Button></Link>
-        <div>
-          <h1 className="text-2xl font-bold">{employee.full_name}</h1>
-          <div className="flex items-center gap-2 mt-1">
+    <div className="space-y-6 min-w-0">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 min-w-0">
+        <Link href="/sobadmin/employees" className="shrink-0">
+          <Button variant="ghost" size="sm" className="h-10 md:h-8">
+            <ArrowLeft className="h-4 w-4 mr-1" />Back
+          </Button>
+        </Link>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl sm:text-2xl font-bold truncate">{employee.full_name}</h1>
+          <div className="flex flex-wrap items-center gap-2 mt-1">
             <Badge variant="outline" className={`capitalize ${employee.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{employee.status}</Badge>
             <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 font-semibold">
               ${currentWage.toFixed(2)}/hr
@@ -162,7 +166,7 @@ export default function EmployeeDetailPage() {
               variant="outline"
               size="sm"
               onClick={() => { setWageInput(currentWage.toFixed(2)); setWageDialogOpen(true); }}
-              className="h-6 px-2 text-xs flex items-center gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
+              className="h-7 px-2 text-xs flex items-center gap-1 border-indigo-200 text-indigo-700 hover:bg-indigo-50"
             >
               <Pencil className="h-3 w-3" /> Edit Wage
             </Button>

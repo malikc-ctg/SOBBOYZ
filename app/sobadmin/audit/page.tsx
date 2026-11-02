@@ -132,18 +132,18 @@ export default function AuditLogPage() {
 
       {/* Main Tabs */}
       <Tabs defaultValue="photos" className="w-full">
-        <TabsList className="mb-6">
-          <TabsTrigger value="photos" className="flex items-center gap-1.5 font-semibold">
+        <TabsList className="mb-6 flex overflow-x-auto scrollbar-none w-full justify-start">
+          <TabsTrigger value="photos" className="flex items-center gap-1.5 font-semibold shrink-0">
             <Camera className="h-4 w-4 text-blue-600" />
-            Job Photo Evidence &amp; Checklists
+            Photo Evidence
           </TabsTrigger>
-          <TabsTrigger value="logs" className="flex items-center gap-1.5 font-semibold">
+          <TabsTrigger value="logs" className="flex items-center gap-1.5 font-semibold shrink-0">
             <Shield className="h-4 w-4 text-slate-600" />
-            System Activity Audit Logs
+            System Audit Logs
           </TabsTrigger>
-          <TabsTrigger value="calls" className="flex items-center gap-1.5 font-semibold">
+          <TabsTrigger value="calls" className="flex items-center gap-1.5 font-semibold shrink-0">
             <PhoneCall className="h-4 w-4 text-emerald-600" />
-            Sales Call &amp; Dial Logs
+            Sales Call Logs
           </TabsTrigger>
         </TabsList>
 
@@ -299,7 +299,7 @@ export default function AuditLogPage() {
                               </pre>
                             </div>
                           )}
-                          <div className="grid grid-cols-3 gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-4 text-xs text-muted-foreground pt-2 border-t border-border">
                             <div>
                               <span className="font-medium">IP:</span> {log.ip_address ?? 'N/A'}
                             </div>
