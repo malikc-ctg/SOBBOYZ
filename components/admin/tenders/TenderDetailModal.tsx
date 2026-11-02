@@ -242,15 +242,21 @@ export function TenderDetailModal({
             </div>
 
             <div className="flex items-center gap-2">
-              {meta.pdf_public_url && (
+              {(meta.pdf_public_url || meta.document_url) && (
                 <a
-                  href={meta.pdf_public_url}
+                  href={meta.document_url || meta.pdf_public_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-indigo-600/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/25 text-xs font-semibold"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-indigo-600/15 border border-indigo-500/30 text-indigo-300 hover:bg-indigo-600/25 text-xs font-semibold"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  View Original Claude Bid PDF
+                  <span>
+                    View Proposal (
+                    {meta.document_type === 'docx' || (meta.document_url || meta.pdf_public_url || '').toLowerCase().includes('.doc')
+                      ? 'DOCX'
+                      : 'PDF'}
+                    )
+                  </span>
                   <ExternalLink className="w-3 h-3 ml-0.5" />
                 </a>
               )}

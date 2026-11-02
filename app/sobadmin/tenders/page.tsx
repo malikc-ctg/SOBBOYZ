@@ -490,7 +490,7 @@ export default function VendorListsAndTendersPage() {
             className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/15 text-xs font-bold gap-1.5 shadow-sm"
           >
             <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            Import Claude Bid PDF
+            Import Claude Bid (PDF / DOCX)
           </Button>
 
           <Button
@@ -964,9 +964,13 @@ export default function VendorListsAndTendersPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <h4 className="font-bold text-sm text-foreground truncate">{tender.project_name}</h4>
-                            {tender.tender_meta?.pdf_public_url && (
+                            {(tender.tender_meta?.pdf_public_url || tender.tender_meta?.document_url) && (
                               <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-300 border-indigo-500/30 gap-1 px-1.5 py-0">
-                                <Sparkles className="w-2.5 h-2.5" /> PDF
+                                <Sparkles className="w-2.5 h-2.5" />{' '}
+                                {tender.tender_meta?.document_type === 'docx' ||
+                                (tender.tender_meta?.document_url || tender.tender_meta?.pdf_public_url || '').toLowerCase().includes('.doc')
+                                  ? 'DOCX'
+                                  : 'PDF'}
                               </Badge>
                             )}
                           </div>
@@ -1069,9 +1073,13 @@ export default function VendorListsAndTendersPage() {
                               <span className="font-bold text-sm text-foreground">
                                 {tender.project_name}
                               </span>
-                              {tender.tender_meta?.pdf_public_url && (
+                              {(tender.tender_meta?.pdf_public_url || tender.tender_meta?.document_url) && (
                                 <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-300 border-indigo-500/30 gap-1 px-1.5 py-0">
-                                  <Sparkles className="w-2.5 h-2.5" /> PDF
+                                  <Sparkles className="w-2.5 h-2.5" />{' '}
+                                  {tender.tender_meta?.document_type === 'docx' ||
+                                  (tender.tender_meta?.document_url || tender.tender_meta?.pdf_public_url || '').toLowerCase().includes('.doc')
+                                    ? 'DOCX'
+                                    : 'PDF'}
                                 </Badge>
                               )}
                             </div>
