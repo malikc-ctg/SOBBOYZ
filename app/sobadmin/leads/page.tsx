@@ -17,7 +17,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus, ClipboardCheck } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { SERVICE_TYPE_LABELS, DEFAULT_PRICING, LEAD_SOURCE_LABELS } from '@/types';
@@ -130,26 +130,6 @@ export default function LeadsPage() {
 
   return (
     <div className="space-y-5 min-w-0">
-      {/* Inbound CRM Section Switcher Strip */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto scrollbar-none">
-        <Link href="/sobadmin/leads" className="shrink-0">
-          <Button variant="default" size="sm" className="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">
-            Standard Inbound Leads
-          </Button>
-        </Link>
-        <Link href="/sobadmin/tenders" className="shrink-0">
-          <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
-            <ClipboardCheck className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
-            Vendor Lists &amp; Commercial Tenders
-          </Button>
-        </Link>
-        <Link href="/sobadmin/customers" className="shrink-0">
-          <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
-            Customer Accounts CRM
-          </Button>
-        </Link>
-      </div>
-
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">

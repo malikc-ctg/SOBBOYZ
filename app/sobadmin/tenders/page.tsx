@@ -25,7 +25,6 @@ import {
 } from '@/components/ui/table';
 import {
   Building2,
-  ClipboardCheck,
   FileSpreadsheet,
   Users,
   Plus,
@@ -443,26 +442,6 @@ export default function VendorListsAndTendersPage() {
 
   return (
     <div className="space-y-5 min-w-0">
-      {/* Inbound CRM Section Switcher Strip */}
-      <div className="flex items-center gap-2 border-b border-border/60 pb-3 overflow-x-auto">
-        <Link href="/sobadmin/leads">
-          <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
-            Standard Inbound Leads
-          </Button>
-        </Link>
-        <Link href="/sobadmin/tenders">
-          <Button variant="default" size="sm" className="text-xs font-bold bg-indigo-600 hover:bg-indigo-500 text-white">
-            <ClipboardCheck className="w-3.5 h-3.5 mr-1.5" />
-            Vendor Lists &amp; Commercial Tenders
-          </Button>
-        </Link>
-        <Link href="/sobadmin/customers">
-          <Button variant="ghost" size="sm" className="text-xs font-semibold text-muted-foreground hover:text-foreground">
-            Customer Accounts CRM
-          </Button>
-        </Link>
-      </div>
-
       {/* Top Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
