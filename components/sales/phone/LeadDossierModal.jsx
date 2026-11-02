@@ -1933,33 +1933,6 @@ export default function LeadDossierModal({
             >
               Close
             </button>
-            {(contact.work_direct_phone || contact.phone || contact.mobile_phone) && (
-              <button
-                type="button"
-                onClick={() => {
-                  const targetPhone = contact.work_direct_phone || contact.phone || contact.mobile_phone;
-                  handleCopyNumber(targetPhone, 'footer');
-                }}
-                className={`px-5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-lg transition ${
-                  copiedKey === 'footer'
-                    ? 'bg-emerald-600 text-white shadow-emerald-950/40'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-950/40'
-                }`}
-                title="Copy phone number"
-              >
-                {copiedKey === 'footer' ? (
-                  <>
-                    <Check size={13} className="text-emerald-200" />
-                    <span>Copied {contact.work_direct_phone || contact.phone || contact.mobile_phone}!</span>
-                  </>
-                ) : (
-                  <>
-                    <Copy size={13} />
-                    <span>Copy {contact.work_direct_phone || contact.phone || contact.mobile_phone}</span>
-                  </>
-                )}
-              </button>
-            )}
           </div>
         </div>
 
