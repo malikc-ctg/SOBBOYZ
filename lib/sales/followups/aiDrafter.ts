@@ -212,6 +212,7 @@ export async function draftDossierEmailWithClaude(options: {
     `- Build Specialty: ${recon.build_specialty}`,
     `- Notable Projects / Sectors: ${(recon.notable_projects || []).join('; ') || 'Commercial builds'}`,
     `- Role Angle: ${recon.contact_role_angle}`,
+    recon.whisper_card?.lead_intel ? `- Lead Intel (LinkedIn / Current Role & Projects): ${recon.whisper_card.lead_intel}` : '',
     `REP NOTES ON LEAD: ${intel.notes || intel.rep_notes || 'None'}`,
     `ENROLLMENT CONTEXT: ${JSON.stringify(activeEnr?.context || {})}`,
     `DIRECT CALL LOGS & QUO TRANSCRIPTS:\n${directTranscripts.slice(0, 4).join('\n') || 'No connected transcript yet (cold outreach / no answer).'}`,

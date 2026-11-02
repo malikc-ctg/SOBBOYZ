@@ -1277,13 +1277,13 @@ export default function LeadDossierModal({
             </div>
           </div>
 
-          {/* SECTION: Claude Sonnet 5.5 Website & LinkedIn Recon + Pre-Call Whisper Card */}
+          {/* SECTION: Website & LinkedIn Recon + Pre-Call Whisper Card */}
           <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-950/60 via-slate-900/90 to-blue-950/50 border border-indigo-500/30 space-y-3">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <Sparkles size={15} className="text-amber-400 shrink-0" />
                 <span className="text-xs font-extrabold uppercase tracking-wider text-indigo-200">
-                  Claude Sonnet 5.5 Website & LinkedIn Recon + Whisper Card
+                  Website & LinkedIn Recon + Whisper Card
                 </span>
                 {aiRecon?.build_specialty && (
                   <span className="px-2 py-0.5 rounded-full bg-indigo-900/70 border border-indigo-600/50 text-[10px] font-bold text-indigo-200">
@@ -1326,15 +1326,47 @@ export default function LeadDossierModal({
                       <div className="text-slate-200 text-[11px] leading-snug">{aiRecon.whisper_card.company_touch_intel}</div>
                     </div>
                     <div className="p-2.5 rounded-lg bg-slate-950/80 border border-emerald-900/40">
-                      <div className="text-[10px] font-bold uppercase text-emerald-400 mb-1">3. Recommended Call Opener</div>
-                      <div className="text-emerald-100 text-[11px] leading-snug font-medium">
-                        &ldquo;{aiRecon.whisper_card.recommended_opener}&rdquo;
+                      <div className="flex items-center justify-between mb-1 gap-1">
+                        <div className="text-[10px] font-bold uppercase text-emerald-400">3. Lead Intel</div>
+                        {aiRecon.contact_verification?.still_at_company && (
+                          <span
+                            className={`text-[9px] px-1.5 py-0.2 rounded font-semibold uppercase tracking-wider shrink-0 ${
+                              aiRecon.contact_verification.still_at_company.toLowerCase().includes('moved') ||
+                              aiRecon.contact_verification.still_at_company.toLowerCase().includes('no')
+                                ? 'bg-rose-950/80 text-rose-300 border border-rose-800/50'
+                                : 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/50'
+                            }`}
+                          >
+                            {aiRecon.contact_verification.still_at_company.toLowerCase().includes('yes') ||
+                            aiRecon.contact_verification.still_at_company.toLowerCase().includes('verified')
+                              ? 'Verified Active'
+                              : aiRecon.contact_verification.still_at_company}
+                          </span>
+                        )}
                       </div>
+                      <div className="text-emerald-100/95 text-[11px] leading-snug">
+                        {aiRecon.whisper_card.lead_intel || aiRecon.whisper_card.recommended_opener}
+                      </div>
+                      {aiRecon.whisper_card.lead_intel && aiRecon.whisper_card.recommended_opener && (
+                        <div className="mt-2 pt-1.5 border-t border-emerald-950/80 text-[10px] text-emerald-300/80 italic leading-tight">
+                          <span className="font-semibold not-italic text-emerald-400/90">Opener: </span>
+                          &ldquo;{aiRecon.whisper_card.recommended_opener}&rdquo;
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
 
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
+                  {aiRecon.contact_verification?.current_title && (
+                    <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
+                      <strong className="text-slate-400">Confirmed Role: </strong>
+                      {aiRecon.contact_verification.current_title}
+                      {aiRecon.contact_verification.tenure && aiRecon.contact_verification.tenure !== 'N/A' && (
+                        <span className="text-slate-400"> ({aiRecon.contact_verification.tenure})</span>
+                      )}
+                    </span>
+                  )}
                   {aiRecon.notable_projects?.length > 0 && (
                     <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-800">
                       <strong className="text-slate-400">Projects / Sectors: </strong>
@@ -1351,8 +1383,8 @@ export default function LeadDossierModal({
               </div>
             ) : (
               <div className="text-xs text-slate-400">
-                Click <strong className="text-indigo-300">Scope Website & LinkedIn</strong> to have Claude Sonnet 5.5 research{' '}
-                <span className="text-slate-200 font-semibold">{contact.company || 'this company'}</span>&apos;s active builds, LinkedIn role angle, and generate a 3-bullet Pre-Call Whisper Card + personalized email angle.
+                Click <strong className="text-indigo-300">Scope Website & LinkedIn</strong> to research{' '}
+                <span className="text-slate-200 font-semibold">{contact.company || 'this company'}</span>&apos;s active builds, verify the lead&apos;s current role, tenure and projects on LinkedIn, and generate a 3-bullet Pre-Call Whisper Card.
               </div>
             )}
           </div>

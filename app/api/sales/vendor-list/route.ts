@@ -616,6 +616,16 @@ export async function PATCH(request: NextRequest) {
         updated_at: nowIso,
       };
 
+      if (body.company_name !== undefined) updateFields.company_name = body.company_name;
+      if (body.customer_name !== undefined) updateFields.customer_name = body.customer_name;
+      if (body.customer_email !== undefined) updateFields.customer_email = body.customer_email;
+      if (body.customer_phone !== undefined) updateFields.customer_phone = body.customer_phone;
+      if (body.city !== undefined) updateFields.city = body.city;
+      if (body.service_type !== undefined) updateFields.service_type = toValidServiceType(body.service_type);
+      if (body.sqft !== undefined) {
+        updateFields.home_size_sqft = body.sqft ? parseInt(String(body.sqft), 10) : null;
+        tenderMeta.sqft = body.sqft ? Number(body.sqft) : null;
+      }
       if (body.project_name !== undefined) updateFields.condition = body.project_name;
       if (body.bid_due_date !== undefined) {
         updateFields.preferred_date = body.bid_due_date ? String(body.bid_due_date).split('T')[0] : null;

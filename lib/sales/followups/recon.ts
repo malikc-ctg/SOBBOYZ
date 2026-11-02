@@ -8,6 +8,13 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { callClaudeSonnet, extractJsonFromClaude } from './claudeClient';
 import { companyKey } from './company';
 
+export interface LeadContactVerification {
+  still_at_company: string;
+  current_title: string;
+  tenure?: string;
+  projects_or_focus?: string;
+}
+
 export interface LeadRecon {
   company_summary: string;
   build_specialty: string;
@@ -18,8 +25,10 @@ export interface LeadRecon {
   whisper_card: {
     what_they_build: string;
     company_touch_intel: string;
-    recommended_opener: string;
+    lead_intel: string;
+    recommended_opener?: string;
   };
+  contact_verification?: LeadContactVerification;
   sources: string[];
   scoped_at: string;
   model: string;
@@ -150,12 +159,16 @@ export function parseLeadIntelJson(notesRaw?: string | null): Record<string, any
 
 const RECON_SYSTEM_PROMPT = `You are the Senior Construction Intelligence Analyst for Sea of Blue Inc., a commercial and post-construction cleaning contractor serving the Greater Toronto Area (GTA: Toronto, Mississauga, Brampton, Vaughan, Oakville, Burlington, Markham, Milton, Hamilton).
 
-Your job is to scope a prospect's construction/development company website, LinkedIn profile context, and call history, then return a concise JSON dossier that our sales reps (Malik Campbell, Raahim Ahmed, and Ayaan Baig) and email drafter can use immediately.
+Your job is to scope a prospect's construction/development company website, research the specific contact person on LinkedIn and across the web, verify their current employment, role, and projects, and return a concise JSON dossier for our sales reps (Malik Campbell, Raahim Ahmed, and Ayaan Baig) and email drafter.
 
 STRICT WRITING RULES:
 1. NEVER use em-dashes (—) or en-dashes (–) anywhere. Use commas or periods instead.
 2. Write in a grounded, practical contractor-to-contractor tone. No corporate buzzwords or cheesy flattery.
-3. Return ONLY valid JSON matching this exact schema:
+3. In "lead_intel", research and report:
+   - Whether they still work at this company (confirmed active, tenure, or recent profile updates).
+   - Whether they are still in the same role (e.g. Estimator, Project Manager, Site Super) or have a different/promoted title.
+   - Any specific projects, bids, sectors, or brand rollouts they personally oversee, estimate, manage, or have worked on.
+4. Return ONLY valid JSON matching this exact schema:
 {
   "company_summary": "1-2 sentence factual summary of what this builder/company constructs and where they operate",
   "build_specialty": "Short label, e.g. 'Commercial ICI & Retail Fit-Outs', 'Custom Luxury Homes', 'Multi-Family & Condo Developments', or 'General Contracting'",
@@ -164,9 +177,16 @@ STRICT WRITING RULES:
   "contact_role_angle": "1 sentence on what matters most to this specific contact's job title (e.g. Estimators care about fast fixed-price per sq ft + WSIB/insurance; Site Supers care about crews showing up on schedule and zero dust punch-list items before handover; Project Managers care about reliable rough + final + touch-up scheduling)",
   "proof_sentence": "A natural 1-sentence line for a cold email referencing their specific type of builds or city (no em-dashes, no double spaces, e.g. 'We handle rough, final, and pre-handover touch-up cleans for commercial fit-out and ICI builders across Mississauga and the GTA.')",
   "whisper_card": {
-    "what_they_build": "1 punchy bullet for the rep before dialing",
+    "what_they_build": "1 punchy bullet for the rep before dialing summarizing what the company builds",
     "company_touch_intel": "1 punchy bullet summarizing past calls/colleagues at this company or decision-maker level",
-    "recommended_opener": "Exact 1-2 sentence phone opener tailored to their title and company specialty"
+    "lead_intel": "2-3 concise, high-value sentences for the rep: whether they still work there, confirmed current role, and any projects, bids, or sectors they may be on or manage",
+    "recommended_opener": "1 sentence phone opener tailored to their title and company specialty"
+  },
+  "contact_verification": {
+    "still_at_company": "Yes / Verified / Likely / Moved / Unknown",
+    "current_title": "Current confirmed title from LinkedIn or web",
+    "tenure": "Time at company if found, or 'N/A'",
+    "projects_or_focus": "Specific projects or divisions they are tied to"
   }
 }`;
 
@@ -244,11 +264,12 @@ export async function getOrRunLeadRecon(
     fetchedUrls = scraped.fetchedUrls;
   }
 
-  // Enable Claude web_search if website text is sparse or LinkedIn URL is present
+  // Enable Claude web_search whenever contact name, company or LinkedIn is present
+  // so Claude can check LinkedIn, current employment status, role changes, and project activity
   const shouldUseWebSearch = Boolean(
-    (!websiteScrapedText || websiteScrapedText.length < 400) &&
-      lead.company_name &&
-      lead.company_name !== 'Commercial Prospect'
+    lead.customer_name ||
+      intel.linkedin ||
+      (lead.company_name && lead.company_name !== 'Commercial Prospect')
   );
 
   const userPrompt = [
@@ -267,7 +288,14 @@ export async function getOrRunLeadRecon(
       : '',
     websiteScrapedText
       ? `\nScraped Company Website Content:\n${websiteScrapedText}`
-      : '\nNo direct website HTML scraped. If needed, use web_search to check the company and contact in Ontario/GTA.',
+      : '\nNo direct website HTML scraped.',
+    `\nTASK:`,
+    `1. Scrape/analyze the company and what projects they build in the GTA / Ontario / Canada.`,
+    `2. Perform research on the contact person (${lead.customer_name || 'this contact'}) via LinkedIn and web search:`,
+    `   - Check if they still work at ${lead.company_name || 'this company'}.`,
+    `   - Check if they are still in the same role (${lead.contact_title || 'their title'}) or have a new title / promotion.`,
+    `   - Check any active, recent, or past projects, tenders, bids, or sectors they may personally be on, manage, or estimate.`,
+    `3. Synthesize the findings into the requested JSON schema with a punchy 'lead_intel' block in whisper_card.`,
   ]
     .filter(Boolean)
     .join('\n');
@@ -275,9 +303,9 @@ export async function getOrRunLeadRecon(
   const claudeRes = await callClaudeSonnet({
     systemPrompt: RECON_SYSTEM_PROMPT,
     userPrompt,
-    maxTokens: 1500,
+    maxTokens: 2500,
     enableWebSearch: shouldUseWebSearch,
-    maxWebSearches: 2,
+    maxWebSearches: 4,
   });
 
   const parsed = extractJsonFromClaude<Partial<LeadRecon>>(claudeRes.text);
@@ -291,6 +319,10 @@ export async function getOrRunLeadRecon(
       .replace(/[—–]/g, ', ')
       .replace(/\s{2,}/g, ' ')
       .trim();
+
+  const rawWhisper = parsed.whisper_card as any;
+  const rawLeadIntel = cleanNoDashes(rawWhisper?.lead_intel);
+  const rawOpener = cleanNoDashes(rawWhisper?.recommended_opener);
 
   const recon: LeadRecon = {
     company_summary:
@@ -311,16 +343,30 @@ export async function getOrRunLeadRecon(
       `Most recently we turned over a 35,000 sq ft commercial facility in ${lead.city || 'Mississauga'}.`,
     whisper_card: {
       what_they_build:
-        cleanNoDashes(parsed.whisper_card?.what_they_build) ||
+        cleanNoDashes(rawWhisper?.what_they_build) ||
         cleanNoDashes(parsed.company_summary) ||
         `Commercial construction in ${lead.city || 'the GTA'}.`,
       company_touch_intel:
-        cleanNoDashes(parsed.whisper_card?.company_touch_intel) ||
+        cleanNoDashes(rawWhisper?.company_touch_intel) ||
         (companyCallSummaries[0] ? cleanNoDashes(companyCallSummaries[0]) : 'First touch at this company.'),
+      lead_intel:
+        rawLeadIntel ||
+        (parsed.contact_verification?.current_title
+          ? `${lead.customer_name || 'Contact'} (${parsed.contact_verification.current_title}${parsed.contact_verification.still_at_company ? ` - ${parsed.contact_verification.still_at_company}` : ''}): ${parsed.contact_verification.projects_or_focus || parsed.contact_role_angle || 'Active at company'}.`
+          : rawOpener ||
+            `${lead.customer_name || 'Contact'} is listed as ${lead.contact_title || 'lead'} at ${lead.company_name || 'the company'}.`),
       recommended_opener:
-        cleanNoDashes(parsed.whisper_card?.recommended_opener) ||
+        rawOpener ||
         `Hi ${lead.customer_name?.split(' ')[0] || 'there'}, I'm calling from Sea of Blue. We handle rough and final post-construction cleans for builders in ${lead.city || 'the GTA'}.`,
     },
+    contact_verification: parsed.contact_verification
+      ? {
+          still_at_company: cleanNoDashes(parsed.contact_verification.still_at_company) || 'Likely',
+          current_title: cleanNoDashes(parsed.contact_verification.current_title) || lead.contact_title || 'Role listed',
+          tenure: cleanNoDashes(parsed.contact_verification.tenure),
+          projects_or_focus: cleanNoDashes(parsed.contact_verification.projects_or_focus),
+        }
+      : undefined,
     sources: allSources,
     scoped_at: new Date().toISOString(),
     model: 'claude-sonnet-5-5',

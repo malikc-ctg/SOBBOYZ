@@ -55,6 +55,7 @@ export interface ClaudeDocumentBlock {
 }
 
 export interface ClaudeCallOptions {
+  model?: string;
   systemPrompt: string;
   userPrompt: string;
   maxTokens?: number;
@@ -97,7 +98,7 @@ export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<Clau
       : options.userPrompt;
 
   const body: Record<string, any> = {
-    model: CLAUDE_MODEL,
+    model: options.model || CLAUDE_MODEL,
     max_tokens: options.maxTokens || 4096,
     system: [
       {

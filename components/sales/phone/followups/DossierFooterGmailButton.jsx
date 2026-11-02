@@ -176,16 +176,16 @@ export default function DossierFooterGmailButton({
         }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error || 'Claude draft failed');
+      if (!res.ok) throw new Error(json.error || 'Draft generation failed');
       setAiDraftOverride({
         subject: json.draft.subject,
         body: json.draft.body,
       });
-      toast.success('Claude Sonnet 5.5 scoped dossier & personalized the email draft');
+      toast.success('Scoped dossier & personalized the email draft');
       await fetchData();
       if (onTriggerRefresh) onTriggerRefresh();
     } catch (err) {
-      toast.error(err.message || 'Failed to draft with Claude');
+      toast.error(err.message || 'Failed to generate draft');
     } finally {
       setAiDrafting(false);
     }
@@ -319,16 +319,16 @@ export default function DossierFooterGmailButton({
 
   return (
     <div className="relative flex items-center gap-1.5">
-      {/* Claude Sonnet 5.5 Scope & Draft Button */}
+      {/* Scope & AI Draft Button */}
       <button
         type="button"
         disabled={aiDrafting}
         onClick={handleDraftWithClaude}
         className="px-3 py-2 rounded-xl bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 text-xs font-bold flex items-center gap-1.5 transition disabled:opacity-50"
-        title="Scope Website & LinkedIn + Personalize Draft with Claude Sonnet 5.5"
+        title="Scope Website & LinkedIn + Personalize Email Draft"
       >
         <Sparkles size={13} className={aiDrafting ? 'animate-spin text-amber-300' : 'text-amber-300'} />
-        <span>{aiDrafting ? 'Scoping...' : composeInfo?.rendered?.isAiDraft ? 'Re-Draft (Claude)' : 'Claude Draft'}</span>
+        <span>{aiDrafting ? 'Scoping...' : composeInfo?.rendered?.isAiDraft ? 'Re-Draft' : 'AI Draft'}</span>
       </button>
 
       {/* Primary Open in Gmail Button Group */}
@@ -478,7 +478,7 @@ export default function DossierFooterGmailButton({
                 >
                   <span className="flex items-center gap-2">
                     <Sparkles size={13} className="text-amber-300" />
-                    <span>{aiDrafting ? 'Scoping Website & LinkedIn...' : 'Personalize draft with Claude 5.5'}</span>
+                    <span>{aiDrafting ? 'Scoping Website & LinkedIn...' : 'Personalize draft with AI'}</span>
                   </span>
                 </button>
 

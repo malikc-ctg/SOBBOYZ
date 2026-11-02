@@ -60,11 +60,11 @@ export default function FollowupSettingsModal({
       const draftedCount = json.sendResult?.preDraftedWarm?.length || 0;
       const alertCount = json.inboxResult?.newAlertsCount || 0;
       toast.success(
-        `Claude Sonnet 5.5 cycle complete: ${sentCount} auto-sent, ${draftedCount} pre-drafted, ${alertCount} new inbox replies found.`
+        `Agent cycle complete: ${sentCount} auto-sent, ${draftedCount} pre-drafted, ${alertCount} new inbox replies found.`
       );
       if (onSaved) onSaved();
     } catch (err) {
-      toast.error(err.message || 'Failed to run Claude agent cycle');
+      toast.error(err.message || 'Failed to run agent cycle');
     } finally {
       setRunningAgentCycle(false);
     }
@@ -264,7 +264,7 @@ export default function FollowupSettingsModal({
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-xs font-semibold text-blue-400 uppercase tracking-wider">
                   <Sparkles className="w-3.5 h-3.5" />
-                  <span>Claude Sonnet 5.5 Gmail Auto-Drip & Inbox Scanner</span>
+                  <span>Gmail Auto-Drip & Inbox Scanner</span>
                 </span>
                 <button
                   type="button"
@@ -279,7 +279,7 @@ export default function FollowupSettingsModal({
 
               <div className="p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2">
                 <p className="text-[11px] text-slate-400">
-                  Connect each rep&apos;s Google Workspace Gmail (`@seaofblue.app`) so Claude can auto-send No-Answer drips (after a 10m buffer) and scan inboxes for prospect replies & reminders.
+                  Connect each rep&apos;s Google Workspace Gmail (`@seaofblue.app`) so the agent can auto-send No-Answer drips (after a 10m buffer) and scan inboxes for prospect replies & reminders.
                 </p>
                 <div className="space-y-1.5">
                   {repsGmail.map((rep) => (

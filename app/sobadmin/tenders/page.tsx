@@ -42,12 +42,14 @@ import {
   Sparkles,
   Eye,
   FileText,
+  UploadCloud,
+  CheckCircle2,
+  Loader2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { SERVICE_TYPE_LABELS } from '@/types';
 import type { ServiceType } from '@/types';
-import { ImportBidPdfModal } from '@/components/admin/tenders/ImportBidPdfModal';
 import { TenderDetailModal } from '@/components/admin/tenders/TenderDetailModal';
 
 const CHECKLIST_LABELS: Record<string, string> = {
@@ -161,13 +163,23 @@ export default function VendorListsAndTendersPage() {
   const [expandedCompanies, setExpandedCompanies] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
-  // Claude Bid PDF Import & Tender Detail Modal States
-  const [importModalOpen, setImportModalOpen] = useState(false);
+  // Unified Log Tender Modal & AI Auto-Fill State
   const [selectedTenderForDetail, setSelectedTenderForDetail] = useState<any | null>(null);
-
-  // New Tender Modal State
   const [tenderModalOpen, setTenderModalOpen] = useState(false);
   const [submittingTender, setSubmittingTender] = useState(false);
+  const [aiAutoFilling, setAiAutoFilling] = useState(false);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const [autoFilledMeta, setAutoFilledMeta] = useState<{
+    fileName: string;
+    matchedCompany: any;
+    labor: any;
+    supplies: any[];
+    documentUrl: string;
+    documentType: string;
+    leadId?: string;
+  } | null>(null);
+  const autoFillInputRef = React.useRef<HTMLInputElement>(null);
+
   const [tenderForm, setTenderForm] = useState({
     company_name: '',
     customer_name: '',
@@ -298,6 +310,8 @@ export default function VendorListsAndTendersPage() {
   };
 
   const openNewTenderForCompany = (company?: any) => {
+    setAutoFilledMeta(null);
+    setAiAutoFilling(false);
     if (company) {
       const primary = company.primary_contact || company.contacts?.[0] || {};
       setTenderForm({
@@ -337,26 +351,131 @@ export default function VendorListsAndTendersPage() {
     setTenderModalOpen(true);
   };
 
+  const isAllowedProposal = (f: File) => {
+    const mime = (f.type || '').toLowerCase();
+    const name = f.name.toLowerCase();
+    return (
+      mime.includes('pdf') ||
+      mime.includes('word') ||
+      mime.includes('officedocument') ||
+      name.endsWith('.pdf') ||
+      name.endsWith('.docx') ||
+      name.endsWith('.doc')
+    );
+  };
+
+  const handleProcessProposalAutoFill = async (file: File) => {
+    setAiAutoFilling(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const res = await fetch('/api/sales/tenders/parse-bid-pdf', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to auto-fill from proposal');
+      }
+
+      const p = data.parsed_data || {};
+      setTenderForm((prev) => ({
+        ...prev,
+        company_name: p.company_name || prev.company_name,
+        project_name: p.project_name || prev.project_name,
+        customer_name: p.customer_name || prev.customer_name,
+        customer_email: p.customer_email || prev.customer_email,
+        customer_phone: p.customer_phone || prev.customer_phone,
+        contact_title: p.contact_title || prev.contact_title,
+        city: p.city || prev.city,
+        service_type: (p.service_type as ServiceType) || prev.service_type,
+        bid_due_date: p.bid_due_date ? String(p.bid_due_date).split('T')[0] : prev.bid_due_date,
+        sqft: p.sqft ? String(p.sqft) : prev.sqft,
+        quoted_price: p.quoted_price ? String(p.quoted_price) : prev.quoted_price,
+        scope_summary: p.scope_summary || prev.scope_summary,
+        bid_status: 'bid_submitted',
+      }));
+
+      setAutoFilledMeta({
+        fileName: file.name,
+        matchedCompany: data.matched_company,
+        labor: data.labor_reconciliation,
+        supplies: data.supply_reconciliation || [],
+        documentUrl: data.document_url || data.pdf_url || '',
+        documentType: data.document_type || 'pdf',
+        leadId: data.tender?.id ? String(data.tender.id) : undefined,
+      });
+
+      toast.success(`✨ Auto-filled fields from ${file.name}`);
+      fetchVendorAndTenders();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to read proposal document');
+    } finally {
+      setAiAutoFilling(false);
+    }
+  };
+
+  const handleAutoFillDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDraggingFile(false);
+    const dropped = e.dataTransfer.files?.[0];
+    if (dropped) {
+      if (isAllowedProposal(dropped)) {
+        handleProcessProposalAutoFill(dropped);
+      } else {
+        toast.error('Please drop a valid PDF (.pdf) or Word document (.docx)');
+      }
+    }
+  };
+
+  const handleAutoFillSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (selected) {
+      if (isAllowedProposal(selected)) {
+        handleProcessProposalAutoFill(selected);
+      } else {
+        toast.error('Please select a valid PDF (.pdf) or Word document (.docx)');
+      }
+    }
+  };
+
   const handleCreateTenderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submittingTender) return;
     setSubmittingTender(true);
     try {
-      const res = await fetch('/api/sales/vendor-list', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: 'create_tender',
-          ...tenderForm,
-        }),
-      });
-      if (!res.ok) throw new Error('Failed to create tender');
-      toast.success('Commercial Bid / Tender logged');
+      if (autoFilledMeta?.leadId) {
+        // Tender was already created with full AI intelligence; save any modifications
+        const res = await fetch('/api/sales/vendor-list', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tender_id: autoFilledMeta.leadId,
+            ...tenderForm,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed to update tender');
+        toast.success('Commercial Bid / Tender confirmed & saved');
+      } else {
+        const res = await fetch('/api/sales/vendor-list', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'create_tender',
+            ...tenderForm,
+          }),
+        });
+        if (!res.ok) throw new Error('Failed to create tender');
+        toast.success('Commercial Bid / Tender logged');
+      }
       setTenderModalOpen(false);
+      setAutoFilledMeta(null);
       setActiveTab('tenders');
       fetchVendorAndTenders();
     } catch {
-      toast.error('Failed to create tender');
+      toast.error('Failed to save tender');
     } finally {
       setSubmittingTender(false);
     }
@@ -464,21 +583,14 @@ export default function VendorListsAndTendersPage() {
         <div className="flex items-center gap-2.5 flex-wrap">
           <Button
             size="sm"
-            variant="outline"
-            onClick={() => setImportModalOpen(true)}
-            className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/15 text-xs font-bold gap-1.5 shadow-sm"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-            Import Claude Bid (PDF / DOCX)
-          </Button>
-
-          <Button
-            size="sm"
             onClick={() => openNewTenderForCompany()}
-            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold gap-1.5"
+            className="bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold gap-1.5 shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
-            Log New Tender / Bid
+            <span>Log New Tender / Bid</span>
+            <Badge variant="outline" className="ml-1 text-[10px] bg-white/15 text-white border-white/25 px-1.5 py-0 gap-1 font-semibold">
+              <Sparkles className="w-2.5 h-2.5" /> AI Auto-Fill
+            </Badge>
           </Button>
         </div>
       </div>
@@ -1128,17 +1240,118 @@ export default function VendorListsAndTendersPage() {
         </>
       )}
 
-      {/* LOG NEW COMMERCIAL TENDER / BID MODAL */}
+      {/* UNIFIED LOG COMMERCIAL TENDER / BID MODAL (AI AUTO-FILL + MANUAL) */}
       <Dialog open={tenderModalOpen} onOpenChange={setTenderModalOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Log Commercial Bid / Tender (ITB)</DialogTitle>
-            <DialogDescription>
-              Record an incoming Invitation to Bid, RFP, or tender package from a GC or Property Manager.
+            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+              <Plus className="w-4 h-4 text-indigo-400" />
+              <span>Log Commercial Tender / Bid</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Record an incoming Invitation to Bid (ITB). Drop your Claude proposal (.pdf or .docx) to auto-fill everything instantly, or fill manually.
             </DialogDescription>
           </DialogHeader>
 
-          <form onSubmit={handleCreateTenderSubmit} className="space-y-3 text-xs">
+          {/* AI Auto-Fill Dropzone */}
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setIsDraggingFile(true);
+            }}
+            onDragLeave={() => setIsDraggingFile(false)}
+            onDrop={handleAutoFillDrop}
+            onClick={() => autoFillInputRef.current?.click()}
+            className={`border border-dashed rounded-xl p-3.5 text-center cursor-pointer transition flex flex-col items-center justify-center gap-1.5 ${
+              isDraggingFile
+                ? 'border-indigo-500 bg-indigo-500/15'
+                : aiAutoFilling
+                ? 'border-indigo-500/60 bg-indigo-500/10'
+                : autoFilledMeta
+                ? 'border-emerald-500/60 bg-emerald-500/10'
+                : 'border-border/80 hover:border-indigo-500/60 bg-muted/20 hover:bg-muted/40'
+            }`}
+          >
+            <input
+              ref={autoFillInputRef}
+              type="file"
+              accept=".pdf,.docx,.doc,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
+              className="hidden"
+              onChange={handleAutoFillSelect}
+            />
+
+            {aiAutoFilling ? (
+              <div className="flex items-center gap-2 text-indigo-400 text-xs font-semibold py-1">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Extracting proposal with Claude Haiku &amp; auto-filling details...</span>
+              </div>
+            ) : autoFilledMeta ? (
+              <div className="flex items-center justify-between w-full gap-2 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <div className="text-left min-w-0">
+                    <p className="font-bold text-foreground truncate">
+                      Auto-Filled from {autoFilledMeta.fileName}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground truncate">
+                      {autoFilledMeta.matchedCompany?.is_existing
+                        ? `Matched GC: ${autoFilledMeta.matchedCompany?.company_name}`
+                        : `New GC enrolled: ${tenderForm.company_name}`}
+                      {autoFilledMeta.labor?.estimated_hours
+                        ? ` · ${autoFilledMeta.labor.estimated_hours} hrs labor`
+                        : ''}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    autoFillInputRef.current?.click();
+                  }}
+                  className="h-7 text-[11px] text-indigo-300 hover:text-indigo-200"
+                >
+                  Replace File
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2.5 text-xs py-1">
+                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-center text-indigo-400 shrink-0">
+                  <Sparkles className="w-3.5 h-3.5" />
+                </div>
+                <div className="text-left">
+                  <span className="font-semibold text-foreground">
+                    Drop Claude Proposal (.pdf or .docx) to auto-fill
+                  </span>
+                  <span className="text-[11px] text-muted-foreground block">
+                    Extracts pricing, dates, contact info, cleaner wages &amp; materials in seconds
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Reconciled Fleet Wage Pill if auto-filled */}
+          {autoFilledMeta?.labor && (
+            <div className="p-2.5 rounded-lg bg-indigo-950/25 border border-indigo-500/30 flex items-center justify-between text-[11px]">
+              <span className="text-muted-foreground">
+                Fleet Wages Reconciled:{' '}
+                <strong className="text-foreground">
+                  ${Number(autoFilledMeta.labor.avg_cleaner_wage).toFixed(2)}/hr avg
+                </strong>
+              </span>
+              <Badge
+                variant="outline"
+                className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]"
+              >
+                {autoFilledMeta.labor.gross_margin_percentage}% Projected Margin
+              </Badge>
+            </div>
+          )}
+
+          <form onSubmit={handleCreateTenderSubmit} className="space-y-3 text-xs pt-1">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">GC / Company Name *</Label>
@@ -1289,32 +1502,29 @@ export default function VendorListsAndTendersPage() {
                 type="button"
                 variant="ghost"
                 size="sm"
-                onClick={() => setTenderModalOpen(false)}
+                onClick={() => {
+                  setTenderModalOpen(false);
+                  setAutoFilledMeta(null);
+                }}
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 size="sm"
-                disabled={submittingTender}
+                disabled={submittingTender || aiAutoFilling}
                 className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
               >
-                {submittingTender ? 'Saving...' : 'Save Tender'}
+                {submittingTender
+                  ? 'Saving...'
+                  : autoFilledMeta
+                  ? 'Confirm & Save Tender'
+                  : 'Save Tender'}
               </Button>
             </div>
           </form>
         </DialogContent>
       </Dialog>
-
-      {/* CLAUDE BID PDF IMPORT MODAL */}
-      <ImportBidPdfModal
-        isOpen={importModalOpen}
-        onClose={() => setImportModalOpen(false)}
-        onSuccess={() => {
-          fetchVendorAndTenders();
-          setActiveTab('tenders');
-        }}
-      />
 
       {/* TENDER BREAKDOWN & WAGE/SUPPLY INTELLIGENCE MODAL */}
       <TenderDetailModal

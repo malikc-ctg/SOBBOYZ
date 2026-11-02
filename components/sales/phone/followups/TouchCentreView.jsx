@@ -96,7 +96,7 @@ export default function TouchCentreView({
       const draftedCount = json.sendResult?.preDraftedWarm?.length || 0;
       const newReplies = json.inboxResult?.newAlertsCount || 0;
       toast.success(
-        `Claude Sonnet 5.5: ${sentCount} No-Answer drips auto-sent, ${draftedCount} warm drafts prepared, ${newReplies} new inbox replies detected.`
+        `AI Agent: ${sentCount} No-Answer drips auto-sent, ${draftedCount} warm drafts prepared, ${newReplies} new inbox replies detected.`
       );
       await fetchInboxAlertsAndGmailStatus(false);
       if (onRefreshFollowups) await onRefreshFollowups();
@@ -609,7 +609,7 @@ export default function TouchCentreView({
           <div className="flex items-center gap-2.5 flex-wrap">
             <span className="inline-flex items-center gap-1.5 text-xs font-extrabold text-indigo-200 uppercase tracking-wider">
               <Sparkles size={14} className="text-amber-400" />
-              <span>Claude Sonnet 5.5 Follow-Up & Inbox Agent</span>
+              <span>AI Follow-Up & Inbox Agent</span>
             </span>
             <div className="flex items-center gap-1.5 flex-wrap">
               {repsGmailStatus.map((r) => (

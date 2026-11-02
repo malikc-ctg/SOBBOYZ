@@ -163,6 +163,7 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
     let claudeRes;
     if (isPdf) {
       claudeRes = await callClaudeSonnet({
+        model: 'claude-haiku-4-5',
         systemPrompt,
         userPrompt: `Please parse this Sea of Blue commercial cleaning bid proposal PDF and extract all fields into the requested JSON schema.`,
         maxTokens: 8192,
@@ -192,6 +193,7 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
       }
 
       claudeRes = await callClaudeSonnet({
+        model: 'claude-haiku-4-5',
         systemPrompt,
         userPrompt: `Please parse this Sea of Blue commercial cleaning bid proposal Word document (.docx) and extract all fields into the requested JSON schema.\n\n--- DOCUMENT CONTENT ---\n${docxText}`,
         maxTokens: 8192,
