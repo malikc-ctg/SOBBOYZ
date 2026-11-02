@@ -1019,21 +1019,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">Total Minutes</Label>
-                    {calcMinutesBetweenTimes(manualForm.clock_in_time, manualForm.clock_out_time) !== null && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const diff = calcMinutesBetweenTimes(manualForm.clock_in_time, manualForm.clock_out_time);
-                          if (diff !== null) setManualForm((prev) => ({ ...prev, total_minutes: String(diff) }));
-                        }}
-                        className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline font-medium"
-                      >
-                        Auto-calc
-                      </button>
-                    )}
-                  </div>
+                  <Label className="text-xs font-semibold">Total Minutes</Label>
                   <Input
                     type="number"
                     min="1"
@@ -1046,7 +1032,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {manualForm.total_minutes
                       ? `${(parseInt(manualForm.total_minutes, 10) / 60 || 0).toFixed(2)} hrs (${formatMinutes(parseInt(manualForm.total_minutes, 10) || 0)})`
-                      : 'Auto-calc from times'}
+                      : ''}
                   </p>
                 </div>
                 <div>
@@ -1139,21 +1125,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">Total Minutes</Label>
-                    {calcMinutesBetweenTimes(editForm.clock_in_time, editForm.clock_out_time) !== null && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const diff = calcMinutesBetweenTimes(editForm.clock_in_time, editForm.clock_out_time);
-                          if (diff !== null) setEditForm((prev) => ({ ...prev, total_minutes: String(diff) }));
-                        }}
-                        className="text-[10px] text-blue-600 hover:text-blue-700 hover:underline font-medium"
-                      >
-                        Auto-calculate
-                      </button>
-                    )}
-                  </div>
+                  <Label className="text-xs font-semibold">Total Minutes</Label>
                   <Input
                     type="number"
                     min="0"
@@ -1165,7 +1137,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {editForm.total_minutes
                       ? `${(parseInt(editForm.total_minutes, 10) / 60 || 0).toFixed(2)} hrs (${formatMinutes(parseInt(editForm.total_minutes, 10) || 0)})`
-                      : 'Auto-calc from times'}
+                      : ''}
                   </p>
                 </div>
                 <div>
