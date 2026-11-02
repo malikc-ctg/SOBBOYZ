@@ -127,6 +127,7 @@ export async function POST(request: NextRequest) {
     const systemPrompt = `You are Sea of Blue's commercial tender procurement parser. Sea of Blue is a premier commercial, industrial, and post-construction cleaning contractor based in Ontario, Canada.
 The user has uploaded a finalized commercial cleaning bid proposal document (PDF or Word DOCX) generated for a General Contractor or commercial client.
 Carefully read the bid proposal document and extract structured JSON with exact numbers, contacts, pricing, labor hours, and materials.
+Keep scope_summary concise (1-2 sentences), and limit list items to the most essential items so the response is fast and completely valid JSON.
 
 Return ONLY a valid JSON object matching this schema with NO extra markdown formatting or conversational filler:
 {
@@ -145,19 +146,18 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
   "target_completion_date": "YYYY-MM-DD or null",
   "sqft": 45000,
   "quoted_price": 8500.00,
-  "phases": ["Rough Clean", "Final Clean", "Window Glazing"],
-  "scope_summary": "Clean summary of inclusions, cleaning passes, and handover commitments",
-  "specialty_scopes": ["Interior/exterior glass", "Scissor lift high dusting", "Floor finishing"],
+  "phases": ["Rough Clean", "Final Clean"],
+  "scope_summary": "Concise summary of inclusions",
+  "specialty_scopes": ["Interior glass", "Floor finishing"],
   "estimated_labor_hours": 180,
   "recommended_crew_size": 4,
   "estimated_shifts": 6,
   "supplies_needed": [
-    { "item_name": "Neutral Floor Cleaner", "quantity": 4, "unit": "drums" },
-    { "item_name": "Microfiber Mop Pads", "quantity": 30, "unit": "pads" }
+    { "item_name": "Neutral Floor Cleaner", "quantity": 4, "unit": "drums" }
   ],
-  "equipment_needed": ["19ft Scissor Lift", "Commercial HEPA Vacuums", "Floor Scrubber"],
-  "gc_provided": ["Dumpsters on site", "Temporary water and power"],
-  "bid_notes": "Key terms, payment terms (Net 30), or special warranties mentioned"
+  "equipment_needed": ["Commercial HEPA Vacuums"],
+  "gc_provided": ["Dumpsters on site"],
+  "bid_notes": "Key terms or warranties"
 }`;
 
     let claudeRes;
@@ -165,7 +165,7 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
       claudeRes = await callClaudeSonnet({
         systemPrompt,
         userPrompt: `Please parse this Sea of Blue commercial cleaning bid proposal PDF and extract all fields into the requested JSON schema.`,
-        maxTokens: 2500,
+        maxTokens: 8192,
         documents: [
           {
             type: 'document',
@@ -194,11 +194,20 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
       claudeRes = await callClaudeSonnet({
         systemPrompt,
         userPrompt: `Please parse this Sea of Blue commercial cleaning bid proposal Word document (.docx) and extract all fields into the requested JSON schema.\n\n--- DOCUMENT CONTENT ---\n${docxText}`,
-        maxTokens: 2500,
+        maxTokens: 8192,
       });
     }
 
-    const parsed = extractJsonFromClaude<ParsedBidClaudeOutput>(claudeRes.text);
+    let parsed: ParsedBidClaudeOutput;
+    try {
+      parsed = extractJsonFromClaude<ParsedBidClaudeOutput>(claudeRes.text);
+    } catch (parseErr: any) {
+      console.error('[ParseBidPDF] Claude returned unparseable text:', claudeRes.text);
+      return NextResponse.json(
+        { error: `Could not parse structured bid proposal: ${parseErr.message}` },
+        { status: 422 }
+      );
+    }
 
     // 3. Auto-Match with Existing Company Records & Vendor Lists
     const rawCompanyName = parsed.company_name || 'Commercial Client';

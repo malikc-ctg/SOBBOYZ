@@ -98,7 +98,7 @@ export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<Clau
 
   const body: Record<string, any> = {
     model: CLAUDE_MODEL,
-    max_tokens: options.maxTokens || 2048,
+    max_tokens: options.maxTokens || 4096,
     system: [
       {
         type: 'text',
@@ -170,7 +170,56 @@ export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<Clau
 }
 
 /**
- * Extracts a JSON object from Claude's text response cleanly.
+ * Repairs truncated JSON when output tokens cut off mid-string or mid-object.
+ */
+function repairTruncatedJson(str: string): string {
+  let inString = false;
+  let escaped = false;
+  const stack: string[] = [];
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString) {
+      if (char === '{' || char === '[') {
+        stack.push(char);
+      } else if (char === '}') {
+        if (stack[stack.length - 1] === '{') stack.pop();
+      } else if (char === ']') {
+        if (stack[stack.length - 1] === '[') stack.pop();
+      }
+    }
+  }
+
+  let repaired = str;
+  if (inString) {
+    repaired += '"';
+  }
+
+  repaired = repaired.replace(/,\s*$/, '');
+
+  while (stack.length > 0) {
+    const open = stack.pop();
+    if (open === '{') repaired += '}';
+    else if (open === '[') repaired += ']';
+  }
+
+  return repaired;
+}
+
+/**
+ * Extracts a JSON object from Claude's text response cleanly with resilient error recovery.
  */
 export function extractJsonFromClaude<T = any>(rawText: string): T {
   const cleaned = rawText
@@ -186,7 +235,26 @@ export function extractJsonFromClaude<T = any>(rawText: string): T {
     const lastBrace = cleaned.lastIndexOf('}');
     if (firstBrace !== -1 && lastBrace > firstBrace) {
       const slice = cleaned.slice(firstBrace, lastBrace + 1);
-      return JSON.parse(slice) as T;
+      try {
+        return JSON.parse(slice) as T;
+      } catch {
+        // Attempt truncated JSON repair
+        try {
+          const repaired = repairTruncatedJson(slice);
+          return JSON.parse(repaired) as T;
+        } catch {
+          // continue to next fallback
+        }
+      }
+    } else if (firstBrace !== -1) {
+      // JSON opened but never closed
+      try {
+        const slice = cleaned.slice(firstBrace);
+        const repaired = repairTruncatedJson(slice);
+        return JSON.parse(repaired) as T;
+      } catch {
+        // continue
+      }
     }
     throw new Error('Failed to parse JSON from Claude response');
   }
