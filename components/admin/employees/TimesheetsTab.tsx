@@ -980,7 +980,7 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
                   <SelectContent>
                     {employees.map((e) => (
                       <SelectItem key={e.id} value={e.id}>
-                        {e.full_name} ({e.phone || e.email})
+                        {e.full_name}
                       </SelectItem>
                     ))}
                   </SelectContent>
