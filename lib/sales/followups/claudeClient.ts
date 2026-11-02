@@ -220,6 +220,49 @@ function repairTruncatedJson(str: string): string {
 }
 
 /**
+ * Sanitizes unescaped control characters (such as literal newlines or tabs) inside JSON string literals.
+ */
+function sanitizeJsonControlChars(str: string): string {
+  let inString = false;
+  let escaped = false;
+  let result = '';
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+    if (escaped) {
+      result += char;
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      result += char;
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+    if (inString) {
+      if (char === '\n') {
+        result += '\\n';
+        continue;
+      }
+      if (char === '\r') {
+        continue;
+      }
+      if (char === '\t') {
+        result += '\\t';
+        continue;
+      }
+    }
+    result += char;
+  }
+  return result;
+}
+
+/**
  * Extracts a JSON object from Claude's text response cleanly with resilient error recovery.
  */
 export function extractJsonFromClaude<T = any>(rawText: string): T {
@@ -229,34 +272,44 @@ export function extractJsonFromClaude<T = any>(rawText: string): T {
     .replace(/\s*```$/i, '')
     .trim();
 
+  // 1. Try direct parse
   try {
     return JSON.parse(cleaned) as T;
   } catch {
-    const firstBrace = cleaned.indexOf('{');
-    const lastBrace = cleaned.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace > firstBrace) {
-      const slice = cleaned.slice(firstBrace, lastBrace + 1);
-      try {
-        return JSON.parse(slice) as T;
-      } catch {
-        // Attempt truncated JSON repair
+    // 2. Try with sanitized control characters (escapes unescaped newlines inside strings)
+    try {
+      return JSON.parse(sanitizeJsonControlChars(cleaned)) as T;
+    } catch {
+      const firstBrace = cleaned.indexOf('{');
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        const slice = cleaned.slice(firstBrace, lastBrace + 1);
         try {
-          const repaired = repairTruncatedJson(slice);
+          return JSON.parse(slice) as T;
+        } catch {
+          try {
+            return JSON.parse(sanitizeJsonControlChars(slice)) as T;
+          } catch {
+            // Attempt truncated JSON repair
+            try {
+              const repaired = repairTruncatedJson(sanitizeJsonControlChars(slice));
+              return JSON.parse(repaired) as T;
+            } catch {
+              // continue to next fallback
+            }
+          }
+        }
+      } else if (firstBrace !== -1) {
+        // JSON opened but never closed
+        try {
+          const slice = cleaned.slice(firstBrace);
+          const repaired = repairTruncatedJson(sanitizeJsonControlChars(slice));
           return JSON.parse(repaired) as T;
         } catch {
-          // continue to next fallback
+          // continue
         }
       }
-    } else if (firstBrace !== -1) {
-      // JSON opened but never closed
-      try {
-        const slice = cleaned.slice(firstBrace);
-        const repaired = repairTruncatedJson(slice);
-        return JSON.parse(repaired) as T;
-      } catch {
-        // continue
-      }
+      throw new Error('Failed to parse JSON from Claude response');
     }
-    throw new Error('Failed to parse JSON from Claude response');
   }
 }
