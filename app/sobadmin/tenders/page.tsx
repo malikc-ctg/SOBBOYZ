@@ -40,11 +40,16 @@ import {
   RotateCcw,
   ShieldCheck,
   Clock,
+  Sparkles,
+  Eye,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { SERVICE_TYPE_LABELS } from '@/types';
 import type { ServiceType } from '@/types';
+import { ImportBidPdfModal } from '@/components/admin/tenders/ImportBidPdfModal';
+import { TenderDetailModal } from '@/components/admin/tenders/TenderDetailModal';
 
 const CHECKLIST_LABELS: Record<string, string> = {
   coi: 'COI Insurance',
@@ -156,6 +161,10 @@ export default function VendorListsAndTendersPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedCompanies, setExpandedCompanies] = useState<Record<string, boolean>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Claude Bid PDF Import & Tender Detail Modal States
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [selectedTenderForDetail, setSelectedTenderForDetail] = useState<any | null>(null);
 
   // New Tender Modal State
   const [tenderModalOpen, setTenderModalOpen] = useState(false);
@@ -474,6 +483,16 @@ export default function VendorListsAndTendersPage() {
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setImportModalOpen(true)}
+            className="border-indigo-500/40 text-indigo-300 hover:bg-indigo-500/15 text-xs font-bold gap-1.5 shadow-sm"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            Import Claude Bid PDF
+          </Button>
+
           <Button
             size="sm"
             onClick={() => openNewTenderForCompany()}
@@ -943,7 +962,14 @@ export default function VendorListsAndTendersPage() {
                     <CardContent className="p-3.5 space-y-2.5">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h4 className="font-bold text-sm text-foreground truncate">{tender.project_name}</h4>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <h4 className="font-bold text-sm text-foreground truncate">{tender.project_name}</h4>
+                            {tender.tender_meta?.pdf_public_url && (
+                              <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-300 border-indigo-500/30 gap-1 px-1.5 py-0">
+                                <Sparkles className="w-2.5 h-2.5" /> PDF
+                              </Badge>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground truncate">
                             {tender.company_name} · Attn: {tender.customer_name}
                           </p>
@@ -980,11 +1006,22 @@ export default function VendorListsAndTendersPage() {
                           <option value="not_awarded">Not Awarded</option>
                         </select>
 
-                        <Link href={`/sobadmin/leads/${tender.id}`}>
-                          <Button variant="outline" size="sm" className="h-8 text-xs font-semibold">
-                            Open Bid
+                        <div className="flex items-center gap-1.5">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedTenderForDetail(tender)}
+                            className="h-8 text-xs font-semibold gap-1 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/10"
+                          >
+                            <Eye className="w-3 h-3" />
+                            Breakdown
                           </Button>
-                        </Link>
+                          <Link href={`/sobadmin/leads/${tender.id}`}>
+                            <Button variant="ghost" size="sm" className="h-8 text-xs font-semibold">
+                              Open
+                            </Button>
+                          </Link>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>
@@ -1028,8 +1065,15 @@ export default function VendorListsAndTendersPage() {
                       return (
                         <TableRow key={tender.id}>
                           <TableCell>
-                            <div className="font-bold text-sm text-foreground">
-                              {tender.project_name}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-bold text-sm text-foreground">
+                                {tender.project_name}
+                              </span>
+                              {tender.tender_meta?.pdf_public_url && (
+                                <Badge variant="outline" className="text-[10px] bg-indigo-500/10 text-indigo-300 border-indigo-500/30 gap-1 px-1.5 py-0">
+                                  <Sparkles className="w-2.5 h-2.5" /> PDF
+                                </Badge>
+                              )}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               {tender.city}
@@ -1069,11 +1113,22 @@ export default function VendorListsAndTendersPage() {
                               : '—'}
                           </TableCell>
                           <TableCell className="text-right">
-                            <Link href={`/sobadmin/leads/${tender.id}`}>
-                              <Button variant="ghost" size="sm" className="text-xs">
-                                Open Bid
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedTenderForDetail(tender)}
+                                className="h-7 text-xs font-semibold gap-1 text-indigo-300 border-indigo-500/30 hover:bg-indigo-500/10"
+                              >
+                                <Eye className="w-3 h-3" />
+                                Intelligence
                               </Button>
-                            </Link>
+                              <Link href={`/sobadmin/leads/${tender.id}`}>
+                                <Button variant="ghost" size="sm" className="h-7 text-xs">
+                                  Open
+                                </Button>
+                              </Link>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -1263,6 +1318,29 @@ export default function VendorListsAndTendersPage() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* CLAUDE BID PDF IMPORT MODAL */}
+      <ImportBidPdfModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onSuccess={() => {
+          fetchVendorAndTenders();
+          setActiveTab('tenders');
+        }}
+      />
+
+      {/* TENDER BREAKDOWN & WAGE/SUPPLY INTELLIGENCE MODAL */}
+      <TenderDetailModal
+        tender={selectedTenderForDetail}
+        isOpen={Boolean(selectedTenderForDetail)}
+        onClose={() => setSelectedTenderForDetail(null)}
+        onStatusChange={(tenderId, newStatus) => {
+          handleUpdateTenderStatus(tenderId, newStatus);
+          setSelectedTenderForDetail((prev: any) =>
+            prev && prev.id === tenderId ? { ...prev, bid_status: newStatus } : prev
+          );
+        }}
+      />
     </div>
   );
 }

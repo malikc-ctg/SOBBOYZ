@@ -30,11 +30,11 @@ describe('Sales OS matchContactSearch', () => {
   it('returns true on empty or null query', () => {
     expect(matchContactSearch(sampleContact, '')).toBe(true);
     expect(matchContactSearch(sampleContact, '   ')).toBe(true);
-    expect(matchContactSearch(sampleContact, null)).toBe(true);
+    expect(matchContactSearch(sampleContact, null as any)).toBe(true);
   });
 
   it('returns false for null contact', () => {
-    expect(matchContactSearch(null, 'Jordan')).toBe(false);
+    expect(matchContactSearch(null as any, 'Jordan')).toBe(false);
   });
 
   it('matches by contact name (single term, case-insensitive)', () => {

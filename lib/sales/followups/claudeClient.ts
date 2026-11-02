@@ -45,6 +45,15 @@ export async function getFollowupSystemSecrets() {
   };
 }
 
+export interface ClaudeDocumentBlock {
+  type: 'document';
+  source: {
+    type: 'base64';
+    media_type: string;
+    data: string;
+  };
+}
+
 export interface ClaudeCallOptions {
   systemPrompt: string;
   userPrompt: string;
@@ -52,6 +61,7 @@ export interface ClaudeCallOptions {
   enableWebSearch?: boolean;
   maxWebSearches?: number;
   effort?: 'low' | 'medium' | 'high';
+  documents?: ClaudeDocumentBlock[];
 }
 
 export interface ClaudeResponse {
@@ -75,6 +85,17 @@ export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<Clau
     throw new Error('ANTHROPIC_API_KEY is not configured in environment variables.');
   }
 
+  const userContent =
+    options.documents && options.documents.length > 0
+      ? [
+          ...options.documents,
+          {
+            type: 'text',
+            text: options.userPrompt,
+          },
+        ]
+      : options.userPrompt;
+
   const body: Record<string, any> = {
     model: CLAUDE_MODEL,
     max_tokens: options.maxTokens || 2048,
@@ -88,7 +109,7 @@ export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<Clau
     messages: [
       {
         role: 'user',
-        content: options.userPrompt,
+        content: userContent,
       },
     ],
   };
@@ -103,13 +124,19 @@ export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<Clau
     ];
   }
 
+  const headers: Record<string, string> = {
+    'x-api-key': apiKey,
+    'anthropic-version': '2023-06-01',
+    'content-type': 'application/json',
+  };
+
+  if (options.documents && options.documents.length > 0) {
+    headers['anthropic-beta'] = 'pdfs-2024-09-25';
+  }
+
   const res = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-    },
+    headers,
     body: JSON.stringify(body),
   });
 

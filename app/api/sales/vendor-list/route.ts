@@ -217,6 +217,7 @@ export async function GET() {
         status: t.status || 'new',
         created_at: t.created_at,
         updated_at: t.updated_at,
+        tender_meta: tenderMeta,
       };
     });
 
