@@ -30,6 +30,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { DatePicker } from '@/components/ui/date-picker';
+import { TimePicker } from '@/components/ui/time-picker';
 import {
   Clock,
   CheckCircle2,
@@ -999,20 +1000,18 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs font-semibold">Clock In</Label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     value={manualForm.clock_in_time}
-                    onChange={(e) => handleManualClockChange('clock_in_time', e.target.value)}
-                    className="mt-1 font-mono"
+                    onChange={(val) => handleManualClockChange('clock_in_time', val)}
+                    className="mt-1"
                   />
                 </div>
                 <div>
                   <Label className="text-xs font-semibold">Clock Out</Label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     value={manualForm.clock_out_time}
-                    onChange={(e) => handleManualClockChange('clock_out_time', e.target.value)}
-                    className="mt-1 font-mono"
+                    onChange={(val) => handleManualClockChange('clock_out_time', val)}
+                    className="mt-1"
                   />
                 </div>
               </div>
@@ -1093,10 +1092,9 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
             <div className="space-y-4 py-4">
               <div>
                 <Label className="text-xs font-semibold">Work Date</Label>
-                <Input
-                  type="date"
+                <DatePicker
                   value={editForm.work_date}
-                  onChange={(e) => setEditForm({ ...editForm, work_date: e.target.value })}
+                  onChange={(date) => setEditForm({ ...editForm, work_date: date })}
                   className="mt-1"
                   required
                 />
@@ -1105,20 +1103,18 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label className="text-xs font-semibold">Clock In Time</Label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     value={editForm.clock_in_time}
-                    onChange={(e) => handleEditClockChange('clock_in_time', e.target.value)}
-                    className="mt-1 font-mono"
+                    onChange={(val) => handleEditClockChange('clock_in_time', val)}
+                    className="mt-1"
                   />
                 </div>
                 <div>
                   <Label className="text-xs font-semibold">Clock Out Time</Label>
-                  <Input
-                    type="time"
+                  <TimePicker
                     value={editForm.clock_out_time}
-                    onChange={(e) => handleEditClockChange('clock_out_time', e.target.value)}
-                    className="mt-1 font-mono"
+                    onChange={(val) => handleEditClockChange('clock_out_time', val)}
+                    className="mt-1"
                   />
                 </div>
               </div>
