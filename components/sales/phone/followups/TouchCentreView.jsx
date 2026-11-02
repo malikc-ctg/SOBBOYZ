@@ -96,7 +96,7 @@ export default function TouchCentreView({
       const draftedCount = json.sendResult?.preDraftedWarm?.length || 0;
       const newReplies = json.inboxResult?.newAlertsCount || 0;
       toast.success(
-        `AI Agent: ${draftedCount} follow-up drafts prepared, ${newReplies} new inbox replies detected.`
+        `AI Agent: ${sentCount} No-Answer emails auto-sent via Claude, ${draftedCount} follow-up drafts prepared, ${newReplies} new inbox replies detected.`
       );
       await fetchInboxAlertsAndGmailStatus(false);
       if (onRefreshFollowups) await onRefreshFollowups();
@@ -641,7 +641,7 @@ export default function TouchCentreView({
             className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition disabled:opacity-50 cursor-pointer"
           >
             <RefreshCw size={12} className={runningClaudeCycle ? 'animate-spin' : ''} />
-            <span>{runningClaudeCycle ? 'Scanning & Drafting...' : 'Scan Inboxes & Pre-Draft'}</span>
+            <span>{runningClaudeCycle ? 'Scanning & Auto-Sending...' : 'Scan Inboxes & Run Auto-Sends'}</span>
           </button>
         </div>
 

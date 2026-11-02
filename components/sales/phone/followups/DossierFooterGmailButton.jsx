@@ -8,6 +8,8 @@ import {
   Search,
   FastForward,
   Sparkles,
+  X,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { gmailComposeUrl, gmailSearchUrl } from '@/lib/sales/followups/compose';
@@ -291,6 +293,26 @@ export default function DossierFooterGmailButton({
     }
   };
 
+  // Cancel 10-minute auto-send on a no-answer task
+  const handleCancelAutoSend = async () => {
+    if (!contact?.id || !nextEmailTask) return;
+    try {
+      await fetch('/api/sales/followups/ai-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancel_auto_send',
+          leadId: contact.id,
+          stepKey: nextEmailTask.step_key,
+        }),
+      });
+      toast.success('Auto-send paused: Claude draft kept on file');
+      await fetchData();
+    } catch {
+      toast.error('Failed to pause auto-send');
+    }
+  };
+
   // Copy email text
   const handleCopyBody = () => {
     if (!composeInfo?.rendered?.body) return;
@@ -320,6 +342,22 @@ export default function DossierFooterGmailButton({
     : currentTemplateObj?.label?.replace(/^No-Answer Drip:? /i, 'Follow-Up: ') ||
       nextEmailTask?.title?.replace(/^No-Answer Drip:? /i, 'Follow-Up: ') ||
       'Follow-Up Draft';
+
+  const isNoAnswerTask = activeEnr?.sequence_key === 'no_answer_drip';
+  const autoSendCancelled = Boolean(activeEnr?.context?.auto_send_cancelled?.[nextEmailTask?.step_key]);
+  const autoSendAt = nextEmailTask?.created_at
+    ? new Date(new Date(nextEmailTask.created_at).getTime() + 10 * 60 * 1000)
+    : null;
+  const isBufferActive = Boolean(
+    isNoAnswerTask &&
+      !autoSendCancelled &&
+      autoSendAt &&
+      autoSendAt.getTime() > Date.now() &&
+      nextEmailTask?.status === 'pending'
+  );
+  const minutesLeft = isBufferActive && autoSendAt
+    ? Math.max(1, Math.ceil((autoSendAt.getTime() - Date.now()) / (60 * 1000)))
+    : null;
 
   return (
     <div className="relative flex items-center gap-1.5">
@@ -398,7 +436,16 @@ export default function DossierFooterGmailButton({
                   <Sparkles size={12} />
                   <span>{activeLabel}</span>
                 </span>
-                {composeInfo?.rendered?.isAiDraft ? (
+                {isBufferActive ? (
+                  <span className="px-2 py-0.5 rounded-full bg-amber-950/90 text-amber-300 text-[10px] font-bold border border-amber-800/60 animate-pulse flex items-center gap-1">
+                    <Clock size={10} />
+                    <span>Auto-sends in {minutesLeft}m (Claude)</span>
+                  </span>
+                ) : autoSendCancelled ? (
+                  <span className="px-1.5 py-0.5 rounded bg-slate-900 text-amber-300 text-[10px] border border-amber-900/60">
+                    Auto-send paused
+                  </span>
+                ) : composeInfo?.rendered?.isAiDraft ? (
                   <span className="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 text-[10px] border border-indigo-800">
                     AI Draft
                   </span>
@@ -476,6 +523,21 @@ export default function DossierFooterGmailButton({
                   </span>
                   <Check size={12} className="text-emerald-400" />
                 </button>
+
+                {/* Pause Auto-Send if buffer is active */}
+                {isBufferActive && (
+                  <button
+                    type="button"
+                    onClick={handleCancelAutoSend}
+                    className="w-full text-left px-2.5 py-1.5 rounded-xl text-xs font-semibold text-amber-300 hover:bg-amber-950/40 border border-amber-900/40 transition flex items-center justify-between"
+                  >
+                    <span className="flex items-center gap-2">
+                      <X size={12} className="text-amber-400" />
+                      <span>Pause Auto-Send (Keep Draft)</span>
+                    </span>
+                    <span className="text-[10px] text-amber-400/80 font-mono">{minutesLeft}m left</span>
+                  </button>
+                )}
 
                 {/* Generate or Re-Draft with AI */}
                 <button

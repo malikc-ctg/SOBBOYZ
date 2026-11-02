@@ -387,9 +387,10 @@ export function getTaskAutoSendAt(task: {
 }
 
 /**
- * Runs the Follow-Up Pre-Draft & Inbox Agent:
- * Pre-drafts pending follow-up emails with AI so they are ready waiting for Rep Review & Approval.
- * Automated sending is disabled — reps review and trigger sends directly via Gmail or 1-click send.
+ * Runs the AI Follow-Up Auto-Sender & Pre-Draft Agent:
+ * 1. For No-Answer calls: automatically sends the Claude-drafted email after the 10m buffer window (or immediately if forceTaskId).
+ *    Old static fallback templates are phased out; only personalized Claude drafts are auto-sent.
+ * 2. For warm follow-up sequences: pre-drafts emails with Claude so they are waiting for rep approval (never auto-sends).
  */
 export async function runNoAnswerAutoSender(options: {
   forceTaskId?: string;
@@ -459,24 +460,113 @@ export async function runNoAnswerAutoSender(options: {
       continue;
     }
 
-    // Pre-draft the email with AI if not already drafted, leaving it ready for Rep Approval.
-    // Automated background sending is disabled since all emails are drafted with AI for rep review.
-    if (!task.rendered_subject || !task.rendered_body) {
+    const isNoAnswerDrip = enrollment.sequence_key === 'no_answer_drip';
+    const autoSendCancelled = Boolean(enrollment.context?.auto_send_cancelled?.[task.step_key]);
+
+    if (isNoAnswerDrip && !autoSendCancelled) {
+      const autoSendAt = getTaskAutoSendAt(task);
+      const isReadyToAutoSend = Boolean(options.forceTaskId) || autoSendAt.getTime() <= now.getTime();
+
+      // Ensure Claude draft is prepared immediately so reps can preview during the buffer
+      let draftSubject = task.rendered_subject;
+      let draftBody = task.rendered_body;
+      let draftRepName = '';
+
+      if (!draftSubject || !draftBody) {
+        try {
+          const draft = await draftDossierEmailWithClaude({
+            leadId: task.lead_id,
+            taskId: task.id,
+            templateKey: task.template_key,
+            repIdentifier: task.assigned_rep_id || enrollment.owner_rep_id,
+          });
+          draftSubject = draft.subject;
+          draftBody = draft.body;
+          draftRepName = draft.rep?.name || '';
+          preDraftedWarm.push({
+            taskId: task.id,
+            leadId: task.lead_id,
+            subject: draft.subject,
+          });
+        } catch (err: any) {
+          console.warn('[AutoSender] Pre-draft with Claude skipped:', err?.message);
+          // Old static templates are phased out; if Claude draft fails, do not auto-send generic template
+          skipped.push({ taskId: task.id, reason: err?.message || 'claude_draft_failed' });
+          continue;
+        }
+      }
+
+      if (!isReadyToAutoSend) {
+        // Still within the 10-minute buffer window; rep can review, edit, or cancel
+        continue;
+      }
+
+      // Ready to auto-send the Claude draft!
       try {
-        const draft = await draftDossierEmailWithClaude({
-          leadId: task.lead_id,
-          taskId: task.id,
-          templateKey: task.template_key,
+        const sendResult = await sendEmailViaRepGmail({
           repIdentifier: task.assigned_rep_id || enrollment.owner_rep_id,
+          to: lead.customer_email.trim(),
+          subject: draftSubject,
+          body: draftBody,
         });
-        preDraftedWarm.push({
+
+        const nowIso = new Date().toISOString();
+        const repConfig = resolveRepConfig(task.assigned_rep_id || enrollment.owner_rep_id);
+
+        await supabase
+          .from('sales_followup_tasks')
+          .update({
+            completed_at: nowIso,
+            completed_by: repConfig.auth_user_id,
+            sent_to: lead.customer_email.trim(),
+            rendered_subject: draftSubject,
+            rendered_body: draftBody,
+            updated_at: nowIso,
+          })
+          .eq('id', task.id)
+          .eq('status', 'pending');
+
+        await runEngineForTaskAction(
+          task.id,
+          'sent',
+          repConfig.auth_user_id || 'system',
+          {
+            to: lead.customer_email.trim(),
+            subject: draftSubject,
+            body: draftBody,
+          }
+        );
+
+        autoSent.push({
           taskId: task.id,
           leadId: task.lead_id,
-          subject: draft.subject,
+          to: lead.customer_email.trim(),
+          subject: draftSubject,
+          rep: draftRepName || repConfig.name,
+          channel: sendResult.channel,
         });
       } catch (err: any) {
-        console.warn('[FollowUpAgent] Pre-draft skipped:', err?.message);
-        skipped.push({ taskId: task.id, reason: err?.message || 'draft_error' });
+        console.error('[AutoSender] Failed to auto-send Claude draft for task', task.id, err);
+        skipped.push({ taskId: task.id, reason: err?.message || 'send_error' });
+      }
+    } else {
+      // Warm sequence task: Never auto-send; pre-draft with Claude for rep approval
+      if (!task.rendered_subject || !task.rendered_body) {
+        try {
+          const draft = await draftDossierEmailWithClaude({
+            leadId: task.lead_id,
+            taskId: task.id,
+            templateKey: task.template_key,
+            repIdentifier: task.assigned_rep_id || enrollment.owner_rep_id,
+          });
+          preDraftedWarm.push({
+            taskId: task.id,
+            leadId: task.lead_id,
+            subject: draft.subject,
+          });
+        } catch (err: any) {
+          skipped.push({ taskId: task.id, reason: err?.message || 'warm_draft_error' });
+        }
       }
     }
   }
