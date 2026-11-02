@@ -51,7 +51,7 @@ export function AdminHeader({
       {/* Primary Top OS Menu Bar */}
       <header className="h-14 md:h-12 px-3 sm:px-4 flex items-center justify-between gap-2">
         {/* LEFT: OS Launchpad Home Button */}
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           <button
             type="button"
             onClick={onOpenLaunchpad}
@@ -87,56 +87,58 @@ export function AdminHeader({
 
         {/* CENTER: Active Workstation Module Tabs (Desktop) */}
         {!isLaunchpadView && (
-          <nav className="hidden lg:flex items-center gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 shrink-0">
-            {activeWorkspace.items.map((item, idx) => {
-              const TabIcon = item.icon;
-              const active = isNavItemActive(item);
-              const badgeCount = getItemBadgeCount(item);
-              const prevGroup = idx > 0 ? activeWorkspace.items[idx - 1].group : item.group;
-              const showGroupDivider = idx > 0 && item.group !== prevGroup;
+          <div className="hidden xl:flex flex-1 min-w-0 items-center justify-center px-2">
+            <nav className="flex items-center gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 overflow-x-auto scrollbar-none max-w-full">
+              {activeWorkspace.items.map((item, idx) => {
+                const TabIcon = item.icon;
+                const active = isNavItemActive(item);
+                const badgeCount = getItemBadgeCount(item);
+                const prevGroup = idx > 0 ? activeWorkspace.items[idx - 1].group : item.group;
+                const showGroupDivider = idx > 0 && item.group !== prevGroup;
 
-              return (
-                <div key={item.id} className="flex items-center gap-1">
-                  {showGroupDivider && (
-                    <div className="h-4 w-px bg-[#3c6ca8]/30 mx-0.5" />
-                  )}
-                  {item.group === 'Inbound CRM' && prevGroup !== 'Inbound CRM' && (
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-300/80 px-1.5 hidden 2xl:inline">
-                      Inbound
-                    </span>
-                  )}
-                  {item.group === 'Outbound Sales OS' && prevGroup !== 'Outbound Sales OS' && (
-                    <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400/80 px-1.5 hidden 2xl:inline">
-                      Outbound
-                    </span>
-                  )}
-                  <Link
-                    href={item.href}
-                    className={`px-2.5 xl:px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition ${
-                      active
-                        ? 'bg-blue-600 text-white shadow-xs'
-                        : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
-                    }`}
-                    title={item.description}
-                  >
-                    <TabIcon className="w-3.5 h-3.5 shrink-0" />
-                    <span>{item.shortLabel || item.label}</span>
-                    {badgeCount > 0 && (
-                      <span
-                        className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
-                          active
-                            ? 'bg-black/30 text-white'
-                            : 'bg-amber-500/20 text-amber-300'
-                        }`}
-                      >
-                        {badgeCount}
+                return (
+                  <div key={item.id} className="flex items-center gap-1">
+                    {showGroupDivider && (
+                      <div className="h-4 w-px bg-[#3c6ca8]/30 mx-0.5" />
+                    )}
+                    {item.group === 'Inbound CRM' && prevGroup !== 'Inbound CRM' && (
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-300/80 px-1.5 hidden 2xl:inline">
+                        Inbound
                       </span>
                     )}
-                  </Link>
-                </div>
-              );
-            })}
-          </nav>
+                    {item.group === 'Outbound Sales OS' && prevGroup !== 'Outbound Sales OS' && (
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400/80 px-1.5 hidden 2xl:inline">
+                        Outbound
+                      </span>
+                    )}
+                    <Link
+                      href={item.href}
+                      className={`px-2.5 xl:px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap ${
+                        active
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                      }`}
+                      title={item.description}
+                    >
+                      <TabIcon className="w-3.5 h-3.5 shrink-0" />
+                      <span>{item.shortLabel || item.label}</span>
+                      {badgeCount > 0 && (
+                        <span
+                          className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
+                            active
+                              ? 'bg-black/30 text-white'
+                              : 'bg-amber-500/20 text-amber-300'
+                          }`}
+                        >
+                          {badgeCount}
+                        </span>
+                      )}
+                    </Link>
+                  </div>
+                );
+              })}
+            </nav>
+          </div>
         )}
 
         {/* RIGHT: OS System Tray (Quick Actions + Operator Pill + Clock + Fullscreen + Logout) */}
@@ -215,9 +217,9 @@ export function AdminHeader({
         </div>
       </header>
 
-      {/* Tablet Module Tab Bar (shown below top bar on screens md..lg when inside a workstation; phones use MobileBottomNav) */}
+      {/* Tablet Module Tab Bar (shown below top bar on screens md..xl when inside a workstation; phones use MobileBottomNav) */}
       {!isLaunchpadView && (
-        <div className="hidden md:flex lg:hidden items-center gap-1 px-2.5 py-1.5 bg-[#001326] border-t border-[#3c6ca8]/20 overflow-x-auto scrollbar-none">
+        <div className="hidden md:flex xl:hidden items-center gap-1 px-2.5 py-1.5 bg-[#001326] border-t border-[#3c6ca8]/20 overflow-x-auto scrollbar-none">
           {activeWorkspace.items.map((item) => {
             const TabIcon = item.icon;
             const active = isNavItemActive(item);
