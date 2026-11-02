@@ -387,9 +387,9 @@ export function getTaskAutoSendAt(task: {
 }
 
 /**
- * Runs the Hybrid Follow-Up Agent:
- * 1. Auto-sends due `no_answer_drip` emails (respecting the 20-minute buffer on drip_email_1).
- * 2. Pre-drafts pending warm sequence emails with Claude Sonnet 5.5 so they are waiting for Rep Approval.
+ * Runs the Follow-Up Pre-Draft & Inbox Agent:
+ * Pre-drafts pending follow-up emails with AI so they are ready waiting for Rep Review & Approval.
+ * Automated sending is disabled — reps review and trigger sends directly via Gmail or 1-click send.
  */
 export async function runNoAnswerAutoSender(options: {
   forceTaskId?: string;
@@ -459,36 +459,9 @@ export async function runNoAnswerAutoSender(options: {
       continue;
     }
 
-    const isNoAnswerDrip = enrollment.sequence_key === 'no_answer_drip';
-    const autoSendCancelled = Boolean(enrollment.context?.auto_send_cancelled?.[task.step_key]);
-
-    if (isNoAnswerDrip && !autoSendCancelled) {
-      const autoSendAt = getTaskAutoSendAt(task);
-      const isReadyToAutoSend = Boolean(options.forceTaskId) || autoSendAt.getTime() <= now.getTime();
-
-      if (!isReadyToAutoSend) {
-        // Pre-draft during the 20-minute buffer so the rep can preview/edit it before it auto-sends!
-        if (!task.rendered_subject || !task.rendered_body) {
-          try {
-            await draftDossierEmailWithClaude({
-              leadId: task.lead_id,
-              taskId: task.id,
-              templateKey: task.template_key,
-              repIdentifier: task.assigned_rep_id || enrollment.owner_rep_id,
-            });
-            preDraftedWarm.push({
-              taskId: task.id,
-              leadId: task.lead_id,
-              subject: 'Pre-drafted during 10m auto-send buffer',
-            });
-          } catch (err) {
-            console.warn('[AutoSender] Pre-draft failed:', err);
-          }
-        }
-        continue;
-      }
-
-      // Ready to Auto-Send!
+    // Pre-draft the email with AI if not already drafted, leaving it ready for Rep Approval.
+    // Automated background sending is disabled since all emails are drafted with AI for rep review.
+    if (!task.rendered_subject || !task.rendered_body) {
       try {
         const draft = await draftDossierEmailWithClaude({
           leadId: task.lead_id,
@@ -496,71 +469,14 @@ export async function runNoAnswerAutoSender(options: {
           templateKey: task.template_key,
           repIdentifier: task.assigned_rep_id || enrollment.owner_rep_id,
         });
-
-        const sendResult = await sendEmailViaRepGmail({
-          repIdentifier: task.assigned_rep_id || enrollment.owner_rep_id,
-          to: lead.customer_email.trim(),
-          subject: draft.subject,
-          body: draft.body,
-        });
-
-        const nowIso = new Date().toISOString();
-        const repConfig = resolveRepConfig(task.assigned_rep_id || enrollment.owner_rep_id);
-
-        await supabase
-          .from('sales_followup_tasks')
-          .update({
-            completed_at: nowIso,
-            completed_by: repConfig.auth_user_id,
-            sent_to: lead.customer_email.trim(),
-            rendered_subject: draft.subject,
-            rendered_body: draft.body,
-            updated_at: nowIso,
-          })
-          .eq('id', task.id)
-          .eq('status', 'pending');
-
-        await runEngineForTaskAction(
-          task.id,
-          'sent',
-          repConfig.auth_user_id || 'system',
-          {
-            to: lead.customer_email.trim(),
-            subject: draft.subject,
-            body: draft.body,
-          }
-        );
-
-        autoSent.push({
+        preDraftedWarm.push({
           taskId: task.id,
           leadId: task.lead_id,
-          to: lead.customer_email.trim(),
           subject: draft.subject,
-          rep: draft.rep.name,
-          channel: sendResult.channel,
         });
       } catch (err: any) {
-        console.error('[AutoSender] Failed to auto-send task', task.id, err);
-        skipped.push({ taskId: task.id, reason: err?.message || 'send_error' });
-      }
-    } else {
-      // Warm Sequence Task: Never auto-send; pre-draft with Claude Sonnet 5.5 for Rep Approval
-      if (!task.rendered_subject || !task.rendered_body) {
-        try {
-          const draft = await draftDossierEmailWithClaude({
-            leadId: task.lead_id,
-            taskId: task.id,
-            templateKey: task.template_key,
-            repIdentifier: task.assigned_rep_id || enrollment.owner_rep_id,
-          });
-          preDraftedWarm.push({
-            taskId: task.id,
-            leadId: task.lead_id,
-            subject: draft.subject,
-          });
-        } catch (err: any) {
-          skipped.push({ taskId: task.id, reason: err?.message || 'warm_draft_error' });
-        }
+        console.warn('[FollowUpAgent] Pre-draft skipped:', err?.message);
+        skipped.push({ taskId: task.id, reason: err?.message || 'draft_error' });
       }
     }
   }

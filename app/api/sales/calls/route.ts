@@ -278,18 +278,12 @@ export async function POST(request: NextRequest) {
             .eq('id', rawLeadId);
         }
 
-        // Asynchronously trigger Claude Sonnet 5.5 Website/LinkedIn Recon + Auto-Send (for No Answer) or Pre-Draft (for Warm)
+        // Asynchronously trigger AI draft preparation so the rep has a personalized email draft waiting
         if (engineSummary?.started && engineSummary.started.length > 0) {
-          if (engineSummary.started.includes('no_answer_drip')) {
-            runNoAnswerAutoSender({ leadId: rawLeadId }).catch((err) =>
-              console.warn('[Calls API] Background No-Answer auto-send failed:', err?.message)
-            );
-          } else {
-            draftDossierEmailWithClaude({
-              leadId: rawLeadId,
-              repIdentifier: finalRepId,
-            }).catch((err) => console.warn('[Calls API] Background Claude pre-draft skipped:', err?.message));
-          }
+          draftDossierEmailWithClaude({
+            leadId: rawLeadId,
+            repIdentifier: finalRepId,
+          }).catch((err) => console.warn('[Calls API] Background AI pre-draft skipped:', err?.message));
         }
         if (notes && notes.trim().length > 25) {
           runTranscriptAutopilot(rawLeadId, notes).catch((err) =>

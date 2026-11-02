@@ -15,10 +15,10 @@ import { renderEmail } from '@/lib/sales/followups/render';
 import { resolveRepConfig } from '@/lib/sales/followups/config';
 
 const POPULAR_TEMPLATES = [
-  { key: 'drip_1', label: 'No-Answer Drip: Day 1', subject: 'Closeout clean for projects' },
-  { key: 'drip_2', label: 'No-Answer Drip: Day 3', subject: 'Dust after your last trades' },
-  { key: 'drip_3', label: 'No-Answer Drip: Day 7', subject: 'Quote for final clean' },
-  { key: 'drip_4', label: 'No-Answer Drip: Day 14', subject: 'Wrong person?' },
+  { key: 'drip_1', label: 'Follow-Up: Initial Outreach', subject: 'Closeout clean for projects' },
+  { key: 'drip_2', label: 'Follow-Up: Trade Dust & Turnover', subject: 'Dust after your last trades' },
+  { key: 'drip_3', label: 'Follow-Up: Cleaning Quote', subject: 'Quote for final clean' },
+  { key: 'drip_4', label: 'Follow-Up: Contact Check', subject: 'Wrong person?' },
   { key: 'pickup_recap', label: 'Call Recap', subject: 'Following up on our call' },
   { key: 'wt_confirm', label: 'Walkthrough Confirmation', subject: 'Walkthrough confirmed' },
   { key: 'quote_day2', label: 'Quote Follow-up', subject: 'Questions on the quote?' },
@@ -315,7 +315,11 @@ export default function DossierFooterGmailButton({
 
   const isSentReady = (wasOpened || nextEmailTask?.opened_at) && Boolean(nextEmailTask) && !selectedTemplateOverride;
   const currentTemplateObj = POPULAR_TEMPLATES.find((t) => t.key === activeTemplateKey);
-  const activeLabel = currentTemplateObj?.label || nextEmailTask?.title || 'Open in Gmail';
+  const activeLabel = composeInfo?.rendered?.isAiDraft
+    ? 'AI Follow-Up Draft'
+    : currentTemplateObj?.label?.replace(/^No-Answer Drip:? /i, 'Follow-Up: ') ||
+      nextEmailTask?.title?.replace(/^No-Answer Drip:? /i, 'Follow-Up: ') ||
+      'Follow-Up Draft';
 
   return (
     <div className="relative flex items-center gap-1.5">
@@ -394,9 +398,13 @@ export default function DossierFooterGmailButton({
                   <Sparkles size={12} />
                   <span>{activeLabel}</span>
                 </span>
-                {nextEmailTask && (
-                  <span className="px-1.5 py-0.5 rounded bg-blue-950 text-blue-300 text-[10px] border border-blue-800">
-                    Active task
+                {composeInfo?.rendered?.isAiDraft ? (
+                  <span className="px-1.5 py-0.5 rounded bg-indigo-950 text-indigo-300 text-[10px] border border-indigo-800">
+                    AI Draft
+                  </span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 text-[10px] border border-slate-800">
+                    Draft
                   </span>
                 )}
               </div>
@@ -469,7 +477,7 @@ export default function DossierFooterGmailButton({
                   <Check size={12} className="text-emerald-400" />
                 </button>
 
-                {/* Scope & Personalize with Claude Sonnet 5.5 */}
+                {/* Generate or Re-Draft with AI */}
                 <button
                   type="button"
                   disabled={aiDrafting}
@@ -478,7 +486,7 @@ export default function DossierFooterGmailButton({
                 >
                   <span className="flex items-center gap-2">
                     <Sparkles size={13} className="text-amber-300" />
-                    <span>{aiDrafting ? 'Scoping Website & LinkedIn...' : 'Personalize draft with AI'}</span>
+                    <span>{aiDrafting ? 'Generating AI Draft...' : composeInfo?.rendered?.isAiDraft ? 'Re-Draft with AI' : 'Generate AI Draft'}</span>
                   </span>
                 </button>
 

@@ -60,7 +60,7 @@ export default function FollowupSettingsModal({
       const draftedCount = json.sendResult?.preDraftedWarm?.length || 0;
       const alertCount = json.inboxResult?.newAlertsCount || 0;
       toast.success(
-        `Agent cycle complete: ${sentCount} auto-sent, ${draftedCount} pre-drafted, ${alertCount} new inbox replies found.`
+        `Agent cycle complete: ${draftedCount} follow-ups pre-drafted, ${alertCount} new inbox replies found.`
       );
       if (onSaved) onSaved();
     } catch (err) {
@@ -273,13 +273,13 @@ export default function FollowupSettingsModal({
                   className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-600/30 hover:bg-indigo-600/50 border border-indigo-500/40 text-indigo-200 rounded-lg text-[11px] font-semibold transition disabled:opacity-50"
                 >
                   <RefreshCw className={`w-3 h-3 ${runningAgentCycle ? 'animate-spin' : ''}`} />
-                  <span>{runningAgentCycle ? 'Running...' : 'Scan Inboxes & Auto-Send Now'}</span>
+                  <span>{runningAgentCycle ? 'Running...' : 'Scan Inboxes & Pre-Draft Now'}</span>
                 </button>
               </div>
 
               <div className="p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2">
                 <p className="text-[11px] text-slate-400">
-                  Connect each rep&apos;s Google Workspace Gmail (`@seaofblue.app`) so the agent can auto-send No-Answer drips (after a 10m buffer) and scan inboxes for prospect replies & reminders.
+                  Connect each rep&apos;s Google Workspace Gmail (`@seaofblue.app`) so the agent can scan inboxes for prospect replies and pre-draft personalized follow-up emails.
                 </p>
                 <div className="space-y-1.5">
                   {repsGmail.map((rep) => (
