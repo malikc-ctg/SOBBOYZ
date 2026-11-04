@@ -10,9 +10,10 @@ import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, ArrowRight, Trash2, Pencil } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Trash2, Pencil, FileText, ExternalLink, Calendar, Clock, DollarSign, Boxes, Wrench, ShieldCheck, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { Badge } from '@/components/ui/badge';
 import { SERVICE_TYPE_LABELS, TIME_WINDOW_LABELS, LEAD_SOURCE_LABELS } from '@/types';
 import type { Lead } from '@/types';
 import Link from 'next/link';
@@ -195,16 +196,290 @@ export default function LeadDetailPage() {
         </Card>
       </div>
 
-      {lead.notes && (
-        <Card>
-          <CardHeader><CardTitle>Scope of Work / Quote Breakdown</CardTitle></CardHeader>
-          <CardContent>
-            <div className="text-sm whitespace-pre-wrap font-mono bg-muted/40 p-4 rounded-lg border text-foreground">
-              {lead.notes}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {lead.notes && (() => {
+        let parsedNotes: any = null;
+        if (typeof lead.notes === 'string') {
+          const trimmed = lead.notes.trim();
+          if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+              parsedNotes = JSON.parse(trimmed);
+            } catch {
+              parsedNotes = null;
+            }
+          }
+        } else if (typeof lead.notes === 'object' && lead.notes !== null) {
+          parsedNotes = lead.notes;
+        }
+
+        if (!parsedNotes) {
+          return (
+            <Card>
+              <CardHeader><CardTitle>Scope of Work / Quote Breakdown</CardTitle></CardHeader>
+              <CardContent>
+                <div className="text-sm whitespace-pre-wrap font-sans bg-muted/40 p-4 rounded-lg border text-foreground leading-relaxed">
+                  {lead.notes}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        }
+
+        const meta = parsedNotes.tender_meta || parsedNotes;
+        const labor = meta.labor_reconciliation || parsedNotes.labor_reconciliation || null;
+        const supplies = Array.isArray(meta.supply_reconciliation)
+          ? meta.supply_reconciliation
+          : Array.isArray(parsedNotes.supply_reconciliation)
+          ? parsedNotes.supply_reconciliation
+          : [];
+        const phases = Array.isArray(meta.phases)
+          ? meta.phases
+          : Array.isArray(parsedNotes.phases)
+          ? parsedNotes.phases
+          : [];
+        const specialtyScopes = Array.isArray(meta.specialty_scopes)
+          ? meta.specialty_scopes
+          : Array.isArray(parsedNotes.specialty_scopes)
+          ? parsedNotes.specialty_scopes
+          : [];
+        const equipmentNeeded = Array.isArray(meta.equipment_needed)
+          ? meta.equipment_needed
+          : Array.isArray(parsedNotes.equipment_needed)
+          ? parsedNotes.equipment_needed
+          : [];
+        const gcProvided = Array.isArray(meta.gc_provided)
+          ? meta.gc_provided
+          : Array.isArray(parsedNotes.gc_provided)
+          ? parsedNotes.gc_provided
+          : [];
+
+        const scopeSummary =
+          meta.scope_summary ||
+          parsedNotes.scope_summary ||
+          (typeof parsedNotes.notes === 'string' ? parsedNotes.notes : null);
+
+        const docUrl = meta.document_url || meta.pdf_public_url || meta.pdf_url;
+        const docName = meta.file_name || 'Bid Proposal Document';
+
+        return (
+          <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between pb-3 flex-wrap gap-2 border-b">
+              <div>
+                <CardTitle className="text-lg font-bold">Scope of Work &amp; Quote Breakdown</CardTitle>
+                {meta.project_name && (
+                  <p className="text-xs text-muted-foreground mt-0.5">{meta.project_name}</p>
+                )}
+              </div>
+              {docUrl && (
+                <a
+                  href={docUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600/10 border border-indigo-500/30 text-indigo-400 hover:bg-indigo-600/20 text-xs font-semibold"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>View Attached {meta.document_type?.toUpperCase() || 'Proposal'}</span>
+                  <ExternalLink className="w-3 h-3 ml-0.5" />
+                </a>
+              )}
+            </CardHeader>
+            <CardContent className="pt-4 space-y-4">
+              {/* Primary Scope Summary */}
+              {scopeSummary && (
+                <div className="space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Scope Summary</span>
+                  <div className="text-sm bg-muted/40 p-4 rounded-xl border leading-relaxed text-foreground whitespace-pre-wrap">
+                    {scopeSummary}
+                  </div>
+                </div>
+              )}
+
+              {/* Cleaning Phases & Specialty Scopes */}
+              {(phases.length > 0 || specialtyScopes.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {phases.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-card border space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Layers className="w-3.5 h-3.5 text-indigo-400" />
+                        Cleaning Phases ({phases.length})
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {phases.map((ph: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="bg-indigo-500/10 text-indigo-300 border-indigo-500/30 text-xs">
+                            {ph}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {specialtyScopes.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-card border space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                        Specialty Scopes ({specialtyScopes.length})
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {specialtyScopes.map((scope: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="bg-emerald-500/10 text-emerald-300 border-emerald-500/30 text-xs">
+                            {scope}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Labor Plan & Wages */}
+              {labor && (
+                <div className="p-3.5 rounded-xl bg-indigo-950/20 border border-indigo-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-emerald-400" />
+                      <span className="font-bold text-sm text-foreground">Labor &amp; Margin Plan</span>
+                    </div>
+                    {labor.active_cleaner_pool && (
+                      <Badge variant="outline" className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]">
+                        Reconciled with {labor.active_cleaner_pool} Fleet Cleaners
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
+                    <div className="p-2.5 rounded-lg bg-background/60 border">
+                      <span className="text-muted-foreground text-[11px] block">Est. Labor Hours</span>
+                      <p className="font-bold text-sm mt-0.5">{labor.estimated_hours ? `${labor.estimated_hours} hrs` : '—'}</p>
+                      {labor.recommended_crew_size && (
+                        <span className="text-[10px] text-muted-foreground">{labor.recommended_crew_size} cleaners ({labor.estimated_shifts || 1} shifts)</span>
+                      )}
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-background/60 border">
+                      <span className="text-muted-foreground text-[11px] block">Avg Cleaner Wage</span>
+                      <p className="font-bold text-sm mt-0.5">{labor.avg_cleaner_wage ? `$${Number(labor.avg_cleaner_wage).toFixed(2)}/hr` : '—'}</p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-background/60 border">
+                      <span className="text-muted-foreground text-[11px] block">Est. Payroll Cost</span>
+                      <p className="font-bold text-sm mt-0.5">{labor.total_labor_cost ? `$${Number(labor.total_labor_cost).toLocaleString()}` : '—'}</p>
+                    </div>
+                    <div className="p-2.5 rounded-lg bg-background/60 border">
+                      <span className="text-muted-foreground text-[11px] block">Est. Gross Profit</span>
+                      <p className="font-bold text-emerald-400 text-sm mt-0.5">
+                        {labor.projected_gross_profit ? `$${Number(labor.projected_gross_profit).toLocaleString()}` : '—'}
+                        {labor.gross_margin_percentage != null && (
+                          <span className="text-xs font-normal ml-1 text-muted-foreground">({labor.gross_margin_percentage}%)</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Supplies Required & Inventory */}
+              {supplies.length > 0 && (
+                <div className="space-y-2 pt-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                      <Boxes className="w-3.5 h-3.5 text-cyan-400" />
+                      Required Supplies &amp; Equipment ({supplies.length})
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {supplies.filter((s: any) => s.in_stock || s.is_in_stock).length} of {supplies.length} in stock
+                    </span>
+                  </div>
+                  <div className="border rounded-xl overflow-hidden">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-muted/40 border-b text-muted-foreground font-semibold">
+                        <tr>
+                          <th className="p-2.5">Item Name</th>
+                          <th className="p-2.5">Qty Needed</th>
+                          <th className="p-2.5">Inventory Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y">
+                        {supplies.map((item: any, idx: number) => {
+                          const inStock = item.in_stock || item.is_in_stock;
+                          return (
+                            <tr key={idx} className="hover:bg-muted/20">
+                              <td className="p-2.5 font-medium text-foreground">
+                                {item.item_name}
+                                {item.matched_item_name && item.matched_item_name !== item.item_name && (
+                                  <span className="text-[10px] text-muted-foreground block">Matched: {item.matched_item_name}</span>
+                                )}
+                              </td>
+                              <td className="p-2.5 text-muted-foreground">
+                                {item.quantity_needed || item.quantity || 1} {item.unit || 'units'}
+                              </td>
+                              <td className="p-2.5">
+                                {inStock ? (
+                                  <Badge variant="outline" className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] gap-1">
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                    In Stock {item.quantity_on_hand != null ? `(${item.quantity_on_hand})` : ''}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[10px] gap-1">
+                                    <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                    Order Needed
+                                  </Badge>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Equipment Needed & Site Requirements */}
+              {(equipmentNeeded.length > 0 || gcProvided.length > 0) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
+                  {equipmentNeeded.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-card border space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <Wrench className="w-3.5 h-3.5 text-cyan-400" />
+                        Equipment Required
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {equipmentNeeded.map((eq: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="bg-muted text-xs">
+                            {eq}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {gcProvided.length > 0 && (
+                    <div className="p-3.5 rounded-xl bg-card border space-y-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                        GC / Client Provided on Site
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {gcProvided.map((gc: string, idx: number) => (
+                          <Badge key={idx} variant="outline" className="bg-emerald-500/10 text-emerald-300 border-emerald-500/20 text-xs">
+                            {gc}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Additional Bid Terms / Notes */}
+              {(meta.bid_notes || parsedNotes.bid_notes) && (
+                <div className="p-3.5 rounded-xl bg-muted/20 border space-y-1.5">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Bid Notes &amp; Payment Terms</span>
+                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                    {meta.bid_notes || parsedNotes.bid_notes}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <div className="flex gap-3">
         <Select onValueChange={updateStatus}>

@@ -196,10 +196,37 @@ export default function SalesKanbanBoard({
     }
   }, [isSectorDropdownOpen]);
 
+  // Dynamically resolve sectors: combine predefined SECTORS with any new sectors present in loaded contacts
+  const allAvailableSectors = useMemo(() => {
+    const list = [...SECTORS];
+    const existingKeys = new Set(SECTORS.map(s => s.key));
+
+    contacts.forEach(c => {
+      const sKey = c.sector;
+      if (sKey && !existingKeys.has(sKey)) {
+        existingKeys.add(sKey);
+        // Format friendly label from snake_case or slug
+        const friendlyLabel = sKey
+          .split('_')
+          .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+          .join(' ');
+        list.push({
+          key: sKey,
+          label: friendlyLabel,
+          shortLabel: friendlyLabel.length > 14 ? `${friendlyLabel.slice(0, 12)}…` : friendlyLabel,
+          color: 'blue',
+          description: `Custom sector for ${friendlyLabel}`
+        });
+      }
+    });
+
+    return list;
+  }, [contacts]);
+
   const currentSectorMeta = useMemo(() => {
     if (activeSectorFilter === 'all') return null;
-    return SECTORS.find(s => s.key === activeSectorFilter) || null;
-  }, [activeSectorFilter]);
+    return allAvailableSectors.find(s => s.key === activeSectorFilter) || null;
+  }, [activeSectorFilter, allAvailableSectors]);
 
   // Horizontal Navigation & Scroll State
   const boardRef = useRef(null);
@@ -386,11 +413,11 @@ export default function SalesKanbanBoard({
   // Sector Counts
   const sectorCounts = useMemo(() => {
     const counts = { all: contacts.length };
-    SECTORS.forEach(s => {
+    allAvailableSectors.forEach(s => {
       counts[s.key] = contacts.filter(c => (c.sector || 'post_construction') === s.key).length;
     });
     return counts;
-  }, [contacts]);
+  }, [contacts, allAvailableSectors]);
 
   const dueTodayCount = useMemo(() => {
     if (followupMeta?.bucketCounts) {
@@ -581,7 +608,7 @@ export default function SalesKanbanBoard({
                     </button>
 
                     {/* Individual Sectors */}
-                    {SECTORS.map(sec => {
+                    {allAvailableSectors.map(sec => {
                       const count = sectorCounts[sec.key] || 0;
                       const isSelected = activeSectorFilter === sec.key;
                       return (
@@ -951,7 +978,7 @@ export default function SalesKanbanBoard({
                     </div>
                   ) : (
                     colLeads.map(contact => {
-                      const sectorMeta = SECTORS.find(s => s.key === contact.sector) || SECTORS[0];
+                      const sectorMeta = allAvailableSectors.find(s => s.key === contact.sector) || allAvailableSectors[0];
                       const hasDials = (contact.times_contacted || 0) > 0;
                       const idStr = String(contact.id);
                       const directLock = activeLocks?.[idStr];
@@ -1172,7 +1199,7 @@ export default function SalesKanbanBoard({
                                   <div className="text-[10px] font-bold text-slate-400 px-2 py-1 uppercase tracking-wider">
                                     Assign Sector
                                   </div>
-                                  {SECTORS.map(s => (
+                                  {allAvailableSectors.map(s => (
                                     <button
                                       key={s.key}
                                       type="button"

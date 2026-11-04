@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   toValidServiceType,
   resolveCanonicalSector,
+  classifyLeadSector,
   VALID_SERVICE_TYPE_SET,
 } from './sectorUtils';
 
@@ -75,6 +76,56 @@ describe('sectorUtils', () => {
       expect(resolveCanonicalSector('')).toBe('post_construction');
       expect(resolveCanonicalSector(null)).toBe('post_construction');
       expect(resolveCanonicalSector(undefined)).toBe('post_construction');
+    });
+
+    it('creates dynamic sector slug for new custom classifications', () => {
+      expect(resolveCanonicalSector('Car Dealerships')).toBe('car_dealerships');
+      expect(resolveCanonicalSector('Educational & Schools')).toBe('educational_schools');
+    });
+  });
+
+  describe('classifyLeadSector', () => {
+    it('automatically identifies property managers and condominium managers', () => {
+      expect(
+        classifyLeadSector({
+          contact_title: 'Senior Property Manager',
+          company_name: 'Andrejs Management Inc.',
+        })
+      ).toBe('property_management');
+
+      expect(
+        classifyLeadSector({
+          contact_title: 'Senior Condominium Manager',
+          company_name: 'Goldview Property Management',
+        })
+      ).toBe('property_management');
+    });
+
+    it('identifies construction and contractors', () => {
+      expect(
+        classifyLeadSector({
+          contact_title: 'Site Superintendent',
+          company_name: 'EllisDon Construction',
+        })
+      ).toBe('post_construction');
+    });
+
+    it('identifies medical and healthcare facilities', () => {
+      expect(
+        classifyLeadSector({
+          contact_title: 'Clinic Director',
+          company_name: 'Yorkville Dental Clinic',
+        })
+      ).toBe('medical_healthcare');
+    });
+
+    it('identifies franchise operators', () => {
+      expect(
+        classifyLeadSector({
+          contact_title: 'Franchise Owner',
+          company_name: 'Tim Hortons #1234',
+        })
+      ).toBe('franchise_owners');
     });
   });
 });

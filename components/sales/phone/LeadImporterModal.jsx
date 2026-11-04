@@ -12,9 +12,12 @@ import {
   Mail,
   Layers,
   Store,
-  ArrowUpCircle
+  ArrowUpCircle,
+  Sparkles,
+  Home
 } from 'lucide-react';
 import { batchImportApolloLeads, parsePhoneAndExt } from '@/lib/sales/phoneService';
+import { classifyLeadSector, resolveCanonicalSector } from '@/lib/sales/sectorUtils';
 
 /**
  * Normalizes keys to lowercase alphanumeric
@@ -113,6 +116,20 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
   const website = extractField(row, ['website', 'companywebsite', 'domain', 'url']) || '';
   const technologies = extractField(row, ['technologies', 'tech']) || '';
 
+  // Auto-detect sector if set to auto_detect
+  let effectiveSector = defaultVertical;
+  if (!defaultVertical || defaultVertical === 'auto_detect') {
+    effectiveSector = classifyLeadSector({
+      contact_title: title,
+      company_name: company,
+      industry,
+      departments,
+      sub_departments: subDepartments
+    });
+  } else {
+    effectiveSector = resolveCanonicalSector(defaultVertical);
+  }
+
   // Rich metadata package
   const intel = {
     extension: finalExt,
@@ -130,12 +147,12 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
     linkedin,
     website,
     technologies: technologies.substring(0, 300),
-    sector: defaultVertical,
-    industry: defaultVertical
+    sector: effectiveSector,
+    industry: effectiveSector
   };
 
-  const defaultPrice = defaultVertical === 'post_construction' ? 2500 : defaultVertical === 'franchise_owners' ? 950 : 650;
-  const defaultService = defaultVertical === 'post_construction'
+  const defaultPrice = effectiveSector === 'post_construction' ? 2500 : effectiveSector === 'franchise_owners' ? 950 : 650;
+  const defaultService = effectiveSector === 'post_construction'
     ? 'post_construction_clean'
     : 'commercial_cleaning';
 
@@ -147,7 +164,7 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
     customer_email: email,
     city: city,
     service_type: defaultService,
-    sector: defaultVertical,
+    sector: effectiveSector,
     quoted_price: defaultPrice,
     notes: JSON.stringify(intel),
     source: 'contact_import',
@@ -161,7 +178,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
   const [fileName, setFileName] = useState('');
   const [fileSize, setFileSize] = useState(null);
   const [rawRows, setRawRows] = useState([]);
-  const [vertical, setVertical] = useState('post_construction');
+  const [vertical, setVertical] = useState('auto_detect');
   const [parsedLeads, setParsedLeads] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -431,9 +448,48 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
         {/* Vertical Selector */}
         <div className="mt-4">
           <label className="text-[11px] font-bold text-slate-300 block mb-1.5 uppercase tracking-wide">
-            Target Service & Vertical
+            Target Classification & Vertical
           </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <button
+              type="button"
+              className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
+                vertical === 'auto_detect'
+                  ? 'border-blue-500/60 bg-blue-500/15 text-white ring-1 ring-blue-500/40'
+                  : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
+              }`}
+              onClick={() => handleVerticalChange('auto_detect')}
+            >
+              <Sparkles className="w-4 h-4 text-cyan-400 mt-0.5 shrink-0" />
+              <div>
+                <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                  Auto-Classify
+                  <span className="text-[9px] px-1 py-0.2 bg-cyan-500/20 text-cyan-300 rounded font-semibold">AI</span>
+                </div>
+                <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                  Auto-sorts Property Mgrs, GCs, Clinics & Franchises.
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
+                vertical === 'property_management'
+                  ? 'border-emerald-500/60 bg-emerald-500/10 text-white'
+                  : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
+              }`}
+              onClick={() => handleVerticalChange('property_management')}
+            >
+              <Building2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
+              <div>
+                <div className="text-xs font-bold text-white">Property Mgmt</div>
+                <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                  Condos, Multi-Family & Landlords ($650 target).
+                </div>
+              </div>
+            </button>
+
             <button
               type="button"
               className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
@@ -443,10 +499,10 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
               }`}
               onClick={() => handleVerticalChange('post_construction')}
             >
-              <Building2 className="w-4 h-4 text-blue-400 mt-0.5" />
+              <Building2 className="w-4 h-4 text-blue-400 mt-0.5 shrink-0" />
               <div>
                 <div className="text-xs font-bold text-white">Post-Construction</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
+                <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
                   General Contractors & Site Supers ($2,500 target).
                 </div>
               </div>
@@ -456,34 +512,16 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
               type="button"
               className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
                 vertical === 'franchise_owners'
-                  ? 'border-blue-500/60 bg-blue-500/10 text-white'
+                  ? 'border-amber-500/60 bg-amber-500/10 text-white'
                   : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
               }`}
               onClick={() => handleVerticalChange('franchise_owners')}
             >
-              <Store className="w-4 h-4 text-amber-400 mt-0.5" />
+              <Store className="w-4 h-4 text-amber-400 mt-0.5 shrink-0" />
               <div>
                 <div className="text-xs font-bold text-white">Franchise Owners</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
+                <div className="text-[10px] text-slate-400 mt-0.5 leading-tight">
                   Multi-Unit Operators & Stores ($950 target).
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              className={`p-2.5 rounded-xl border text-left flex items-start gap-2.5 transition ${
-                vertical === 'commercial'
-                  ? 'border-blue-500/60 bg-blue-500/10 text-white'
-                  : 'border-slate-800 bg-slate-900/60 text-slate-400 hover:border-slate-700'
-              }`}
-              onClick={() => handleVerticalChange('commercial')}
-            >
-              <Layers className="w-4 h-4 text-purple-400 mt-0.5" />
-              <div>
-                <div className="text-xs font-bold text-white">Commercial Facilities</div>
-                <div className="text-[10px] text-slate-400 mt-0.5">
-                  Property Managers & Facilities ($650 target).
                 </div>
               </div>
             </button>
@@ -690,6 +728,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
                   <tr>
                     <th className="p-2">Name & Title</th>
                     <th className="p-2">Company</th>
+                    <th className="p-2">Classification</th>
                     <th className="p-2">Phone</th>
                     <th className="p-2">City</th>
                   </tr>
@@ -702,6 +741,11 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
                         <div className="text-[10px] text-slate-400">{l.contact_title || 'No position'}</div>
                       </td>
                       <td className="p-2 font-medium">{l.company_name}</td>
+                      <td className="p-2">
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-500/15 text-blue-300 border border-blue-500/30 capitalize">
+                          {(l.sector || 'general').replace(/_/g, ' ')}
+                        </span>
+                      </td>
                       <td className="p-2">
                         {l.customer_phone ? (
                           (() => {

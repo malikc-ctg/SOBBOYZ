@@ -1,7 +1,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
-import { toValidServiceType, resolveCanonicalSector } from '@/lib/sales/sectorUtils';
+import { toValidServiceType, resolveCanonicalSector, classifyLeadSector } from '@/lib/sales/sectorUtils';
 
 
 function cleanRepName(name: string | null | undefined): string {
@@ -468,7 +468,17 @@ export async function POST(request: NextRequest) {
     // Support batch import from spreadsheets/CSV
     if (Array.isArray(body.leads)) {
       const rows = body.leads.map((item: any) => {
-        const itemSector = resolveCanonicalSector(item.sector || item.industry || item.service_type || 'post_construction');
+        // Auto-classify if sector is not explicitly specified or default
+        const rawSector = item.sector || item.industry || item.service_type;
+        const autoSector = classifyLeadSector({
+          contact_title: item.contact_title || item.position || item.title,
+          company_name: item.company_name || item.company,
+          industry: item.industry,
+          sector: item.sector,
+          departments: item.departments,
+          sub_departments: item.sub_departments,
+        });
+        const itemSector = resolveCanonicalSector(rawSector && rawSector !== 'post_construction' ? rawSector : autoSector);
         const itemServiceType = toValidServiceType(item.service_type || itemSector);
 
         let itemIntel: any = {};
@@ -517,7 +527,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Single lead creation
-    const leadSector = resolveCanonicalSector(body.sector || body.industry || body.service_type || 'post_construction');
+    const rawSingleSector = body.sector || body.industry || body.service_type;
+    const autoSingleSector = classifyLeadSector({
+      contact_title: body.contact_title || body.position || body.title,
+      company_name: body.company_name || body.company,
+      industry: body.industry,
+      sector: body.sector,
+      departments: body.departments,
+      sub_departments: body.sub_departments,
+    });
+    const leadSector = resolveCanonicalSector(rawSingleSector && rawSingleSector !== 'post_construction' ? rawSingleSector : autoSingleSector);
     const dbServiceType = toValidServiceType(body.service_type || leadSector);
 
     let singleIntel: any = {};
