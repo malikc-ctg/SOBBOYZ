@@ -216,10 +216,15 @@ export function renderEmail(input: RenderInput): RenderResult {
   const titleLine = repTitle ? `${repTitle}, ${FOLLOWUP_CONFIG.company.legalName}` : FOLLOWUP_CONFIG.company.legalName;
   const addressLine = mailingAddress || '{company_mailing_address}';
 
+  // Clean up any extra spacing or leading spaces before punctuation from empty placeholders
+  const cleanBody = rendered.body
+    .replace(/[ \t]+([.,?!;])/g, '$1')
+    .replace(/ {2,}/g, ' ');
+
   const fullBody = [
     greeting,
     '',
-    rendered.body,
+    cleanBody,
     '',
     FOLLOWUP_CONFIG.signOff,
     repName,

@@ -406,8 +406,8 @@ export async function runNoAnswerAutoSender(options: {
     .select('*, sales_followup_enrollments!inner(*)')
     .eq('status', 'pending')
     .eq('kind', 'email')
-    .order('due_at', { ascending: true })
-    .limit(50);
+    .order('created_at', { ascending: false })
+    .limit(100);
 
   if (options.forceTaskId) {
     query = supabase
@@ -422,7 +422,7 @@ export async function runNoAnswerAutoSender(options: {
       .eq('lead_id', options.leadId)
       .eq('status', 'pending')
       .eq('kind', 'email')
-      .order('due_at', { ascending: true });
+      .order('created_at', { ascending: false });
   }
 
   const { data: pendingTasks } = await query;

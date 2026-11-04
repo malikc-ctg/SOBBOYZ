@@ -688,7 +688,23 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       fetchFollowupBoard();
     };
     window.addEventListener('sync-local-events', handleSync);
-    return () => window.removeEventListener('sync-local-events', handleSync);
+
+    // Heartbeat every 60s to trigger background auto-send cycle & inbox scanner across all views
+    const autoSendInterval = setInterval(() => {
+      fetch('/api/sales/followups/cron/agent?run=1')
+        .then((r) => r.json())
+        .then((json) => {
+          if (json?.cycleResult?.sendResult?.autoSent?.length > 0) {
+            fetchFollowupBoard();
+          }
+        })
+        .catch(() => {});
+    }, 60 * 1000);
+
+    return () => {
+      window.removeEventListener('sync-local-events', handleSync);
+      clearInterval(autoSendInterval);
+    };
   }, [isActive, filter]);
 
   async function fetchFollowupBoard() {
