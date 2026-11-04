@@ -7,10 +7,6 @@
     {
       "path": "/api/cron/refresh-pnl-view",
       "schedule": "0 5 * * *"
-    },
-    {
-      "path": "/api/sales/followups/cron/agent?run=1",
-      "schedule": "*/5 * * * *"
     }
   ]
 }
