@@ -153,12 +153,16 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
   "recommended_crew_size": 4,
   "estimated_shifts": 6,
   "supplies_needed": [
-    { "item_name": "Neutral Floor Cleaner", "quantity": 4, "unit": "drums" }
+    { "item_name": "Neutral Floor Cleaner", "quantity": 4, "unit": "jugs" }
   ],
   "equipment_needed": ["Commercial HEPA Vacuums"],
   "gc_provided": ["Dumpsters on site"],
   "bid_notes": "Key terms or warranties"
-}`;
+}
+
+IMPORTANT RULES FOR LABOR HOURS & SUPPLIES:
+1. "estimated_labor_hours" MUST ALWAYS be a positive number (> 0). If the document specifies crew size and nights/shifts across phases instead of a single total hours figure, compute total person-hours by summing (crew_size * shifts * hours_per_shift) across all phases (use 7.5 hours per shift if shift duration is not stated).
+2. For "supplies_needed", always provide a concrete numeric "quantity" (e.g. 1, 2, 4) and a standard physical "unit" (e.g. "jugs", "bottles", "packs", "boxes", "units").`;
 
     let claudeRes;
     if (isPdf) {
@@ -271,9 +275,24 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
       console.warn('[ParseBidPDF] Error fetching employees for wage calculation:', empErr);
     }
 
-    const estHours = Number(parsed.estimated_labor_hours) || 0;
-    const estLaborCost = Math.round(estHours * avgHourlyWage * 100) / 100;
+    const recommendedCrew = Number(parsed.recommended_crew_size) > 0 ? Number(parsed.recommended_crew_size) : 3;
+    const rawShifts = Number(parsed.estimated_shifts) > 0 ? Number(parsed.estimated_shifts) : 0;
+    const sqftVal = Number(parsed.sqft) > 0 ? Number(parsed.sqft) : 0;
     const bidAmount = Number(parsed.quoted_price) || 0;
+
+    let estHours = Number(parsed.estimated_labor_hours) || 0;
+    if (estHours <= 0) {
+      if (rawShifts > 0) {
+        estHours = Math.round(rawShifts * recommendedCrew * 7.5);
+      } else if (bidAmount > 0) {
+        estHours = Math.max(4, Math.round(bidAmount / 55));
+      } else if (sqftVal > 0) {
+        estHours = Math.max(4, Math.round(sqftVal / 350));
+      }
+    }
+
+    const estShifts = rawShifts > 0 ? rawShifts : Math.max(1, Math.ceil(estHours / (recommendedCrew * 7.5)));
+    const estLaborCost = Math.round(estHours * avgHourlyWage * 100) / 100;
     const estGrossProfit = bidAmount > 0 ? Math.round((bidAmount - estLaborCost) * 100) / 100 : 0;
     const estMarginPct = bidAmount > 0 ? Math.round((estGrossProfit / bidAmount) * 1000) / 10 : 0;
 
@@ -282,36 +301,108 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
     try {
       const { data: stockItems } = await supabase
         .from('supply_items')
-        .select('id, name, unit_cost, supply_inventory(quantity_on_hand)')
+        .select('id, name, unit, cost_per_unit, category, subcategory, supply_inventory(quantity_on_hand)')
         .eq('is_active', true);
 
-      const itemsList = stockItems || [];
+      const itemsList = (stockItems || []).map((it: any) => {
+        const invList = Array.isArray(it.supply_inventory) ? it.supply_inventory : [];
+        const onHand = invList.reduce((acc: number, row: any) => acc + (Number(row.quantity_on_hand) || 0), 0);
+        return { ...it, onHand };
+      });
+
+      const matchSupplyCatalogItem = (rawItemName: string) => {
+        const q = (rawItemName || '').toLowerCase();
+        if (!q || itemsList.length === 0) return null;
+
+        let bestMatch: any = null;
+        let bestScore = 0;
+
+        const stopWords = new Set([
+          'the', 'and', 'for', 'with', 'approved', 'contractor', 'maker', 'manufacturer',
+          'commercial', 'per', 'specification', 'needed', 'compatible', 'only', 'grade',
+        ]);
+        const queryTokens = q
+          .replace(/[^a-z0-9\s]/g, ' ')
+          .split(/\s+/)
+          .filter((w) => w.length >= 3 && !stopWords.has(w));
+
+        for (const it of itemsList) {
+          const nameLower = (it.name || '').toLowerCase();
+          const subLower = (it.subcategory || '').toLowerCase();
+          let score = 0;
+
+          if (nameLower.includes(q) || q.includes(nameLower)) {
+            score += 15;
+          }
+
+          for (const tok of queryTokens) {
+            if (nameLower.includes(tok)) score += 4;
+            else if (subLower.includes(tok)) score += 2;
+          }
+
+          // Domain synonym matching for commercial cleaning supplies
+          if (/neutral|floor|tile|concrete|resinous|hardwood|approach/.test(q)) {
+            if (/neutral ph|floor cleaner/.test(nameLower)) score += 8;
+            if (/surface prep|shower tub & tile|heavy duty cleaner/.test(nameLower)) score += 7;
+          }
+          if (/polish|polishing|stainless/.test(q)) {
+            if (/polish|bar keepers|surface prep/.test(nameLower)) score += 8;
+          }
+          if (/disinfect|washroom|hospital|din|sanitiz|bathroom/.test(q)) {
+            if (/disinfectant|shower tub & tile/.test(nameLower)) score += 9;
+          }
+          if (/glass|mirror|window|streak/.test(q)) {
+            if (/glass|steel wool/.test(nameLower)) score += 8;
+          }
+          if (/cloth|towel|microfiber|microfibre|rag|wipe|mop/.test(q)) {
+            if (/microfiber|microfibre|towel|cloth|flip mop/.test(nameLower)) score += 8;
+          }
+          if (/scraper|blade|brush|grout|scrub/.test(q)) {
+            if (/brush|scrubber|grout|steel wool/.test(nameLower)) score += 8;
+          }
+          if (/garbage|trash|bag|waste/.test(q)) {
+            if (/trash bags/.test(nameLower)) score += 10;
+          }
+          if (/hepa|vacuum/.test(q)) {
+            if (/hepa|vacuum/.test(nameLower)) score += 10;
+          }
+          if (/whmis|cleaning product/.test(q)) {
+            if (/surface prep|disinfectant|heavy duty cleaner/.test(nameLower)) score += 7;
+          }
+
+          // Prefer stocked warehouse items when relevance is strong
+          if (score >= 6 && it.onHand > 0) {
+            score += 3;
+          }
+
+          if (score > bestScore) {
+            bestScore = score;
+            bestMatch = it;
+          }
+        }
+
+        return bestScore >= 4 ? bestMatch : null;
+      };
 
       for (const reqSupply of parsed.supplies_needed || []) {
-        const queryName = (reqSupply.item_name || '').toLowerCase();
-        const matched = itemsList.find((it: any) =>
-          (it.name || '').toLowerCase().includes(queryName) ||
-          queryName.includes((it.name || '').toLowerCase())
-        );
-
-        let onHand = 0;
-        let unitCost = 0;
-        if (matched) {
-          unitCost = Number(matched.unit_cost) || 0;
-          const invList = Array.isArray(matched.supply_inventory) ? matched.supply_inventory : [];
-          onHand = invList.reduce((acc: number, row: any) => acc + (row.quantity_on_hand || 0), 0);
-        }
+        const matched = matchSupplyCatalogItem(reqSupply.item_name);
+        const qtyNeeded = Math.max(1, Number(reqSupply.quantity) || 1);
+        const onHand = matched ? matched.onHand : 0;
+        const unitCost = matched ? Number(matched.cost_per_unit) || 0 : 0;
+        const inStock = Boolean(matched && onHand >= qtyNeeded);
 
         suppliesWithInventory.push({
           item_name: reqSupply.item_name,
-          quantity_needed: reqSupply.quantity || 1,
-          unit: reqSupply.unit || 'units',
+          quantity_needed: qtyNeeded,
+          unit: reqSupply.unit || matched?.unit || 'units',
           matched_item_id: matched?.id || null,
           matched_item_name: matched?.name || null,
+          matched_name: matched?.name || null,
           quantity_on_hand: onHand,
-          in_stock: onHand >= (reqSupply.quantity || 1),
+          in_stock: inStock,
+          is_in_stock: inStock,
           unit_cost: unitCost,
-          estimated_cost: unitCost * (reqSupply.quantity || 1),
+          estimated_cost: Math.round(unitCost * qtyNeeded * 100) / 100,
         });
       }
     } catch (supplyErr) {
@@ -345,8 +436,8 @@ Return ONLY a valid JSON object matching this schema with NO extra markdown form
       matched_existing_company: matchedExistingCompany,
       labor_reconciliation: {
         estimated_hours: estHours,
-        recommended_crew_size: parsed.recommended_crew_size || 4,
-        estimated_shifts: parsed.estimated_shifts || Math.ceil(estHours / 32),
+        recommended_crew_size: recommendedCrew,
+        estimated_shifts: estShifts,
         active_cleaner_pool: activeCleanerCount,
         avg_cleaner_wage: avgHourlyWage,
         total_labor_cost: estLaborCost,

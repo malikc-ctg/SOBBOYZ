@@ -21,7 +21,6 @@ import {
   MessageSquare,
   Search,
   CheckCircle2,
-  Map,
   Upload,
   HardHat,
   Mail,
@@ -556,7 +555,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     channel
       .on('presence', { event: 'sync' }, () => {
         const state = channel.presenceState();
-        const repsMap = new Map();
+        const repsMap = new globalThis.Map();
         const presenceLocks = {};
         const now = Date.now();
 

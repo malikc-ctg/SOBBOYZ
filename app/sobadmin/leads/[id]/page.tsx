@@ -225,7 +225,38 @@ export default function LeadDetailPage() {
         }
 
         const meta = parsedNotes.tender_meta || parsedNotes;
-        const labor = meta.labor_reconciliation || parsedNotes.labor_reconciliation || null;
+        const rawLabor = meta.labor_reconciliation || parsedNotes.labor_reconciliation || null;
+        const labor = rawLabor
+          ? (() => {
+              const crew = Number(rawLabor.recommended_crew_size) || 3;
+              const shifts = Number(rawLabor.estimated_shifts) || 1;
+              const wage = Number(rawLabor.avg_cleaner_wage) || 20;
+              const hours =
+                Number(rawLabor.estimated_hours) > 0
+                  ? Number(rawLabor.estimated_hours)
+                  : Math.round(crew * shifts * 7.5);
+              const cost =
+                Number(rawLabor.total_labor_cost) > 0
+                  ? Number(rawLabor.total_labor_cost)
+                  : Math.round(hours * wage * 100) / 100;
+              const price = Number(lead.quoted_price) || 0;
+              const profit =
+                price > 0 && Number(rawLabor.total_labor_cost) <= 0
+                  ? Math.round((price - cost) * 100) / 100
+                  : Number(rawLabor.projected_gross_profit) || Math.max(0, price - cost);
+              const margin =
+                price > 0 && Number(rawLabor.total_labor_cost) <= 0
+                  ? Math.round((profit / price) * 1000) / 10
+                  : rawLabor.gross_margin_percentage ?? (price > 0 ? Math.round((profit / price) * 1000) / 10 : 0);
+              return {
+                ...rawLabor,
+                estimated_hours: hours,
+                total_labor_cost: cost,
+                projected_gross_profit: profit,
+                gross_margin_percentage: margin,
+              };
+            })()
+          : null;
         const supplies = Array.isArray(meta.supply_reconciliation)
           ? meta.supply_reconciliation
           : Array.isArray(parsedNotes.supply_reconciliation)
@@ -347,7 +378,7 @@ export default function LeadDetailPage() {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-1 text-xs">
                     <div className="p-2.5 rounded-lg bg-background/60 border">
                       <span className="text-muted-foreground text-[11px] block">Est. Labor Hours</span>
-                      <p className="font-bold text-sm mt-0.5">{labor.estimated_hours ? `${labor.estimated_hours} hrs` : '—'}</p>
+                      <p className="font-bold text-sm mt-0.5">{labor.estimated_hours ? `${Number(labor.estimated_hours).toLocaleString()} hrs` : '—'}</p>
                       {labor.recommended_crew_size && (
                         <span className="text-[10px] text-muted-foreground">{labor.recommended_crew_size} cleaners ({labor.estimated_shifts || 1} shifts)</span>
                       )}

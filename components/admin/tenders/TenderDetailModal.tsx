@@ -74,7 +74,38 @@ export function TenderDetailModal({
   if (!tender) return null;
 
   const meta = tender.tender_meta || {};
-  const labor = meta.labor_reconciliation || null;
+  const rawLabor = meta.labor_reconciliation || null;
+  const labor = rawLabor
+    ? (() => {
+        const crew = Number(rawLabor.recommended_crew_size) || 3;
+        const shifts = Number(rawLabor.estimated_shifts) || 1;
+        const wage = Number(rawLabor.avg_cleaner_wage) || 20;
+        const hours =
+          Number(rawLabor.estimated_hours) > 0
+            ? Number(rawLabor.estimated_hours)
+            : Math.round(crew * shifts * 7.5);
+        const cost =
+          Number(rawLabor.total_labor_cost) > 0
+            ? Number(rawLabor.total_labor_cost)
+            : Math.round(hours * wage * 100) / 100;
+        const price = Number(tender.quoted_price) || 0;
+        const profit =
+          price > 0 && Number(rawLabor.total_labor_cost) <= 0
+            ? Math.round((price - cost) * 100) / 100
+            : Number(rawLabor.projected_gross_profit) || Math.max(0, price - cost);
+        const margin =
+          price > 0 && Number(rawLabor.total_labor_cost) <= 0
+            ? Math.round((profit / price) * 1000) / 10
+            : rawLabor.gross_margin_percentage ?? (price > 0 ? Math.round((profit / price) * 1000) / 10 : 0);
+        return {
+          ...rawLabor,
+          estimated_hours: hours,
+          total_labor_cost: cost,
+          projected_gross_profit: profit,
+          gross_margin_percentage: margin,
+        };
+      })()
+    : null;
   const supplies = Array.isArray(meta.supply_reconciliation) ? meta.supply_reconciliation : [];
   const phases = Array.isArray(meta.phases) ? meta.phases : [];
   const specialtyScopes = Array.isArray(meta.specialty_scopes) ? meta.specialty_scopes : [];
@@ -337,7 +368,7 @@ export function TenderDetailModal({
                   </h4>
                 </div>
                 <span className="text-[11px] text-muted-foreground">
-                  {supplies.filter((s: any) => s.is_in_stock).length} of {supplies.length} in stock
+                  {supplies.filter((s: any) => s.in_stock || s.is_in_stock).length} of {supplies.length} in stock
                 </span>
               </div>
 
@@ -352,37 +383,41 @@ export function TenderDetailModal({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border/40">
-                    {supplies.map((item: any, idx: number) => (
-                      <tr key={idx} className="hover:bg-muted/20">
-                        <td className="p-2.5 font-medium text-foreground">
-                          {item.item_name}
-                          {item.matched_name && item.matched_name !== item.item_name && (
-                            <span className="text-[10px] text-muted-foreground block">
-                              Catalog: {item.matched_name}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-2.5 text-muted-foreground">
-                          {item.quantity_needed} {item.unit || 'units'}
-                        </td>
-                        <td className="p-2.5 text-muted-foreground">
-                          {item.quantity_on_hand != null ? `${item.quantity_on_hand} available` : 'Stock unverified'}
-                        </td>
-                        <td className="p-2.5 text-right">
-                          {item.is_in_stock ? (
-                            <Badge variant="outline" className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] gap-1">
-                              <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                              Ready in Warehouse
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[10px] gap-1">
-                              <AlertTriangle className="w-3 h-3 text-amber-400" />
-                              Order Needed
-                            </Badge>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {supplies.map((item: any, idx: number) => {
+                      const inStock = item.in_stock || item.is_in_stock;
+                      const matchedName = item.matched_item_name || item.matched_name;
+                      return (
+                        <tr key={idx} className="hover:bg-muted/20">
+                          <td className="p-2.5 font-medium text-foreground">
+                            {item.item_name}
+                            {matchedName && matchedName !== item.item_name && (
+                              <span className="text-[10px] text-muted-foreground block">
+                                Catalog: {matchedName}
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-2.5 text-muted-foreground">
+                            {item.quantity_needed} {item.unit || 'units'}
+                          </td>
+                          <td className="p-2.5 text-muted-foreground">
+                            {item.quantity_on_hand != null ? `${item.quantity_on_hand} available` : 'Stock unverified'}
+                          </td>
+                          <td className="p-2.5 text-right">
+                            {inStock ? (
+                              <Badge variant="outline" className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px] gap-1">
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                Ready in Warehouse
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="bg-amber-500/15 text-amber-300 border-amber-500/30 text-[10px] gap-1">
+                                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                Order Needed
+                              </Badge>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

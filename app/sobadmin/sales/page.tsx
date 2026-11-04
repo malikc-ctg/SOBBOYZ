@@ -145,6 +145,9 @@ export default function AdminSalesOSPage() {
     } else {
       syncEngine.stop();
     }
+    return () => {
+      syncEngine.stop();
+    };
   }, [user?.id]);
 
   useEffect(() => {
