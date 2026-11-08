@@ -59,17 +59,17 @@ export default function PartnerJobsPage() {
   }, 0);
 
   return (
-    <div className="p-8 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Jobs</h1>
-        <Link href="/partner/book" className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Jobs</h1>
+        <Link href="/partner/book" className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors shrink-0">
           + Book New Job
         </Link>
       </div>
 
       {/* Financial Summary */}
       {!loading && filtered.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <div className="bg-card border border-border rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <Briefcase className="h-4 w-4 text-muted-foreground" />
@@ -97,12 +97,12 @@ export default function PartnerJobsPage() {
       )}
 
       {/* Filter chips */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
         {['', 'confirmed', 'in_progress', 'completed', 'cancelled'].map(s => (
           <button
             key={s}
             onClick={() => setStatusFilter(s)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors capitalize ${
+            className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors capitalize shrink-0 whitespace-nowrap ${
               statusFilter === s ? 'bg-foreground text-background' : 'bg-muted text-muted-foreground hover:bg-accent'
             }`}
           >
@@ -111,8 +111,78 @@ export default function PartnerJobsPage() {
         ))}
       </div>
 
-      {/* Jobs Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Mobile Stacked Job Cards */}
+      <div className="md:hidden space-y-2.5">
+        {loading ? (
+          [1, 2, 3, 4].map((i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-4 space-y-2">
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))
+        ) : filtered.length === 0 ? (
+          <div className="bg-card border border-border rounded-xl p-8 text-center space-y-3">
+            <Briefcase className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+            <p className="text-muted-foreground text-sm">No jobs found.</p>
+            <Link href="/partner/book" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+              Book your first job →
+            </Link>
+          </div>
+        ) : (
+          filtered.map(job => {
+            const financials = parseFinancials(job);
+            const basePrice = financials?.base_price ?? (job.final_price ?? job.quoted_price);
+            const postingFee = financials?.posting_fee ?? 0;
+            const commissionEarned = financials?.commission_earned ?? 0;
+            const isCompleted = ['completed', 'reviewed', 'paid_out'].includes(job.status);
+            return (
+              <div key={job.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground truncate">{job.address_line1}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {job.city} · {format(new Date(job.scheduled_date + 'T12:00:00'), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0 ${STATUS_COLORS[job.status] ?? 'bg-muted text-muted-foreground'}`}>
+                    {job.status.replace(/_/g, ' ')}
+                  </span>
+                </div>
+                <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/60 text-xs">
+                  <div>
+                    <p className="text-muted-foreground">Base</p>
+                    <p className="font-semibold">${basePrice.toFixed(2)}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Fee (5%)</p>
+                    <p className="font-medium text-amber-600">{postingFee > 0 ? `+$${postingFee.toFixed(2)}` : '—'}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-muted-foreground">Commission</p>
+                    {commissionEarned > 0 ? (
+                      <p className={`font-bold ${isCompleted ? 'text-green-600' : 'text-muted-foreground'}`}>
+                        {isCompleted ? '+' : '~'}${commissionEarned.toFixed(2)}
+                      </p>
+                    ) : (
+                      <p>—</p>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between pt-1 text-xs">
+                  <span className="text-muted-foreground capitalize">{job.service_type.replace(/_/g, ' ')}</span>
+                  <Link href={`/tracking/${job.id}`} className="text-primary font-medium flex items-center gap-1 hover:underline">
+                    Track Job <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      {/* Desktop Jobs Table */}
+      <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">
             {[1, 2, 3, 4, 5].map((i) => (
@@ -134,7 +204,8 @@ export default function PartnerJobsPage() {
             </Link>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[680px]">
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground">Date</th>
@@ -194,7 +265,8 @@ export default function PartnerJobsPage() {
                 );
               })}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
     </div>

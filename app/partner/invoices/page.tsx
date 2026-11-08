@@ -52,12 +52,12 @@ export default function PartnerInvoicesPage() {
   const totalDue = invoices.filter(i => ['sent', 'overdue'].includes(i.status)).reduce((sum, i) => sum + i.total_due, 0);
 
   return (
-    <div className="p-8 space-y-6">
-      <h1 className="text-2xl font-bold text-foreground">Invoices & Earnings</h1>
+    <div className="p-4 md:p-8 space-y-6">
+      <h1 className="text-xl md:text-2xl font-bold text-foreground">Invoices & Earnings</h1>
 
       {/* Summary cards */}
       {!loading && invoices.length > 0 && (
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
           <div className="bg-card border border-amber-200 rounded-xl p-4">
             <div className="flex items-center gap-2 mb-2">
               <TrendingDown className="h-4 w-4 text-amber-500" />
@@ -85,8 +85,67 @@ export default function PartnerInvoicesPage() {
         </div>
       )}
 
-      {/* Invoices Table */}
-      <div className="bg-card border border-border rounded-xl overflow-hidden">
+      {/* Mobile Invoice Cards */}
+      <div className="md:hidden space-y-2.5">
+        {loading ? (
+          [1, 2, 3].map((i) => (
+            <div key={i} className="bg-card border border-border rounded-xl p-4 space-y-2">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-3 w-44" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ))
+        ) : invoices.length === 0 ? (
+          <div className="bg-card border border-border rounded-xl p-8 text-center space-y-2">
+            <DollarSign className="h-10 w-10 text-muted-foreground/30 mx-auto" />
+            <p className="text-muted-foreground text-sm">No invoices yet.</p>
+            <p className="text-xs text-muted-foreground">Invoices are generated monthly after your first job.</p>
+          </div>
+        ) : (
+          invoices.map(inv => (
+            <div key={inv.id} className="bg-card border border-border rounded-xl p-4 space-y-3">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="font-mono text-sm font-semibold">{inv.invoice_number}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {format(new Date(inv.period_start), 'MMM d')} – {format(new Date(inv.period_end), 'MMM d, yyyy')}
+                  </p>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize shrink-0 ${STATUS_STYLES[inv.status]}`}>
+                  {inv.status}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border/60 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Subtotal</p>
+                  <p className="font-medium">${inv.subtotal.toFixed(2)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Commission</p>
+                  <p className="font-medium text-green-600">
+                    {inv.total_commission_earned ? `-$${inv.total_commission_earned.toFixed(2)}` : '—'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-muted-foreground">Total Due</p>
+                  <p className="font-bold">${inv.total_due.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1 text-xs">
+                <span className="text-muted-foreground">
+                  Due: {inv.due_date ? format(new Date(inv.due_date), 'MMM d, yyyy') : '—'}
+                </span>
+                <button className="text-primary font-medium flex items-center gap-1 hover:underline">
+                  <Download className="h-3.5 w-3.5" /> PDF
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Desktop Invoices Table */}
+      <div className="hidden md:block bg-card border border-border rounded-xl overflow-hidden">
         {loading ? (
           <div className="p-6 space-y-3">
             {[1, 2, 3, 4].map((i) => (
@@ -106,7 +165,8 @@ export default function PartnerInvoicesPage() {
             <p className="text-xs text-muted-foreground">Invoices are generated monthly after your first job.</p>
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[760px]">
             <thead>
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left px-5 py-3 text-xs font-medium text-muted-foreground">Invoice #</th>
@@ -175,7 +235,8 @@ export default function PartnerInvoicesPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+            </table>
+          </div>
         )}
       </div>
 

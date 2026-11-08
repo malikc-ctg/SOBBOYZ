@@ -82,6 +82,27 @@
   margin-bottom: 16px;
 }
 
+@media (max-width: 768px) {
+  .phone-workspace-root {
+    padding: 10px 12px 28px;
+  }
+
+  .phone-metrics-strip {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .phone-metrics-strip > .phone-metric-item:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .phone-subtabs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .phone-metric-item {
   background: #001733;
   border: 1px solid rgba(60, 108, 168, 0.25);

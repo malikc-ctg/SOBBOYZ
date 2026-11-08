@@ -113,7 +113,7 @@ export default function ApplyPage() {
   };
 
   return (
-    <div className="min-h-screen text-white flex flex-col font-sans relative" style={{ backgroundColor: '#010A14' }}>
+    <div className="min-h-screen text-white flex flex-col font-sans relative overflow-x-hidden" style={{ backgroundColor: '#010A14' }}>
       {/* Background glow overlay */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-[#021A35]/30 rounded-full blur-[120px] pointer-events-none" />
 

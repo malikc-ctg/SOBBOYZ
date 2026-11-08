@@ -7,7 +7,7 @@ export const metadata = {
 
 export default function TermsOfServicePage() {
   return (
-    <div className="min-h-screen text-white flex flex-col font-sans relative" style={{ backgroundColor: '#010A14' }}>
+    <div className="min-h-screen text-white flex flex-col font-sans relative overflow-x-hidden" style={{ backgroundColor: '#010A14' }}>
       {/* Deep blue atmospheric background blur */}
       <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-[#021A35]/30 rounded-full blur-[120px] pointer-events-none" />
 

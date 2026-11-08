@@ -45,8 +45,8 @@ const ACTION_ICONS: Record<string, typeof Briefcase> = {
 
 function DiffView({ label, oldVal, newVal }: { label: string; oldVal: any; newVal: any }) {
   return (
-    <div className="flex items-start gap-3 text-xs">
-      <span className="text-muted-foreground font-medium min-w-[100px]">{label}</span>
+    <div className="flex items-start gap-2 sm:gap-3 text-xs flex-wrap break-all">
+      <span className="text-muted-foreground font-medium min-w-[90px] sm:min-w-[100px]">{label}</span>
       {oldVal !== undefined && (
         <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-200 line-through">
           {typeof oldVal === 'object' ? JSON.stringify(oldVal) : String(oldVal)}
@@ -112,7 +112,7 @@ export default function AuditLogPage() {
   const totalPages = Math.ceil(count / limit);
 
   return (
-    <div className="p-6 md:p-8 space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 min-w-0">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -121,10 +121,10 @@ export default function AuditLogPage() {
           </Link>
           <div>
             <div className="flex items-center gap-2">
-              <Shield className="h-5 w-5 text-blue-600" />
-              <h1 className="text-2xl font-bold text-foreground">Audit &amp; Evidence Trail</h1>
+              <Shield className="h-5 w-5 text-blue-600 shrink-0" />
+              <h1 className="text-xl md:text-2xl font-bold text-foreground">Audit &amp; Evidence Trail</h1>
             </div>
-            <p className="text-sm text-muted-foreground mt-0.5">
+            <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">
               Permanent photo verification, checklist timestamps, and immutable activity logs
             </p>
           </div>
