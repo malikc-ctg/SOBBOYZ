@@ -82,7 +82,7 @@ export function SobOsLaunchpad({
     <div className="h-full w-full overflow-y-auto flex flex-col justify-between px-4 py-6 sm:px-8 sm:py-10 bg-transparent text-foreground font-sans select-none">
       <div className="max-w-7xl w-full mx-auto my-auto space-y-7">
         {/* OS Workspace Hero Banner */}
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between border-b border-border pb-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between pb-2">
           <div className="flex items-start gap-4">
             <div className="w-14 h-14 rounded-2xl bg-card border border-border p-2 flex items-center justify-center shrink-0">
               <img
@@ -135,7 +135,7 @@ export function SobOsLaunchpad({
                 </p>
               </div>
 
-              <div className="flex items-center pt-5 mt-6 border-t border-border/70">
+              <div className="flex items-center pt-5 mt-5">
                 <span className="text-xs font-bold text-primary flex items-center gap-1.5">
                   {ws.actionLabel}
                   <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

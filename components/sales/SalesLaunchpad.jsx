@@ -98,7 +98,7 @@ export default function SalesLaunchpad({
     <div className="h-full w-full overflow-y-auto flex flex-col justify-between px-4 py-6 sm:px-8 sm:py-8 bg-transparent text-foreground font-sans select-none">
       <div className="max-w-7xl w-full mx-auto my-auto space-y-7">
         {/* OS Workspace Hero Banner */}
-        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between border-b border-border pb-5">
+        <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between pb-2">
           <div>
             <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-indigo-500/12 border border-indigo-500/25 text-indigo-600 dark:text-indigo-300 mb-2">
               <Waves className="h-3.5 w-3.5" />
@@ -150,7 +150,7 @@ export default function SalesLaunchpad({
                   </p>
                 </div>
 
-                <div className="flex items-center pt-5 mt-6 border-t border-border/70">
+                <div className="flex items-center pt-5 mt-5">
                   <span className="text-xs font-bold text-indigo-600 dark:text-indigo-300 flex items-center gap-1.5">
                     {mod.actionLabel}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
@@ -194,7 +194,7 @@ export default function SalesLaunchpad({
                   </p>
                 </div>
 
-                <div className="flex items-center pt-5 mt-6 border-t border-border/70">
+                <div className="flex items-center pt-5 mt-5">
                   <span className="text-xs font-bold text-primary flex items-center gap-1.5">
                     {app.actionLabel}
                     <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

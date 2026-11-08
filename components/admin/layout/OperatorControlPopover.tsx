@@ -4,7 +4,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Check,
   ChevronDown,
+  Droplets,
+  Image as ImageIcon,
   ImagePlus,
+  Layers,
   LogOut,
   Monitor,
   Moon,
@@ -50,6 +53,63 @@ const THEME_MODES: Array<{
   { id: 'system', label: 'Auto', icon: Monitor },
 ];
 
+/**
+ * macOS Control Center-style inline filled capsule slider.
+ * Eliminates floating thin range wires and 2-line label stacks.
+ */
+function CapsuleSlider({
+  icon: Icon,
+  label,
+  displayValue,
+  min,
+  max,
+  value,
+  onPreview,
+  onCommit,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  displayValue: string;
+  min: number;
+  max: number;
+  value: number;
+  onPreview: (val: number) => void;
+  onCommit: (val: number) => void;
+}) {
+  const pct = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+
+  return (
+    <div className="os-recessed relative h-8 rounded-xl overflow-hidden flex items-center justify-between px-3 select-none group">
+      <div
+        className="os-slider-fill absolute inset-y-0 left-0 pointer-events-none"
+        style={{ width: `${pct}%` }}
+      />
+      <div className="relative z-[1] flex items-center gap-2 pointer-events-none min-w-0">
+        <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
+        <span className="text-[11px] font-semibold text-foreground/95 truncate">
+          {label}
+        </span>
+      </div>
+      <span className="relative z-[1] text-[11px] font-mono font-bold tabular-nums text-muted-foreground group-hover:text-foreground transition-colors pointer-events-none shrink-0">
+        {displayValue}
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={1}
+        value={value}
+        aria-label={label}
+        onChange={(e) => onPreview(Number(e.target.value))}
+        onMouseUp={(e) => onCommit(Number((e.target as HTMLInputElement).value))}
+        onTouchEnd={(e) => onCommit(Number((e.target as HTMLInputElement).value))}
+        onKeyUp={(e) => onCommit(Number((e.target as HTMLInputElement).value))}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-ew-resize z-10 m-0"
+      />
+    </div>
+  );
+}
+
 export function AppearanceControlsPanel({
   onLogout,
   operator,
@@ -72,7 +132,6 @@ export function AppearanceControlsPanel({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Local slider mirrors for ultra-smooth 60fps thumb tracking
   const [opacityVal, setOpacityVal] = useState(settings.cardOpacity);
   const [blurVal, setBlurVal] = useState(settings.frostBlur);
   const [intensityVal, setIntensityVal] = useState(settings.wallpaperIntensity);
@@ -107,61 +166,88 @@ export function AppearanceControlsPanel({
     }
     try {
       await uploadWallpaperFile(file);
-      toast.success('Atmospheric backdrop updated');
+      toast.success('Backdrop updated');
     } catch {
       toast.error('Could not process that image');
     }
   };
 
   return (
-    <div className="space-y-4 text-popover-foreground font-sans select-none">
-      {/* 1. Operator Header */}
+    <div className="os-appearance-panel space-y-3 text-popover-foreground font-sans select-none">
+      {/* 1. Compact Operator Bar (Identity + Reset + Sign Out inline) */}
       {operator && (
-        <div className="flex items-start justify-between gap-2 pb-3 border-b border-border/70">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-              <p className="text-sm font-bold text-foreground truncate">
+        <div className="os-recessed flex items-center justify-between gap-2 px-3 py-2 rounded-xl">
+          <div className="min-w-0 flex items-center gap-2.5">
+            <span className="relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/20 text-[11px] font-bold text-primary">
+              {operator.name
+                .split(' ')
+                .map((p) => p[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase()}
+              <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full bg-emerald-400" />
+            </span>
+            <div className="min-w-0 leading-tight">
+              <p className="text-xs font-bold text-foreground truncate">
                 {operator.name}
               </p>
+              <p className="text-[10px] text-muted-foreground truncate mt-0.5">
+                {operator.title || operator.email || 'Active Session'}
+              </p>
             </div>
-            {operator.title && (
-              <p className="text-[11px] font-medium text-muted-foreground truncate mt-0.5 pl-4">
-                {operator.title}
-              </p>
-            )}
-            {operator.email && (
-              <p className="text-[10px] text-muted-foreground/80 truncate pl-4">
-                {operator.email}
-              </p>
-            )}
           </div>
 
-          {isModified && (
+          <div className="flex items-center gap-1 shrink-0">
+            {isModified && (
+              <button
+                type="button"
+                onClick={() => {
+                  resetDefaults();
+                  toast.success('Reset to Sea of Blue defaults');
+                }}
+                className="h-7 px-2 rounded-lg text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-background/40 inline-flex items-center gap-1 transition cursor-pointer"
+                title="Reset appearance to defaults"
+              >
+                <RotateCcw className="w-3 h-3" />
+                <span>Reset</span>
+              </button>
+            )}
+            {onLogout && !compact && (
+              <button
+                type="button"
+                onClick={onLogout}
+                title="Sign Out"
+                aria-label="Sign Out"
+                className="h-7 w-7 rounded-lg flex items-center justify-center text-red-400 hover:text-red-300 bg-red-500/12 hover:bg-red-500/22 transition cursor-pointer"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 2. Theme Mode */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-[11px] font-semibold text-muted-foreground">
+            Theme
+          </span>
+          {!operator && isModified && (
             <button
               type="button"
               onClick={() => {
                 resetDefaults();
-                toast.success('Appearance reset to Sea of Blue defaults');
+                toast.success('Reset to Sea of Blue defaults');
               }}
-              className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-semibold text-muted-foreground hover:text-foreground hover:bg-muted/70 transition cursor-pointer shrink-0"
-              title="Reset appearance to defaults"
+              className="text-[10px] font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 cursor-pointer"
             >
               <RotateCcw className="w-3 h-3" />
               <span>Reset</span>
             </button>
           )}
         </div>
-      )}
-
-      {/* 2. Theme Mode Switcher */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Appearance Theme
-          </span>
-        </div>
-        <div className="grid grid-cols-4 gap-1 p-1 rounded-xl bg-muted/60 border border-border/70">
+        <div className="os-recessed grid grid-cols-4 gap-1 p-1 rounded-xl">
           {THEME_MODES.map(({ id, label, icon: Icon }) => {
             const active = settings.mode === id;
             return (
@@ -169,10 +255,10 @@ export function AppearanceControlsPanel({
                 key={id}
                 type="button"
                 onClick={() => updateSettings({ mode: id })}
-                className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-bold transition cursor-pointer ${
+                className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[10px] font-bold transition cursor-pointer ${
                   active
                     ? 'bg-primary text-primary-foreground shadow-xs'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-background/50'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/35'
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -183,13 +269,13 @@ export function AppearanceControlsPanel({
         </div>
       </div>
 
-      {/* 3. Glass Opacity & Frost Blur */}
-      <div className="space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Glass Surface & Opaqueness
+      {/* 3. Glass Material & Capsule Sliders */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between gap-2 px-0.5">
+          <span className="text-[11px] font-semibold text-muted-foreground shrink-0">
+            Glass
           </span>
-          <div className="flex items-center gap-1">
+          <div className="os-recessed inline-flex items-center gap-0.5 p-0.5 rounded-lg shrink-0">
             {GLASS_MATERIAL_PRESETS.map((preset) => {
               const isPresetActive =
                 Math.abs(opacityVal - preset.cardOpacity) <= 2 &&
@@ -206,10 +292,10 @@ export function AppearanceControlsPanel({
                       frostBlur: preset.frostBlur,
                     });
                   }}
-                  className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition cursor-pointer ${
+                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap transition cursor-pointer ${
                     isPresetActive
-                      ? 'bg-primary/20 text-primary border border-primary/40'
-                      : 'text-muted-foreground hover:text-foreground bg-muted/40'
+                      ? 'bg-primary text-primary-foreground shadow-xs'
+                      : 'text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {preset.label}
@@ -219,76 +305,68 @@ export function AppearanceControlsPanel({
           </div>
         </div>
 
-        {/* Card Opacity / Opaqueness Slider */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-medium text-foreground/90">Card Opaqueness</span>
-            <span className="font-mono font-bold text-muted-foreground">
-              {opacityVal === 100 ? '100% Solid' : `${opacityVal}%`}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={25}
-            max={100}
-            step={1}
-            value={opacityVal}
-            aria-label="Card opaqueness percentage"
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setOpacityVal(v);
-              previewContinuous({ cardOpacity: v });
-            }}
-            onMouseUp={() => updateSettings({ cardOpacity: opacityVal })}
-            onTouchEnd={() => updateSettings({ cardOpacity: opacityVal })}
-            onKeyUp={() => updateSettings({ cardOpacity: opacityVal })}
-            className="os-range-slider w-full"
-          />
-        </div>
+        <CapsuleSlider
+          icon={Layers}
+          label="Card Opacity"
+          displayValue={opacityVal === 100 ? 'Solid' : `${opacityVal}%`}
+          min={25}
+          max={100}
+          value={opacityVal}
+          onPreview={(v) => {
+            setOpacityVal(v);
+            previewContinuous({ cardOpacity: v });
+          }}
+          onCommit={(v) => updateSettings({ cardOpacity: v })}
+        />
 
-        {/* Frost Blur Slider */}
-        <div className="space-y-1">
-          <div className="flex items-center justify-between text-[11px]">
-            <span className="font-medium text-foreground/90">Frost Blur</span>
-            <span className="font-mono font-bold text-muted-foreground">
-              {blurVal === 0 ? 'Off' : `${blurVal}px`}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={32}
-            step={1}
-            value={blurVal}
-            aria-label="Glass frost blur radius"
-            onChange={(e) => {
-              const v = Number(e.target.value);
-              setBlurVal(v);
-              previewContinuous({ frostBlur: v });
-            }}
-            onMouseUp={() => updateSettings({ frostBlur: blurVal })}
-            onTouchEnd={() => updateSettings({ frostBlur: blurVal })}
-            onKeyUp={() => updateSettings({ frostBlur: blurVal })}
-            className="os-range-slider w-full"
-          />
-        </div>
+        <CapsuleSlider
+          icon={Droplets}
+          label="Frost Blur"
+          displayValue={blurVal === 0 ? 'Off' : `${blurVal}px`}
+          min={0}
+          max={32}
+          value={blurVal}
+          onPreview={(v) => {
+            setBlurVal(v);
+            previewContinuous({ frostBlur: v });
+          }}
+          onCommit={(v) => updateSettings({ frostBlur: v })}
+        />
       </div>
 
-      {/* 4. Atmospheric Backdrop Picture */}
-      <div className="space-y-2.5 pt-1 border-t border-border/60">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Backdrop Picture
+      {/* 4. Atmospheric Backdrop (Widescreen 3x2 Grid) */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between px-0.5">
+          <span className="text-[11px] font-semibold text-muted-foreground">
+            Backdrop
           </span>
-          <button
-            type="button"
-            disabled={isUploadingWallpaper}
-            onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:underline cursor-pointer disabled:opacity-50"
-          >
-            <ImagePlus className="w-3 h-3" />
-            <span>{isUploadingWallpaper ? 'Compressing...' : customWallpaperUrl ? 'Change Photo' : 'Upload Photo'}</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={isUploadingWallpaper}
+              onClick={() => fileInputRef.current?.click()}
+              className="inline-flex items-center gap-1 text-[10px] font-bold text-primary hover:opacity-85 cursor-pointer disabled:opacity-50"
+            >
+              <ImagePlus className="w-3 h-3" />
+              <span>
+                {isUploadingWallpaper
+                  ? 'Saving...'
+                  : customWallpaperUrl
+                  ? 'Change'
+                  : 'Upload Photo'}
+              </span>
+            </button>
+            {customWallpaperUrl && (
+              <button
+                type="button"
+                onClick={removeCustomWallpaper}
+                className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-muted-foreground hover:text-red-400 cursor-pointer"
+                title="Remove uploaded photo"
+              >
+                <Trash2 className="w-3 h-3" />
+              </button>
+            )}
+          </div>
           <input
             ref={fileInputRef}
             type="file"
@@ -298,8 +376,7 @@ export function AppearanceControlsPanel({
           />
         </div>
 
-        {/* Preset + Custom Thumbnail Grid */}
-        <div className="grid grid-cols-6 gap-1.5">
+        <div className="grid grid-cols-3 gap-1.5">
           {WALLPAPER_PRESETS.map((preset) => {
             const active = settings.wallpaperId === preset.id;
             return (
@@ -307,19 +384,20 @@ export function AppearanceControlsPanel({
                 key={preset.id}
                 type="button"
                 onClick={() => updateSettings({ wallpaperId: preset.id })}
-                title={`${preset.label} (${preset.subtitle})`}
-                className={`group relative h-11 rounded-lg overflow-hidden border transition cursor-pointer ${
+                title={preset.subtitle}
+                className={`group relative h-11 rounded-xl overflow-hidden transition cursor-pointer ${
                   active
-                    ? 'border-primary ring-2 ring-primary/35 scale-[1.02]'
-                    : 'border-border/70 hover:border-foreground/40 opacity-85 hover:opacity-100'
+                    ? 'ring-2 ring-primary'
+                    : 'opacity-80 hover:opacity-100'
                 }`}
                 style={{ background: preset.previewCss }}
               >
-                <span className="absolute inset-x-0 bottom-0 bg-black/55 px-0.5 py-0.5 text-[8px] font-bold text-white truncate text-center">
-                  {preset.id === 'none' ? 'None' : preset.label.split(' ')[0]}
+                <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+                <span className="absolute left-2 bottom-1.5 text-[10px] font-bold text-white leading-none truncate max-w-[calc(100%-1rem)]">
+                  {preset.id === 'none' ? 'None' : preset.label}
                 </span>
                 {active && (
-                  <span className="absolute top-1 right-1 w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground flex items-center justify-center shadow-xs">
+                  <span className="absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
                     <Check className="w-2.5 h-2.5" />
                   </span>
                 )}
@@ -327,93 +405,66 @@ export function AppearanceControlsPanel({
             );
           })}
 
-          {/* Slot 6: Custom Photo Upload / Active Custom Thumbnail */}
+          {/* Slot 6: Widescreen Custom Photo Tile */}
           {customWallpaperUrl ? (
-            <div className="relative h-11">
-              <button
-                type="button"
-                onClick={() => updateSettings({ wallpaperId: 'custom' })}
-                title="Custom uploaded backdrop"
-                className={`w-full h-full rounded-lg overflow-hidden border bg-cover bg-center transition cursor-pointer ${
-                  settings.wallpaperId === 'custom'
-                    ? 'border-primary ring-2 ring-primary/35 scale-[1.02]'
-                    : 'border-border/70 hover:border-foreground/40 opacity-85 hover:opacity-100'
-                }`}
-                style={{ backgroundImage: `url("${customWallpaperUrl}")` }}
-              >
-                <span className="absolute inset-x-0 bottom-0 bg-black/60 px-0.5 py-0.5 text-[8px] font-bold text-white truncate text-center">
-                  Photo
+            <button
+              type="button"
+              onClick={() => updateSettings({ wallpaperId: 'custom' })}
+              title="Custom uploaded backdrop"
+              className={`relative h-11 rounded-xl overflow-hidden bg-cover bg-center transition cursor-pointer ${
+                settings.wallpaperId === 'custom'
+                  ? 'ring-2 ring-primary'
+                  : 'opacity-80 hover:opacity-100'
+              }`}
+              style={{ backgroundImage: `url("${customWallpaperUrl}")` }}
+            >
+              <span className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-transparent" />
+              <span className="absolute left-2 bottom-1.5 text-[10px] font-bold text-white leading-none">
+                Custom
+              </span>
+              {settings.wallpaperId === 'custom' && (
+                <span className="absolute top-1.5 right-1.5 w-3.5 h-3.5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                  <Check className="w-2.5 h-2.5" />
                 </span>
-              </button>
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeCustomWallpaper();
-                }}
-                title="Remove custom photo"
-                aria-label="Remove custom photo"
-                className="absolute -top-1.5 -right-1.5 w-4 h-4 rounded-full bg-destructive text-white flex items-center justify-center shadow-xs hover:scale-110 transition cursor-pointer"
-              >
-                <Trash2 className="w-2.5 h-2.5" />
-              </button>
-            </div>
+              )}
+            </button>
           ) : (
             <button
               type="button"
               onClick={() => fileInputRef.current?.click()}
               title="Upload your own background picture"
-              className="h-11 rounded-lg border border-dashed border-border hover:border-primary/60 bg-muted/40 hover:bg-muted/70 flex flex-col items-center justify-center gap-0.5 text-muted-foreground hover:text-foreground transition cursor-pointer"
+              className="os-recessed h-11 rounded-xl flex items-center justify-center gap-1.5 text-muted-foreground hover:text-foreground transition cursor-pointer"
             >
-              <ImagePlus className="w-3.5 h-3.5" />
-              <span className="text-[8px] font-bold">Custom</span>
+              <ImagePlus className="w-3.5 h-3.5 text-primary" />
+              <span className="text-[10px] font-bold">Custom</span>
             </button>
           )}
         </div>
 
-        {/* Backdrop Subtlety / Intensity Slider (Only shown when a picture is active) */}
         {settings.wallpaperId !== 'none' && (
-          <div className="space-y-1 pt-0.5">
-            <div className="flex items-center justify-between text-[11px]">
-              <span className="font-medium text-foreground/90">
-                Picture Presence
-              </span>
-              <span className="font-mono font-bold text-muted-foreground">
-                {intensityVal <= 20
-                  ? `Subtle (${intensityVal}%)`
-                  : intensityVal <= 38
-                  ? `Balanced (${intensityVal}%)`
-                  : `Vivid (${intensityVal}%)`}
-              </span>
-            </div>
-            <input
-              type="range"
-              min={10}
-              max={55}
-              step={1}
-              value={intensityVal}
-              aria-label="Backdrop picture presence"
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                setIntensityVal(v);
-                previewContinuous({ wallpaperIntensity: v });
-              }}
-              onMouseUp={() => updateSettings({ wallpaperIntensity: intensityVal })}
-              onTouchEnd={() => updateSettings({ wallpaperIntensity: intensityVal })}
-              onKeyUp={() => updateSettings({ wallpaperIntensity: intensityVal })}
-              className="os-range-slider w-full"
-            />
-          </div>
+          <CapsuleSlider
+            icon={ImageIcon}
+            label="Photo Presence"
+            displayValue={`${intensityVal}%`}
+            min={10}
+            max={55}
+            value={intensityVal}
+            onPreview={(v) => {
+              setIntensityVal(v);
+              previewContinuous({ wallpaperIntensity: v });
+            }}
+            onCommit={(v) => updateSettings({ wallpaperIntensity: v })}
+          />
         )}
       </div>
 
-      {/* 5. Accent Color & Ambient Glow */}
-      <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-border/60">
-        <div className="space-y-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">
-            Accent Tint
+      {/* 5. Single Inline Footer Bar: Accent Swatches + Ambient Glow */}
+      <div className="os-recessed flex items-center justify-between gap-2 px-3 py-2 rounded-xl">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground">
+            Accent
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {ACCENT_SWATCHES.map((swatch) => {
               const active = settings.accent === swatch.id;
               return (
@@ -423,46 +474,33 @@ export function AppearanceControlsPanel({
                   onClick={() => updateSettings({ accent: swatch.id })}
                   title={swatch.label}
                   aria-label={`Select ${swatch.label} accent`}
-                  className={`w-5 h-5 rounded-full flex items-center justify-center transition cursor-pointer ${
+                  className={`w-4.5 h-4.5 h-[18px] w-[18px] rounded-full flex items-center justify-center transition cursor-pointer ${
                     active
-                      ? 'ring-2 ring-offset-2 ring-offset-popover ring-foreground scale-110'
-                      : 'opacity-75 hover:opacity-100 hover:scale-105'
+                      ? 'scale-110 ring-2 ring-primary/45 shadow-xs'
+                      : 'opacity-65 hover:opacity-100 hover:scale-105'
                   }`}
                   style={{ backgroundColor: swatch.swatchHex }}
                 >
-                  {active && <Check className="w-3 h-3 text-white drop-shadow" />}
+                  {active && <Check className="w-2.5 h-2.5 text-white drop-shadow" />}
                 </button>
               );
             })}
           </div>
         </div>
 
-        <div className="flex flex-col items-end gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-semibold text-muted-foreground inline-flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-primary" />
-            Ambient Glow
+            <span>Glow</span>
           </span>
           <Switch
             checked={settings.ambientGlow}
             onCheckedChange={(checked) => updateSettings({ ambientGlow: checked })}
             aria-label="Toggle ambient backdrop glow"
+            className="scale-90 origin-right"
           />
         </div>
       </div>
-
-      {/* 6. Optional Sign Out Footer */}
-      {onLogout && !compact && (
-        <div className="pt-2.5 border-t border-border/60">
-          <button
-            type="button"
-            onClick={onLogout}
-            className="w-full h-8 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 bg-red-500/12 hover:bg-red-500/22 text-red-500 dark:text-red-300 border border-red-500/30 transition cursor-pointer"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            <span>Sign Out</span>
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -506,7 +544,7 @@ export function OperatorControlPopover({
       <PopoverContent
         align="end"
         sideOffset={8}
-        className="os-glass-popover w-[340px] p-4 rounded-2xl border border-border/80 z-[80]"
+        className="os-glass-popover w-[356px] max-w-[calc(100vw-1.5rem)] p-3.5 rounded-2xl border z-[80]"
       >
         <AppearanceControlsPanel operator={operator} onLogout={onLogout} />
       </PopoverContent>
