@@ -148,13 +148,13 @@ export function AdminHeader({
         {/* RIGHT: OS System Tray (Quick Actions + Operator Pill Popover + Clock + Fullscreen + Logout) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!isLaunchpadView && (
-            <div className="flex items-center gap-1.5">
+            <div className="hidden md:flex items-center gap-1.5">
               <Link
                 href="/sobadmin/jobs/new"
                 aria-label="New Job"
-                className="h-9 w-9 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-primary hover:opacity-90 text-primary-foreground transition"
+                className="h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-primary hover:opacity-90 text-primary-foreground transition"
               >
-                <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
+                <Plus className="w-3.5 h-3.5" />
                 <span className="hidden xl:inline">New Job</span>
               </Link>
             </div>

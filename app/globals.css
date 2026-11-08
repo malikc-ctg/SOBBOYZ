@@ -132,27 +132,6 @@ html {
   text-size-adjust: 100%;
 }
 
-/* Touch-friendly tap targets — minimum 44x44px */
-@media (pointer: coarse) {
-  button,
-  [role="button"],
-  a {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
-  /* Exclude tiny icon buttons and compact OS popover/dock controls */
-  button.p-0,
-  .os-dock-bar button,
-  .os-dock-bar a,
-  .os-appearance-panel button,
-  [class*="h-6"][class*="w-6"],
-  [class*="h-5"][class*="w-5"] {
-    min-height: unset;
-    min-width: unset;
-  }
-}
-
 /* Prevent pull-to-refresh interfering with scroll */
 body {
   overscroll-behavior-y: contain;

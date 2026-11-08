@@ -2456,16 +2456,15 @@ export default function DispatchMap({ onBack, initialPreset = 'operations' }: Pr
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/40 text-[10px] font-medium shrink-0">
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-lg text-white/40 text-[10px] font-medium shrink-0">
                 <Sparkles className="h-3 w-3 text-blue-400/80 shrink-0" />
-                <span className="hidden sm:inline">Double-click any zone to highlight & reveal activity</span>
-                <span className="sm:hidden">Double-click zone</span>
+                <span>Double-click any zone to highlight & reveal activity</span>
               </div>
             )}
           </div>
 
           {/* Right Tools: Layers, Sat/Dark, Refresh */}
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1.5 shrink-0 md:flex-wrap">
             {/* Dynamic Layer & Mode Toggles */}
             <div className="flex items-center gap-0.5 bg-white/5 border border-white/10 rounded-lg px-1 py-0.5 shrink-0">
               {currentLayerToggles.map(lt => (

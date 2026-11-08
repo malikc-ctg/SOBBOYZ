@@ -250,24 +250,64 @@ export default function AdminSalesOSPage() {
       {/* =========================================================
           PERSISTENT OS SYSTEM MENU BAR (Top Dock & Status Tray)
          ========================================================= */}
-      <header className="os-dock-bar relative h-14 sm:h-12 px-2.5 sm:px-4 border-b flex items-center justify-between gap-2 shrink-0 z-50 select-none safe-top">
-        {/* LEFT: Workspace Return + OS Home Launcher + Direct App Dock */}
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+      <header className="os-dock-bar relative h-12 px-3 sm:px-4 border-b flex items-center justify-between gap-2 shrink-0 z-50 select-none safe-top">
+        {/* LEFT: Mobile Unified Launcher + Title (< md) / Desktop Full App Dock (md+) */}
+        <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
+          {/* Mobile (< md): Single Grid Button + View Title (Matches AdminHeader) */}
+          <button
+            type="button"
+            onClick={() => {
+              if (activeApp) {
+                handleSelectApp(null);
+              } else {
+                handleExitToAdmin('/sobadmin');
+              }
+            }}
+            aria-label={activeApp ? 'Back to Sales Hub' : 'Open OS Launchpad'}
+            className={`md:hidden h-9 w-9 justify-center rounded-lg text-xs font-bold flex items-center border transition shrink-0 cursor-pointer ${
+              !activeApp
+                ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                : 'os-tray-btn'
+            }`}
+          >
+            <LayoutGrid
+              className={`h-4 w-4 ${
+                !activeApp ? 'text-primary-foreground' : 'text-primary'
+              }`}
+            />
+          </button>
+
+          <div className="md:hidden min-w-0 flex-1 leading-tight">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
+              Sales &amp; CRM
+            </p>
+            <p className="text-sm font-bold text-foreground truncate">
+              {activeApp === 'residential'
+                ? 'KnockLog Residential'
+                : activeApp === 'commercial'
+                ? 'KnockLog Commercial'
+                : activeApp === 'phone'
+                ? 'B2B Phone Sales'
+                : 'Sales OS Hub'}
+            </p>
+          </div>
+
+          {/* Desktop (md+): OS Launchpad + Sales Hub + Inbound/Outbound Pills */}
           <button
             type="button"
             onClick={() => handleExitToAdmin('/sobadmin')}
-            className="os-tray-btn h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition shrink-0 cursor-pointer"
+            className="hidden md:flex os-tray-btn h-8 px-2.5 rounded-lg text-xs font-semibold items-center gap-1.5 border transition shrink-0 cursor-pointer"
             title="Return to Sea of Blue OS Launchpad (All 4 Workstations)"
           >
             <ArrowLeft className="h-3.5 w-3.5 text-primary" />
-            <span className="hidden sm:inline">OS Launchpad</span>
+            <span>OS Launchpad</span>
           </button>
 
           {/* Sales & CRM Hub Button */}
           <button
             type="button"
             onClick={() => handleSelectApp(null)}
-            className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
+            className={`hidden md:flex h-8 px-2.5 rounded-lg text-xs font-bold items-center gap-1.5 border transition shrink-0 cursor-pointer ${
               !activeApp
                 ? 'bg-primary text-primary-foreground border-primary shadow-xs'
                 : 'os-tray-btn text-muted-foreground hover:text-foreground'
@@ -275,7 +315,7 @@ export default function AdminSalesOSPage() {
             title="Sales & CRM Hub (Inbound & Outbound)"
           >
             <LayoutGrid className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Sales Hub</span>
+            <span>Sales Hub</span>
           </button>
 
           {/* INBOUND CRM PILLS */}
@@ -303,10 +343,10 @@ export default function AdminSalesOSPage() {
             </button>
           </div>
 
-          <div className="h-4 w-px bg-border hidden sm:block" />
+          <div className="h-4 w-px bg-border hidden md:block" />
 
-          {/* OUTBOUND SALES OS PILLS */}
-          <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-emerald-500/25">
+          {/* OUTBOUND SALES OS PILLS (Desktop md+) */}
+          <div className="hidden md:flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-emerald-500/25">
             <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400/80 px-1.5 hidden xl:inline">
               Outbound
             </span>
@@ -361,7 +401,7 @@ export default function AdminSalesOSPage() {
 
         {/* RIGHT: OS System Tray (Sync Status + Rep Pill Popover + Clock + Fullscreen Toggle) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Cloud Sync Status */}
+          {/* Cloud Sync Status (On mobile, only shown when offline events are waiting to sync) */}
           <button
             type="button"
             onClick={handleForceSync}
@@ -371,7 +411,9 @@ export default function AdminSalesOSPage() {
                 ? `${pendingSyncCount} offline events waiting to sync. Click to sync now.`
                 : 'All events synced to cloud'
             }
-            className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
+            className={`${
+              pendingSyncCount > 0 ? 'flex' : 'hidden md:flex'
+            } h-8 px-2.5 items-center gap-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
               pendingSyncCount > 0
                 ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/25 animate-pulse'
                 : 'os-tray-btn text-muted-foreground hover:text-foreground'
@@ -550,6 +592,56 @@ export default function AdminSalesOSPage() {
               isActive={activeApp === 'phone'}
             />
           </div>
+        )}
+
+        {/* Mobile Bottom Dock for Sales Hub & B2B Phone (< md) */}
+        {(!activeApp || activeApp === 'phone') && (
+          <nav className="os-dock-bar md:hidden shrink-0 z-40 border-t safe-bottom flex items-center justify-around h-14">
+            <button
+              type="button"
+              onClick={() => handleExitToAdmin('/sobadmin')}
+              className="flex-1 flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-bold text-muted-foreground active:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>OS Home</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectApp(null)}
+              className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-bold transition-colors ${
+                !activeApp ? 'text-primary' : 'text-muted-foreground active:text-foreground'
+              }`}
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span>Sales Hub</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectApp('phone')}
+              className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-bold transition-colors ${
+                activeApp === 'phone' ? 'text-primary' : 'text-muted-foreground active:text-foreground'
+              }`}
+            >
+              <PhoneCall className="w-4 h-4" />
+              <span>B2B Phone</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectApp('residential')}
+              className="flex-1 flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-bold text-muted-foreground active:text-foreground transition-colors"
+            >
+              <Home className="w-4 h-4" />
+              <span>Residential</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSelectApp('commercial')}
+              className="flex-1 flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-bold text-muted-foreground active:text-foreground transition-colors"
+            >
+              <Building2 className="w-4 h-4" />
+              <span>Commercial</span>
+            </button>
+          </nav>
         )}
       </div>
     </div>
