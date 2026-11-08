@@ -8,7 +8,6 @@ import {
   Minimize2,
   LogOut,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import {
   type WorkspaceConfig,
   type WorkspaceId,
@@ -16,6 +15,7 @@ import {
   type UserProfileContext,
 } from '@/lib/navigation/workspaces';
 import type { OperationalCounts } from './WorkspaceSwitcher';
+import { OperatorControlPopover } from './OperatorControlPopover';
 
 interface AdminHeaderProps {
   workspaces: WorkspaceConfig[];
@@ -47,7 +47,7 @@ export function AdminHeader({
   onLogout,
 }: AdminHeaderProps) {
   return (
-    <div className="shrink-0 z-40 select-none bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 text-[#fffcf6] safe-top">
+    <div className="os-dock-bar relative shrink-0 z-40 select-none border-b text-foreground safe-top">
       {/* Primary Top OS Menu Bar */}
       <header className="h-14 md:h-12 px-3 sm:px-4 flex items-center justify-between gap-2">
         {/* LEFT: OS Launchpad Home Button */}
@@ -58,25 +58,29 @@ export function AdminHeader({
             aria-label="Open OS Launchpad"
             className={`h-10 w-10 justify-center md:w-auto md:justify-start md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
               isLaunchpadView
-                ? 'bg-blue-600 text-white border-blue-500 shadow-xs'
-                : 'bg-[#001b38]/90 hover:bg-[#002855] text-slate-200 hover:text-white border-[#3c6ca8]/30'
+                ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                : 'os-tray-btn'
             }`}
             title="Sea of Blue OS Launchpad (All Workstations)"
           >
-            <LayoutGrid className="h-4 w-4 md:h-3.5 md:w-3.5 text-blue-300" />
+            <LayoutGrid
+              className={`h-4 w-4 md:h-3.5 md:w-3.5 ${
+                isLaunchpadView ? 'text-primary-foreground' : 'text-primary'
+              }`}
+            />
             <span className="hidden md:inline">OS Launchpad</span>
           </button>
 
           {/* Phone: current location label (desktop shows module tabs instead) */}
           <div className="md:hidden min-w-0 leading-tight">
             {isLaunchpadView ? (
-              <p className="text-sm font-bold text-white truncate">Sea of Blue OS</p>
+              <p className="text-sm font-bold text-foreground truncate">Sea of Blue OS</p>
             ) : (
               <>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-[#88a2c0] truncate">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground truncate">
                   {activeWorkspace.shortName}
                 </p>
-                <p className="text-sm font-bold text-white truncate">
+                <p className="text-sm font-bold text-foreground truncate">
                   {(activeWorkspace.items.find((item) => isNavItemActive(item))?.label) ||
                     activeWorkspace.name}
                 </p>
@@ -88,7 +92,7 @@ export function AdminHeader({
         {/* CENTER: Active Workstation Module Tabs (Desktop) */}
         {!isLaunchpadView && (
           <div className="hidden xl:flex flex-1 min-w-0 items-center justify-center px-2">
-            <nav className="flex items-center gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 overflow-x-auto scrollbar-none max-w-full">
+            <nav className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border overflow-x-auto scrollbar-none max-w-full">
               {activeWorkspace.items.map((item, idx) => {
                 const TabIcon = item.icon;
                 const active = isNavItemActive(item);
@@ -99,15 +103,15 @@ export function AdminHeader({
                 return (
                   <div key={item.id} className="flex items-center gap-1">
                     {showGroupDivider && (
-                      <div className="h-4 w-px bg-[#3c6ca8]/30 mx-0.5" />
+                      <div className="h-4 w-px bg-border mx-0.5" />
                     )}
                     {item.group === 'Inbound CRM' && prevGroup !== 'Inbound CRM' && (
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-300/80 px-1.5 hidden 2xl:inline">
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 dark:text-indigo-300/80 px-1.5 hidden 2xl:inline">
                         Inbound
                       </span>
                     )}
                     {item.group === 'Outbound Sales OS' && prevGroup !== 'Outbound Sales OS' && (
-                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400/80 px-1.5 hidden 2xl:inline">
+                      <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400/80 px-1.5 hidden 2xl:inline">
                         Outbound
                       </span>
                     )}
@@ -115,8 +119,8 @@ export function AdminHeader({
                       href={item.href}
                       className={`px-2.5 xl:px-3 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 transition whitespace-nowrap ${
                         active
-                          ? 'bg-blue-600 text-white shadow-xs'
-                          : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                          ? 'bg-primary text-primary-foreground shadow-xs'
+                          : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
                       }`}
                       title={item.description}
                     >
@@ -126,8 +130,8 @@ export function AdminHeader({
                         <span
                           className={`text-[10px] font-bold px-1.5 py-0.2 rounded-full ${
                             active
-                              ? 'bg-black/30 text-white'
-                              : 'bg-amber-500/20 text-amber-300'
+                              ? 'bg-black/25 text-white'
+                              : 'bg-amber-500/20 text-amber-600 dark:text-amber-300'
                           }`}
                         >
                           {badgeCount}
@@ -141,14 +145,14 @@ export function AdminHeader({
           </div>
         )}
 
-        {/* RIGHT: OS System Tray (Quick Actions + Operator Pill + Clock + Fullscreen + Logout) */}
+        {/* RIGHT: OS System Tray (Quick Actions + Operator Pill Popover + Clock + Fullscreen + Logout) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {!isLaunchpadView && (
             <div className="flex items-center gap-1.5">
               <Link
                 href="/sobadmin/jobs/new"
                 aria-label="New Job"
-                className="h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-blue-600 hover:bg-blue-500 text-white transition"
+                className="h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-primary hover:opacity-90 text-primary-foreground transition"
               >
                 <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 <span className="hidden xl:inline">New Job</span>
@@ -156,25 +160,23 @@ export function AdminHeader({
             </div>
           )}
 
-          {/* Operator Status Badge */}
+          {/* Interactive Operator & Glass Studio Pill */}
           {userProfile && (
-            <Badge
-              variant="outline"
-              className="hidden md:inline-flex h-8 px-2.5 text-[11px] gap-1.5 border-[#3c6ca8]/30 bg-[#001b38] text-slate-200 font-sans"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-              <span className="font-bold text-white truncate max-w-[110px]">
-                {userProfile.full_name}
-              </span>
-              <span className="text-[#88a2c0] hidden 2xl:inline">
-                • {userProfile.title}
-              </span>
-            </Badge>
+            <OperatorControlPopover
+              operator={{
+                name: userProfile.full_name || 'Operator',
+                title: userProfile.title,
+                email: userProfile.email,
+              }}
+              onLogout={onLogout}
+              showTitleBreakpoint="2xl"
+              className={isLaunchpadView ? 'inline-flex' : 'hidden md:inline-flex'}
+            />
           )}
 
           {/* System Clock */}
           {clockTime && (
-            <span className="hidden 2xl:inline-block text-xs font-mono font-semibold text-[#88a2c0] px-1">
+            <span className="hidden 2xl:inline-block text-xs font-mono font-semibold text-muted-foreground px-1">
               {clockTime}
             </span>
           )}
@@ -186,18 +188,18 @@ export function AdminHeader({
             title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Enter Full Screen OS Mode'}
             className={`hidden md:flex h-8 px-2.5 rounded-lg text-xs font-bold items-center gap-1.5 border transition cursor-pointer ${
               isFullscreen
-                ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30'
-                : 'bg-[#001b38] text-slate-200 border-[#3c6ca8]/35 hover:bg-[#002855] hover:text-white'
+                ? 'bg-primary/15 text-primary border-primary/40 hover:bg-primary/25'
+                : 'os-tray-btn'
             }`}
           >
             {isFullscreen ? (
               <>
-                <Minimize2 className="w-3.5 h-3.5 text-blue-400" />
+                <Minimize2 className="w-3.5 h-3.5 text-primary" />
                 <span className="hidden md:inline">Exit Full</span>
               </>
             ) : (
               <>
-                <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
+                <Maximize2 className="w-3.5 h-3.5 text-primary" />
                 <span className="hidden md:inline">Full Screen</span>
               </>
             )}
@@ -209,9 +211,9 @@ export function AdminHeader({
             onClick={onLogout}
             title="Sign Out"
             aria-label="Sign Out"
-            className={`${isLaunchpadView ? 'flex' : 'hidden md:flex'} h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-semibold items-center gap-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-300 hover:text-red-200 border border-red-500/40 hover:border-red-500/60 transition cursor-pointer`}
+            className={`${isLaunchpadView ? 'flex' : 'hidden md:flex'} h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-semibold items-center gap-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-300 border border-red-500/40 hover:border-red-500/60 transition cursor-pointer`}
           >
-            <LogOut className="w-3.5 h-3.5 text-red-400" />
+            <LogOut className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
             <span className="hidden md:inline">Sign Out</span>
           </button>
         </div>
@@ -219,7 +221,7 @@ export function AdminHeader({
 
       {/* Tablet Module Tab Bar (shown below top bar on screens md..xl when inside a workstation; phones use MobileBottomNav) */}
       {!isLaunchpadView && (
-        <div className="hidden md:flex xl:hidden items-center gap-1 px-2.5 py-1.5 bg-[#001326] border-t border-[#3c6ca8]/20 overflow-x-auto scrollbar-none">
+        <div className="os-subbar hidden md:flex xl:hidden items-center gap-1 px-2.5 py-1.5 border-t overflow-x-auto scrollbar-none">
           {activeWorkspace.items.map((item) => {
             const TabIcon = item.icon;
             const active = isNavItemActive(item);
@@ -231,14 +233,14 @@ export function AdminHeader({
                 href={item.href}
                 className={`px-2.5 py-1 rounded-lg text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 transition ${
                   active
-                    ? 'bg-blue-600 text-white'
-                    : 'text-[#88a2c0] hover:text-white'
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:text-foreground'
                 }`}
               >
                 <TabIcon className="w-3.5 h-3.5 shrink-0" />
                 <span>{item.shortLabel || item.label}</span>
                 {badgeCount > 0 && (
-                  <span className="text-[10px] font-bold px-1.5 rounded-full bg-amber-500/20 text-amber-300">
+                  <span className="text-[10px] font-bold px-1.5 rounded-full bg-amber-500/20 text-amber-600 dark:text-amber-300">
                     {badgeCount}
                   </span>
                 )}

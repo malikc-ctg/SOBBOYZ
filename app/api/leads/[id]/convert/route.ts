@@ -30,12 +30,61 @@ export async function POST(
       return NextResponse.json({ error: 'Lead not found' }, { status: 404 });
     }
 
-    if (!body.zone_id) {
-      return NextResponse.json({ error: 'A zone must be selected to convert a lead.' }, { status: 400 });
+    // Check if this lead was already converted to an existing job
+    if (lead.converted_job_id) {
+      const { data: existingJob } = await supabase
+        .from('jobs')
+        .select('id, job_number')
+        .eq('id', lead.converted_job_id)
+        .maybeSingle();
+
+      if (existingJob) {
+        return NextResponse.json(
+          {
+            error: `This lead/tender has already been converted to Job #${existingJob.job_number || existingJob.id}`,
+            job: existingJob,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    let tenderMeta: any = null;
+    if (typeof lead.notes === 'string' && lead.notes.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(lead.notes.trim());
+        tenderMeta = parsed.tender_meta || parsed;
+      } catch {
+        tenderMeta = null;
+      }
+    } else if (typeof lead.notes === 'object' && lead.notes) {
+      tenderMeta = (lead.notes as any).tender_meta || lead.notes;
     }
 
     if (!lead.service_type && !body.service_type) {
       return NextResponse.json({ error: 'Service type is missing from the lead.' }, { status: 400 });
+    }
+
+    const rawAddress =
+      body.address_line1 ||
+      tenderMeta?.jobsite_address ||
+      tenderMeta?.address ||
+      lead.address ||
+      lead.address_line1 ||
+      'TBD';
+    const rawCity = body.city || tenderMeta?.city || lead.city || 'Toronto';
+    const rawPostal = body.postal_code || tenderMeta?.postal_code || lead.postal_code || '';
+
+    // Automatically resolve or dynamically create zone coverage & geocode
+    const resolved = await resolveOrCreateZone({
+      address_line1: rawAddress,
+      city: rawCity,
+      postal_code: rawPostal,
+    });
+
+    const finalZoneId = body.zone_id || resolved?.zoneId;
+    if (!finalZoneId) {
+      return NextResponse.json({ error: 'A zone must be selected to convert a lead.' }, { status: 400 });
     }
 
     // Find or create customer (check email first, then phone)
@@ -88,8 +137,8 @@ export async function POST(
           company_name: lead.company_name || null,
           email: targetEmail,
           phone: lead.customer_phone ?? '—',
-          city: lead.city,
-          zone_id: body.zone_id,
+          city: rawCity,
+          zone_id: finalZoneId,
         })
         .select()
         .single();
@@ -104,22 +153,23 @@ export async function POST(
     const startTime = body.scheduled_start_time || lead.preferred_start_time || '15:00';
     const duration = body.estimated_duration_minutes ? parseInt(body.estimated_duration_minutes, 10) : 360;
 
-    const rawAddress = body.address_line1 || lead.address || lead.address_line1 || 'TBD';
-    const rawCity = body.city || lead.city || 'Toronto';
-    const rawPostal = body.postal_code || lead.postal_code || '';
+    const finalCity = resolved?.cleanCity || rawCity;
+    const finalPostal = resolved?.cleanPostalCode || rawPostal;
+    const finalLat = resolved?.latitude;
+    const finalLon = resolved?.longitude;
 
-    // Automatically resolve or dynamically create zone coverage & geocode
-    const resolved = await resolveOrCreateZone({
-      address_line1: rawAddress,
-      city: rawCity,
-      postal_code: rawPostal,
-    });
+    let finalScopeNotes = body.scope_notes;
+    if (!finalScopeNotes) {
+      if (tenderMeta) {
+        const pName = tenderMeta.project_name || lead.condition || '';
+        const sSummary = tenderMeta.scope_summary || '';
+        finalScopeNotes = [pName ? `Project: ${pName}` : '', sSummary].filter(Boolean).join('\n\n') || lead.notes;
+      } else {
+        finalScopeNotes = lead.notes;
+      }
+    }
 
-    const finalZoneId = body.zone_id || resolved.zoneId;
-    const finalCity = resolved.cleanCity || rawCity;
-    const finalPostal = resolved.cleanPostalCode || rawPostal;
-    const finalLat = resolved.latitude;
-    const finalLon = resolved.longitude;
+    const homeSqft = body.home_size_sqft ?? lead.home_size_sqft ?? tenderMeta?.sqft ?? null;
 
     // Create job from lead with accurate geocoding and zone coverage
     const { data: job, error: jobError } = await supabase
@@ -141,10 +191,10 @@ export async function POST(
         quoted_price: body.quoted_price ?? lead.quoted_price ?? 0,
         home_bedrooms: lead.home_bedrooms,
         home_bathrooms: lead.home_bathrooms,
-        home_size_sqft: lead.home_size_sqft,
+        home_size_sqft: homeSqft,
         has_pets: lead.has_pets ?? false,
         add_ons: lead.add_ons ?? [],
-        scope_notes: lead.notes,
+        scope_notes: finalScopeNotes,
         status: 'lead_received',
         deposit_amount: body.deposit_amount ?? 0,
       })
@@ -156,12 +206,27 @@ export async function POST(
       throw jobError;
     }
 
+    // Update lead status and tender_meta if tender
+    let updatedNotes = lead.notes;
+    if (tenderMeta) {
+      try {
+        const parsed = typeof lead.notes === 'string' ? JSON.parse(lead.notes) : { ...lead.notes };
+        if (!parsed.tender_meta) parsed.tender_meta = {};
+        parsed.tender_meta.bid_status = 'awarded';
+        parsed.tender_meta.converted_job_id = job.id;
+        updatedNotes = JSON.stringify(parsed);
+      } catch {
+        // ignore
+      }
+    }
+
     // Update lead status
     const { error: updateError } = await supabase
       .from('leads')
       .update({
         status: 'converted',
         converted_job_id: job.id,
+        notes: updatedNotes,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id);

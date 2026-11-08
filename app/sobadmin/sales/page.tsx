@@ -9,8 +9,9 @@ import PhoneTab from '@/components/sales/phone/PhoneTab';
 import HistoryTab from '@/components/sales/history/HistoryTab';
 import MapTab from '@/components/sales/map/MapTab';
 import TeamTab from '@/components/sales/team/TeamTab';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { OsBackdropLayer } from '@/components/shared/OsBackdropLayer';
+import { OperatorControlPopover } from '@/components/admin/layout/OperatorControlPopover';
 import { 
   LayoutGrid, ArrowLeft, Home, Building2, 
   PhoneCall, Compass, Clock, Users, RefreshCw,
@@ -207,28 +208,34 @@ export default function AdminSalesOSPage() {
     }
   };
 
+  const handleSalesLogout = async () => {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    window.location.href = '/sobadmin/login';
+  };
+
   if (authLoading || !user) {
     return (
-      <div className="fixed inset-0 z-50 flex flex-col h-dvh w-screen overflow-hidden bg-[#001326] text-[#fffcf6] font-sans dark">
-        <header className="h-14 sm:h-12 px-4 bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 flex items-center justify-between gap-4 shrink-0">
+      <div className="fixed inset-0 z-50 flex flex-col h-dvh w-screen overflow-hidden bg-background text-foreground font-sans">
+        <header className="os-dock-bar h-14 sm:h-12 px-4 border-b border-border flex items-center justify-between gap-4 shrink-0">
           <div className="flex items-center gap-2">
-            <Skeleton className="h-8 w-28 rounded-lg bg-[#3c6ca8]/20" />
-            <Skeleton className="h-8 w-24 rounded-lg bg-[#3c6ca8]/15" />
-            <Skeleton className="h-8 w-28 rounded-lg bg-[#3c6ca8]/15" />
+            <Skeleton className="h-8 w-28 rounded-lg" />
+            <Skeleton className="h-8 w-24 rounded-lg" />
+            <Skeleton className="h-8 w-28 rounded-lg" />
           </div>
           <div className="flex items-center gap-2">
-            <Skeleton className="h-7 w-24 rounded-md bg-[#3c6ca8]/15" />
-            <Skeleton className="h-8 w-8 rounded-lg bg-[#3c6ca8]/20" />
+            <Skeleton className="h-7 w-24 rounded-md" />
+            <Skeleton className="h-8 w-8 rounded-lg" />
           </div>
         </header>
         <div className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
           <div className="space-y-2">
-            <Skeleton className="h-8 w-64 bg-[#3c6ca8]/20" />
-            <Skeleton className="h-4 w-96 max-w-full bg-[#3c6ca8]/15" />
+            <Skeleton className="h-8 w-64" />
+            <Skeleton className="h-4 w-96 max-w-full" />
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-64 w-full rounded-2xl bg-[#001b38] border border-[#3c6ca8]/20" />
+              <Skeleton key={i} className="h-64 w-full rounded-2xl bg-card border border-border" />
             ))}
           </div>
         </div>
@@ -237,20 +244,22 @@ export default function AdminSalesOSPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col h-dvh w-screen overflow-hidden bg-[#001326] text-[#fffcf6] font-sans dark">
+    <div className="fixed inset-0 z-50 flex flex-col h-dvh w-screen overflow-hidden bg-transparent text-foreground font-sans">
+      <OsBackdropLayer />
+
       {/* =========================================================
           PERSISTENT OS SYSTEM MENU BAR (Top Dock & Status Tray)
          ========================================================= */}
-      <header className="h-14 sm:h-12 px-2.5 sm:px-4 bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 flex items-center justify-between gap-2 shrink-0 z-50 select-none safe-top">
+      <header className="os-dock-bar relative h-14 sm:h-12 px-2.5 sm:px-4 border-b flex items-center justify-between gap-2 shrink-0 z-50 select-none safe-top">
         {/* LEFT: Workspace Return + OS Home Launcher + Direct App Dock */}
         <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
           <button
             type="button"
             onClick={() => handleExitToAdmin('/sobadmin')}
-            className="h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 bg-[#001b38] hover:bg-[#002855] text-slate-200 border border-[#3c6ca8]/30 transition shrink-0 cursor-pointer"
+            className="os-tray-btn h-8 px-2.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 border transition shrink-0 cursor-pointer"
             title="Return to Sea of Blue OS Launchpad (All 4 Workstations)"
           >
-            <ArrowLeft className="h-3.5 w-3.5 text-blue-400" />
+            <ArrowLeft className="h-3.5 w-3.5 text-primary" />
             <span className="hidden sm:inline">OS Launchpad</span>
           </button>
 
@@ -260,8 +269,8 @@ export default function AdminSalesOSPage() {
             onClick={() => handleSelectApp(null)}
             className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
               !activeApp
-                ? 'bg-indigo-600 text-white border-indigo-500 shadow-xs'
-                : 'bg-[#001b38]/80 hover:bg-[#00244c] text-[#88a2c0] hover:text-white border-[#3c6ca8]/25'
+                ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                : 'os-tray-btn text-muted-foreground hover:text-foreground'
             }`}
             title="Sales & CRM Hub (Inbound & Outbound)"
           >
@@ -270,35 +279,35 @@ export default function AdminSalesOSPage() {
           </button>
 
           {/* INBOUND CRM PILLS */}
-          <div className="hidden md:flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-indigo-500/25">
-            <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-300/80 px-1.5 hidden xl:inline">
+          <div className="hidden md:flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-indigo-500/25">
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-indigo-500 dark:text-indigo-300/80 px-1.5 hidden xl:inline">
               Inbound
             </span>
             <button
               type="button"
               onClick={() => handleExitToAdmin('/sobadmin/leads')}
-              className="h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 text-[#88a2c0] hover:text-white hover:bg-[#001d40] transition shrink-0 cursor-pointer"
+              className="h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition shrink-0 cursor-pointer"
               title="Open Inbound Leads & Quotes"
             >
-              <ClipboardList className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+              <ClipboardList className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400 shrink-0" />
               <span>Leads</span>
             </button>
             <button
               type="button"
               onClick={() => handleExitToAdmin('/sobadmin/customers')}
-              className="h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 text-[#88a2c0] hover:text-white hover:bg-[#001d40] transition shrink-0 cursor-pointer"
+              className="h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition shrink-0 cursor-pointer"
               title="Open Customers & Accounts CRM"
             >
-              <Users className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+              <Users className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400 shrink-0" />
               <span>Customers</span>
             </button>
           </div>
 
-          <div className="h-4 w-px bg-[#3c6ca8]/25 hidden sm:block" />
+          <div className="h-4 w-px bg-border hidden sm:block" />
 
           {/* OUTBOUND SALES OS PILLS */}
-          <div className="flex items-center gap-1 bg-[#001326] p-0.5 rounded-lg border border-emerald-500/25">
-            <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-400/80 px-1.5 hidden xl:inline">
+          <div className="flex items-center gap-1 bg-muted/60 p-0.5 rounded-lg border border-emerald-500/25">
+            <span className="text-[9px] font-extrabold uppercase tracking-wider text-emerald-600 dark:text-emerald-400/80 px-1.5 hidden xl:inline">
               Outbound
             </span>
             {OS_APPS.map((app) => {
@@ -312,7 +321,7 @@ export default function AdminSalesOSPage() {
                   className={`h-7 px-2 sm:px-2.5 rounded-md text-[11px] font-bold flex items-center gap-1.5 transition cursor-pointer ${
                     isSelected
                       ? app.activeColor
-                      : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
                   }`}
                   title={`Switch to ${app.label}`}
                 >
@@ -326,7 +335,7 @@ export default function AdminSalesOSPage() {
 
         {/* CENTER: Field KnockLog Sub-Workspace Switcher (Desktop: Knock | Map | Team | History) */}
         {(activeApp === 'residential' || activeApp === 'commercial') && (
-          <div className="hidden md:flex items-center gap-0.5 sm:gap-1 bg-[#001326] p-1 rounded-xl border border-[#3c6ca8]/30 shrink-0">
+          <div className="hidden md:flex items-center gap-0.5 sm:gap-1 bg-muted/60 p-1 rounded-xl border border-border shrink-0">
             {([
               { id: 'KNOCK', label: 'Knock', icon: MapPin },
               { id: 'MAP', label: 'Map', icon: Compass },
@@ -339,8 +348,8 @@ export default function AdminSalesOSPage() {
                 onClick={() => handleSelectFieldTab(id)}
                 className={`px-2.5 sm:px-3.5 py-1 rounded-lg text-[11px] sm:text-xs font-bold flex items-center gap-1.5 transition cursor-pointer ${
                   fieldTab === id
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'text-[#88a2c0] hover:text-white hover:bg-[#001d40]'
+                    ? 'bg-primary text-primary-foreground shadow-xs'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/60'
                 }`}
               >
                 <TabIcon className="w-3.5 h-3.5 hidden sm:inline" />
@@ -350,7 +359,7 @@ export default function AdminSalesOSPage() {
           </div>
         )}
 
-        {/* RIGHT: OS System Tray (Sync Status + Rep Pill + Clock + Fullscreen Toggle) */}
+        {/* RIGHT: OS System Tray (Sync Status + Rep Pill Popover + Clock + Fullscreen Toggle) */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Cloud Sync Status */}
           <button
@@ -364,17 +373,17 @@ export default function AdminSalesOSPage() {
             }
             className={`h-8 px-2.5 flex items-center gap-1.5 rounded-lg text-[11px] font-semibold border transition cursor-pointer ${
               pendingSyncCount > 0
-                ? 'bg-amber-500/15 text-amber-300 border-amber-500/40 hover:bg-amber-500/25 animate-pulse'
-                : 'bg-[#001b38] text-[#88a2c0] border-[#3c6ca8]/25 hover:text-white'
+                ? 'bg-amber-500/15 text-amber-600 dark:text-amber-300 border-amber-500/40 hover:bg-amber-500/25 animate-pulse'
+                : 'os-tray-btn text-muted-foreground hover:text-foreground'
             }`}
           >
             <RefreshCw
               className={`w-3.5 h-3.5 ${
                 isSyncing
-                  ? 'animate-spin text-blue-400'
+                  ? 'animate-spin text-primary'
                   : pendingSyncCount > 0
-                  ? 'text-amber-400'
-                  : 'text-emerald-400'
+                  ? 'text-amber-500 dark:text-amber-400'
+                  : 'text-emerald-500 dark:text-emerald-400'
               }`}
             />
             <span className="hidden md:inline">
@@ -382,19 +391,21 @@ export default function AdminSalesOSPage() {
             </span>
           </button>
 
-          {/* Operator Badge */}
-          <Badge
-            variant="outline"
-            className="hidden sm:inline-flex h-8 px-2.5 text-[11px] gap-1.5 border-[#3c6ca8]/30 bg-[#001b38] text-slate-200 font-sans"
-          >
-            <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse" />
-            <span className="font-bold text-white truncate max-w-[120px]">{repName}</span>
-            <span className="text-[#88a2c0] hidden xl:inline">• {repTitle}</span>
-          </Badge>
+          {/* Interactive Operator & Glass Studio Pill */}
+          <OperatorControlPopover
+            operator={{
+              name: repName,
+              title: repTitle,
+              email: user.email,
+            }}
+            onLogout={handleSalesLogout}
+            showTitleBreakpoint="xl"
+            className="hidden sm:inline-flex"
+          />
 
           {/* System Clock */}
           {clockTime && (
-            <span className="hidden xl:inline-block text-xs font-mono font-semibold text-[#88a2c0] px-1.5">
+            <span className="hidden xl:inline-block text-xs font-mono font-semibold text-muted-foreground px-1.5">
               {clockTime}
             </span>
           )}
@@ -406,18 +417,18 @@ export default function AdminSalesOSPage() {
             title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Enter Full Screen OS Mode'}
             className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
               isFullscreen
-                ? 'bg-blue-500/20 text-blue-300 border-blue-500/40 hover:bg-blue-500/30'
-                : 'bg-[#001b38] text-slate-200 border-[#3c6ca8]/35 hover:bg-[#002855] hover:text-white'
+                ? 'bg-primary/15 text-primary border-primary/40 hover:bg-primary/25'
+                : 'os-tray-btn'
             }`}
           >
             {isFullscreen ? (
               <>
-                <Minimize2 className="w-3.5 h-3.5 text-blue-400" />
+                <Minimize2 className="w-3.5 h-3.5 text-primary" />
                 <span className="hidden sm:inline">Exit Full</span>
               </>
             ) : (
               <>
-                <Maximize2 className="w-3.5 h-3.5 text-blue-400" />
+                <Maximize2 className="w-3.5 h-3.5 text-primary" />
                 <span className="hidden sm:inline">Full Screen</span>
               </>
             )}
@@ -428,7 +439,7 @@ export default function AdminSalesOSPage() {
       {/* =========================================================
           EDGE-TO-EDGE OS WORKSPACE CANVAS (100% Remaining Viewport)
          ========================================================= */}
-      <div className="flex-1 w-full h-full min-h-0 overflow-hidden relative flex flex-col">
+      <div className="relative z-10 flex-1 w-full h-full min-h-0 overflow-hidden flex flex-col">
         {/* 1. OS DESKTOP LAUNCHPAD */}
         {!activeApp && (
           <SalesLaunchpad
@@ -437,7 +448,7 @@ export default function AdminSalesOSPage() {
             user={user}
             onSelectApp={handleSelectApp}
             onNavigateHref={handleExitToAdmin}
-            onLogout={() => {}}
+            onLogout={handleSalesLogout}
             isFullscreen={isFullscreen}
             onToggleFullscreen={toggleFullscreen}
             pendingSyncCount={pendingSyncCount}
@@ -450,12 +461,12 @@ export default function AdminSalesOSPage() {
             {/* KNOCK TAB */}
             <div
               style={{ display: fieldTab === 'KNOCK' ? 'block' : 'none' }}
-              className="w-full h-full flex-1 overflow-y-auto bg-[#001326] py-3 px-2 sm:px-6"
+              className="w-full h-full flex-1 overflow-y-auto bg-transparent py-3 px-2 sm:px-6"
             >
               <Logger
                 user={user}
                 repName={repName}
-                onLogout={() => {}}
+                onLogout={handleSalesLogout}
                 isActive={fieldTab === 'KNOCK'}
                 mode={activeApp === 'commercial' ? 'COMMERCIAL' : 'RESIDENTIAL'}
                 onModeChange={(newMode: string) =>
@@ -495,7 +506,7 @@ export default function AdminSalesOSPage() {
             {/* HISTORY TAB — Full Viewport Session History */}
             <div
               style={{ display: fieldTab === 'HISTORY' ? 'block' : 'none' }}
-              className="w-full h-full flex-1 overflow-y-auto bg-[#001326]"
+              className="w-full h-full flex-1 overflow-y-auto bg-transparent"
             >
               <HistoryTab
                 user={user}
@@ -506,7 +517,7 @@ export default function AdminSalesOSPage() {
             </div>
 
             {/* Mobile Bottom Dock for Field KnockLog (< md) */}
-            <nav className="md:hidden shrink-0 z-40 bg-[#000d1a]/95 border-t border-[#3c6ca8]/25 safe-bottom flex items-center justify-around h-14">
+            <nav className="os-dock-bar md:hidden shrink-0 z-40 border-t safe-bottom flex items-center justify-around h-14">
               {([
                 { id: 'KNOCK', label: 'Knock', icon: MapPin },
                 { id: 'MAP', label: 'Map', icon: Compass },
@@ -518,7 +529,7 @@ export default function AdminSalesOSPage() {
                   type="button"
                   onClick={() => handleSelectFieldTab(id)}
                   className={`flex-1 flex flex-col items-center justify-center h-full gap-0.5 text-[10px] font-bold transition-colors ${
-                    fieldTab === id ? 'text-blue-400' : 'text-[#88a2c0] active:text-white'
+                    fieldTab === id ? 'text-primary' : 'text-muted-foreground active:text-foreground'
                   }`}
                 >
                   <TabIcon className="w-4 h-4" />
@@ -531,7 +542,7 @@ export default function AdminSalesOSPage() {
 
         {/* 3. B2B PHONE SALES OS WORKSTATION */}
         {activeApp === 'phone' && (
-          <div className="flex-1 w-full h-full min-h-0 overflow-y-auto bg-[#001326]">
+          <div className="flex-1 w-full h-full min-h-0 overflow-y-auto bg-transparent">
             <PhoneTab
               user={user}
               repName={repName}

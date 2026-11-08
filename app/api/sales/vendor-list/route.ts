@@ -209,12 +209,13 @@ export async function GET() {
         service_type: t.service_type || 'post_construction_clean',
         project_name: tenderMeta.project_name || t.condition || 'Commercial Tender Package',
         bid_due_date: tenderMeta.bid_due_date || t.preferred_date || null,
-        bid_status: tenderMeta.bid_status || (t.status === 'converted' ? 'awarded' : t.status === 'lost' ? 'not_awarded' : t.status === 'quoted' ? 'bid_submitted' : 'itb_received'),
+        bid_status: tenderMeta.bid_status || (t.status === 'converted' || t.status === 'won' ? 'awarded' : t.status === 'lost' ? 'not_awarded' : t.status === 'quoted' ? 'bid_submitted' : 'itb_received'),
         portal_url: tenderMeta.portal_url || '',
         scope_summary: tenderMeta.scope_summary || (typeof intel.notes === 'string' ? intel.notes : ''),
         sqft: t.home_size_sqft || tenderMeta.sqft || null,
         quoted_price: t.quoted_price ? Number(t.quoted_price) : null,
         status: t.status || 'new',
+        converted_job_id: t.converted_job_id || tenderMeta.converted_job_id || null,
         created_at: t.created_at,
         updated_at: t.updated_at,
         tender_meta: tenderMeta,
@@ -636,7 +637,7 @@ export async function PATCH(request: NextRequest) {
       if (body.bid_status !== undefined) {
         updateFields.status =
           body.bid_status === 'awarded'
-            ? 'converted'
+            ? (existingTender.converted_job_id ? 'converted' : 'won')
             : body.bid_status === 'not_awarded'
             ? 'lost'
             : body.bid_status === 'bid_submitted'

@@ -46,12 +46,14 @@ import {
   UploadCloud,
   CheckCircle2,
   Loader2,
+  CalendarPlus,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, differenceInCalendarDays, parseISO } from 'date-fns';
 import { SERVICE_TYPE_LABELS } from '@/types';
 import type { ServiceType } from '@/types';
 import { TenderDetailModal } from '@/components/admin/tenders/TenderDetailModal';
+import { ConvertTenderModal } from '@/components/admin/tenders/ConvertTenderModal';
 
 const CHECKLIST_LABELS: Record<string, string> = {
   coi: 'COI Insurance',
@@ -166,6 +168,7 @@ export default function VendorListsAndTendersPage() {
 
   // Unified Log Tender Modal & AI Auto-Fill State
   const [selectedTenderForDetail, setSelectedTenderForDetail] = useState<any | null>(null);
+  const [convertingTender, setConvertingTender] = useState<any | null>(null);
   const [tenderModalOpen, setTenderModalOpen] = useState(false);
   const [submittingTender, setSubmittingTender] = useState(false);
   const [aiAutoFilling, setAiAutoFilling] = useState(false);
@@ -497,6 +500,12 @@ export default function VendorListsAndTendersPage() {
       });
       if (!res.ok) throw new Error('Failed to update tender');
       toast.success('Tender status updated');
+      if (newBidStatus === 'awarded') {
+        const target = tenders.find((t) => t.id === tenderId);
+        if (target && !target.converted_job_id) {
+          setConvertingTender({ ...target, bid_status: 'awarded' });
+        }
+      }
     } catch {
       toast.error('Failed to update tender');
       fetchVendorAndTenders();
@@ -1136,7 +1145,28 @@ export default function VendorListsAndTendersPage() {
                           <option value="not_awarded">Not Awarded</option>
                         </select>
 
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {tender.converted_job_id ? (
+                            <Link href="/sobadmin/jobs">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 gap-1"
+                              >
+                                <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                Job
+                              </Button>
+                            </Link>
+                          ) : tender.bid_status === 'awarded' ? (
+                            <Button
+                              size="sm"
+                              onClick={() => setConvertingTender(tender)}
+                              className="h-8 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white gap-1 shadow-sm"
+                            >
+                              <CalendarPlus className="w-3 h-3" />
+                              Convert
+                            </Button>
+                          ) : null}
                           <Button
                             variant="outline"
                             size="sm"
@@ -1254,6 +1284,27 @@ export default function VendorListsAndTendersPage() {
                           </TableCell>
                           <TableCell className="text-right">
                             <div className="flex items-center justify-end gap-1.5">
+                              {tender.converted_job_id ? (
+                                <Link href="/sobadmin/jobs">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 text-xs font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 gap-1"
+                                  >
+                                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                    Job
+                                  </Button>
+                                </Link>
+                              ) : tender.bid_status === 'awarded' ? (
+                                <Button
+                                  size="sm"
+                                  onClick={() => setConvertingTender(tender)}
+                                  className="h-7 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white gap-1 shadow-sm"
+                                >
+                                  <CalendarPlus className="w-3 h-3" />
+                                  Convert to Job
+                                </Button>
+                              ) : null}
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1577,6 +1628,22 @@ export default function VendorListsAndTendersPage() {
           setSelectedTenderForDetail((prev: any) =>
             prev && prev.id === tenderId ? { ...prev, bid_status: newStatus } : prev
           );
+        }}
+        onConvertJob={(tender) => setConvertingTender(tender)}
+      />
+
+      {/* CONVERT TENDER TO JOB MODAL */}
+      <ConvertTenderModal
+        tender={convertingTender}
+        isOpen={Boolean(convertingTender)}
+        onClose={() => setConvertingTender(null)}
+        onSuccess={(job) => {
+          fetchVendorAndTenders();
+          if (selectedTenderForDetail && selectedTenderForDetail.id === convertingTender?.id) {
+            setSelectedTenderForDetail((prev: any) =>
+              prev ? { ...prev, converted_job_id: job.id, bid_status: 'awarded' } : null
+            );
+          }
         }}
       />
     </div>

@@ -45,12 +45,27 @@ export default function LeadDetailPage() {
       const res = await fetch(`/api/leads/${params.id}`);
       const data = await res.json();
       setLead(data);
+      let tenderMeta: any = null;
+      if (typeof data.notes === 'string' && data.notes.trim().startsWith('{')) {
+        try {
+          const parsed = JSON.parse(data.notes.trim());
+          tenderMeta = parsed.tender_meta || parsed;
+        } catch {}
+      } else if (typeof data.notes === 'object' && data.notes) {
+        tenderMeta = (data.notes as any).tender_meta || data.notes;
+      }
+
+      const initialAddress = tenderMeta?.jobsite_address || tenderMeta?.address || data.address || data.address_line1 || data.city || '';
+      const initialDate = data.preferred_date || (tenderMeta?.bid_due_date ? String(tenderMeta.bid_due_date).split('T')[0] : '');
+      const initialPrice = data.quoted_price?.toString() || tenderMeta?.quoted_price?.toString() || '';
+
       setConvertForm(f => ({
         ...f,
-        scheduled_date: data.preferred_date ?? '',
+        scheduled_date: initialDate,
         scheduled_start_time: data.preferred_start_time ?? '15:00',
-        address_line1: data.city ?? '',
-        quoted_price: data.quoted_price?.toString() ?? '',
+        address_line1: initialAddress,
+        postal_code: tenderMeta?.postal_code || data.postal_code || '',
+        quoted_price: initialPrice,
       }));
       setEditForm(data);
       setLoading(false);
@@ -578,10 +593,20 @@ export default function LeadDetailPage() {
           <Trash2 className="h-4 w-4 mr-2" /> Delete
         </Button>
 
-        {lead.status !== 'converted' && (
+        {lead.converted_job_id ? (
+          <Link href="/sobadmin/jobs">
+            <Button variant="outline" className="bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 font-semibold h-10">
+              <CheckCircle2 className="h-4 w-4 mr-2 text-emerald-400" />
+              View Converted Job
+            </Button>
+          </Link>
+        ) : (
           <Dialog modal={false} open={convertOpen} onOpenChange={setConvertOpen}>
             <DialogTrigger asChild>
-              <Button><ArrowRight className="h-4 w-4 mr-2" />Convert to Job</Button>
+              <Button className="bg-blue-600 hover:bg-blue-500 text-white font-semibold h-10">
+                <ArrowRight className="h-4 w-4 mr-2" />
+                Convert to Job
+              </Button>
             </DialogTrigger>
             <DialogContent 
               className="sm:max-w-lg w-full bg-slate-900 border border-white/10 text-white dark p-6 shadow-2xl rounded-2xl"

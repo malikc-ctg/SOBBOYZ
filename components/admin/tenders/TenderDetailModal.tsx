@@ -30,6 +30,7 @@ import {
   AlertTriangle,
   ExternalLink,
   ShieldCheck,
+  CalendarPlus,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { SERVICE_TYPE_LABELS } from '@/types';
@@ -40,6 +41,7 @@ interface TenderDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStatusChange?: (tenderId: string, newStatus: string) => void;
+  onConvertJob?: (tender: any) => void;
 }
 
 const BID_STATUS_META: Record<string, { label: string; badgeClass: string }> = {
@@ -70,6 +72,7 @@ export function TenderDetailModal({
   isOpen,
   onClose,
   onStatusChange,
+  onConvertJob,
 }: TenderDetailModalProps) {
   if (!tender) return null;
 
@@ -167,6 +170,23 @@ export function TenderDetailModal({
               <span className="text-2xl font-black text-foreground">
                 {tender.quoted_price ? `$${Number(tender.quoted_price).toLocaleString()}` : '—'}
               </span>
+              {tender.converted_job_id ? (
+                <div className="mt-1 flex items-center justify-end gap-1 text-[11px] font-semibold text-emerald-400">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>Job Converted</span>
+                </div>
+              ) : tender.bid_status === 'awarded' ? (
+                <div className="mt-1">
+                  <Button
+                    size="sm"
+                    onClick={() => onConvertJob?.(tender)}
+                    className="h-7 text-[11px] font-bold bg-blue-600 hover:bg-blue-500 text-white gap-1 px-2.5 shadow-sm"
+                  >
+                    <CalendarPlus className="w-3 h-3" />
+                    Schedule Job
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
         </DialogHeader>
@@ -478,7 +498,28 @@ export function TenderDetailModal({
               </select>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
+              {tender.converted_job_id ? (
+                <Link href="/sobadmin/jobs">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-xs font-semibold bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20 gap-1.5"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                    View Converted Job
+                  </Button>
+                </Link>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => onConvertJob?.(tender)}
+                  className="text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white gap-1.5 shadow-sm"
+                >
+                  <CalendarPlus className="w-3.5 h-3.5" />
+                  Convert to Job
+                </Button>
+              )}
               <Link href={`/sobadmin/leads/${tender.id}`}>
                 <Button variant="outline" size="sm" className="text-xs font-semibold">
                   Open in Standard Lead View
