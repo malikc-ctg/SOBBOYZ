@@ -7,9 +7,7 @@ import { Toaster } from '@/components/ui/sonner';
 import localFont from 'next/font/local';
 import { LenisProvider } from '@/lib/motion/LenisProvider';
 import AuthInterceptor from '@/components/shared/AuthInterceptor';
-import WaveLoader from '@/components/shared/WaveLoader';
 import MetricoolScript from '@/components/shared/MetricoolScript';
-import { Suspense } from 'react';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -55,11 +53,7 @@ export default function RootLayout({
       <body className="font-sans antialiased">
         <AuthInterceptor />
         <LenisProvider>
-          <Suspense fallback={null}>
-            <WaveLoader>
-              {children}
-            </WaveLoader>
-          </Suspense>
+          {children}
         </LenisProvider>
         <Toaster position="top-right" richColors />
         <MetricoolScript />

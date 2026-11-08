@@ -5,6 +5,7 @@ import { Plus, Send, AlertTriangle, CheckCircle2, Clock, RefreshCw, FileText, Se
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -225,9 +226,19 @@ export function InvoicingSuite() {
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           {loading ? (
-            <div className="p-12 text-center text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
-              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-              Loading invoices from QuickBooks...
+            <div className="p-5 space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                  <Skeleton className="h-8 w-24 rounded-md" />
+                </div>
+              ))}
             </div>
           ) : filteredInvoices.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-sm">

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -299,9 +300,17 @@ export function SalesCallLogsTab() {
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-sm text-muted-foreground flex flex-col items-center justify-center gap-2">
-            <RefreshCw className="w-5 h-5 animate-spin text-muted-foreground/60" />
-            <span>Loading commercial call logs...</span>
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-4 py-2 border-b border-border/40 last:border-0">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-48" />
+              </div>
+            ))}
           </div>
         ) : filteredCalls.length === 0 ? (
           <div className="py-16 text-center text-sm text-muted-foreground border-dashed border-border/60">

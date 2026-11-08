@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -87,7 +88,13 @@ export default function BookingStatusPage() {
   }
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center"><p className="text-muted-foreground">Loading...</p></div>
+    <div className="min-h-screen bg-background p-6 flex items-center justify-center">
+      <div className="w-full max-w-lg space-y-4">
+        <Skeleton className="h-10 w-48 mx-auto" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+      </div>
+    </div>
   );
   if (!job) return (
     <div className="min-h-screen flex items-center justify-center"><p className="text-red-500">Booking not found</p></div>

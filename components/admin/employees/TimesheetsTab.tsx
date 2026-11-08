@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -619,9 +620,22 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
         {/* Mobile Timesheets Card List (< md) */}
         <div className="md:hidden divide-y divide-border/60">
           {loading ? (
-            <div className="py-12 text-center text-muted-foreground text-xs flex items-center justify-center gap-2">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Loading timesheets...
+            <div className="p-3.5 space-y-3">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2.5 pb-3 border-b border-border/50 last:border-0">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-3.5 w-28" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </div>
+                  <Skeleton className="h-12 w-full rounded-lg" />
+                </div>
+              ))}
             </div>
           ) : timesheets.length === 0 ? (
             <div className="py-10 text-center text-muted-foreground text-xs p-4">
@@ -738,14 +752,18 @@ export function TimesheetsTab({ employees }: TimesheetsTabProps) {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">
-                    <div className="flex items-center justify-center gap-2">
-                      <RefreshCw className="h-4 w-4 animate-spin" />
-                      Loading timesheets & hours...
-                    </div>
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-20 rounded-md ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : timesheets.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-12 text-muted-foreground">

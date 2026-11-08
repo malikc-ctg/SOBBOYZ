@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { createClient } from '@/lib/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Search, RefreshCw, Radio, Briefcase,
   DollarSign, Zap, AlertTriangle, CheckCircle,
@@ -361,9 +362,16 @@ function QuickAssignDrawer({
         </div>
 
         {loading ? (
-          <div className="py-8 flex flex-col items-center justify-center gap-2 text-white/30 text-xs">
-            <RefreshCw className="h-5 w-5 animate-spin text-blue-400" />
-            <span>Calculating optimal drive times...</span>
+          <div className="space-y-2 py-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="p-2.5 rounded-xl bg-white/[0.04] border border-white/10 flex items-center justify-between gap-2">
+                <div className="space-y-1.5 flex-1">
+                  <Skeleton className="h-3.5 w-32 bg-white/10" />
+                  <Skeleton className="h-3 w-24 bg-white/10" />
+                </div>
+                <Skeleton className="h-7 w-16 rounded-lg bg-white/10" />
+              </div>
+            ))}
           </div>
         ) : suggestions.length === 0 ? (
           <div className="py-6 text-center text-white/30 text-xs">

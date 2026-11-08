@@ -5,6 +5,7 @@ import { Repeat, TrendingUp, Users, DollarSign, Calendar, RefreshCw, Sparkles, S
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 function formatCAD(val: number) {
@@ -119,9 +120,16 @@ export function SubscriptionSuite() {
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           {loading ? (
-            <div className="p-12 text-center text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
-              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-              Loading subscription contracts...
+            <div className="p-5 space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                  <Skeleton className="h-4 w-40" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-5 w-20 rounded-full" />
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              ))}
             </div>
           ) : (data?.subscriptions || []).length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-sm">

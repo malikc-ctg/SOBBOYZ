@@ -380,8 +380,14 @@ export default function HistoryTab({
       )}
 
       {isListLoading ? (
-        <div style={{ textAlign: 'center', padding: '40px' }}>
-          <p>Loading history...</p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, paddingTop: 12 }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div
+              key={i}
+              className="pre-stat-skel"
+              style={{ height: 84, borderRadius: 12, width: '100%' }}
+            />
+          ))}
         </div>
       ) : activeSessionsList.length === 0 ? (
         <p style={{ color: '#9ca3af', marginTop: 32, textAlign: 'center' }}>

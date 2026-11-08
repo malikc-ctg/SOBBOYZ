@@ -208,8 +208,16 @@ export default function FollowupPanel({
 
   if (loading) {
     return (
-      <div className="p-4 bg-slate-900/60 border border-slate-800 rounded-xl text-center text-xs text-slate-500">
-        Loading follow-up engine...
+      <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-5 space-y-4 animate-pulse">
+        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div className="h-4 w-40 rounded bg-slate-800" />
+          <div className="h-6 w-20 rounded-lg bg-slate-800" />
+        </div>
+        <div className="space-y-2.5">
+          <div className="h-12 w-full rounded-lg bg-slate-800/70" />
+          <div className="h-12 w-full rounded-lg bg-slate-800/70" />
+          <div className="h-12 w-full rounded-lg bg-slate-800/70" />
+        </div>
       </div>
     );
   }

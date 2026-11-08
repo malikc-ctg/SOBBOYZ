@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { ArrowLeft, Send, CheckCircle, DollarSign, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { Dispute, DisputeMessage } from '@/types';
 import { format } from 'date-fns';
 
@@ -102,7 +103,24 @@ export default function DisputeDetailPage() {
     }
   }
 
-  if (loading) return <div className="p-8 text-muted-foreground text-sm">Loading dispute…</div>;
+  if (loading) {
+    return (
+      <div className="p-3 sm:p-6 lg:p-8 space-y-6 max-w-5xl mx-auto min-w-0">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-56" />
+            <Skeleton className="h-4 w-40" />
+          </div>
+        </div>
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
   if (!dispute) return <div className="p-8 text-muted-foreground text-sm">Dispute not found.</div>;
 
   const job = dispute.job as unknown as Record<string, unknown> | null;

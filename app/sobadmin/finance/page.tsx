@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 import { DatePickerWithRange } from '@/components/ui/date-range-picker';
 import { DateRange } from 'react-day-picker';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PayrollSuite } from '@/components/admin/finance/PayrollSuite';
 import { InvoicingSuite } from '@/components/admin/finance/InvoicingSuite';
 import { SubscriptionSuite } from '@/components/admin/finance/SubscriptionSuite';
@@ -209,7 +210,18 @@ export default function FinancePage() {
               <span className="text-xs text-muted-foreground ml-auto">Refreshed nightly</span>
             </div>
             {loading ? (
-              <div className="p-12 text-center text-muted-foreground text-sm">Loading P&amp;L data…</div>
+              <div className="p-6 space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between gap-4">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-4 w-16" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                ))}
+              </div>
             ) : error ? (
               <div className="p-12 text-center text-red-500 text-sm">Failed to load data. Click refresh to retry.</div>
             ) : latestByZone.length === 0 ? (
@@ -286,9 +298,13 @@ export default function FinancePage() {
             </div>
 
             {qbLoading && !qbData ? (
-              <div className="p-12 text-center text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
-                <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-                Loading QuickBooks data…
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-28 w-full rounded-xl" />
+                  ))}
+                </div>
+                <Skeleton className="h-64 w-full rounded-xl" />
               </div>
             ) : !qbData ? (
               <div className="p-8 text-center text-muted-foreground text-sm">No QuickBooks data available</div>
@@ -534,7 +550,14 @@ export default function FinancePage() {
               Select a zone from the dropdown above to view forecasts and expansion readiness.
             </div>
           ) : !forecast ? (
-            <div className="p-12 text-center text-muted-foreground text-sm">Loading forecast…</div>
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <Skeleton key={i} className="h-28 w-full rounded-xl" />
+                ))}
+              </div>
+              <Skeleton className="h-48 w-full rounded-xl" />
+            </div>
           ) : (
             <>
               {/* 3-month projection */}

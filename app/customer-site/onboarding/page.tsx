@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
@@ -140,8 +141,15 @@ export default function CustomerOnboardingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#010A14] flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-blue-500 animate-spin" />
+      <div className="min-h-screen bg-[#010A14] flex flex-col justify-center items-center py-12 px-4 sm:px-6">
+        <div className="w-full max-w-xl space-y-6">
+          <div className="text-center space-y-3">
+            <Skeleton className="h-10 w-36 mx-auto bg-white/10" />
+            <Skeleton className="h-9 w-72 mx-auto bg-white/10" />
+            <Skeleton className="h-4 w-96 max-w-full mx-auto bg-white/10" />
+          </div>
+          <Skeleton className="h-80 w-full rounded-2xl bg-white/5" />
+        </div>
       </div>
     );
   }

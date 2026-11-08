@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ArrowLeft,
@@ -101,7 +102,37 @@ export default function CustomerDetailPage() {
   };
 
   if (loading) {
-    return <div className="min-h-[400px]" />;
+    return (
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-16 rounded-lg" />
+            <div className="space-y-2">
+              <Skeleton className="h-7 w-56" />
+              <Skeleton className="h-4 w-40" />
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-28 rounded-lg" />
+            <Skeleton className="h-9 w-36 rounded-lg" />
+          </div>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <Skeleton className="h-64 w-full rounded-xl" />
+            <Skeleton className="h-64 w-full rounded-xl" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-80 w-full rounded-xl" />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!customer) {

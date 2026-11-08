@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Waves } from 'lucide-react';
@@ -91,7 +92,18 @@ function EmployeeLoginContent() {
 
 export default function EmployeeLoginPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background px-4">
+          <div className="w-full max-w-sm space-y-4">
+            <Skeleton className="h-40 w-40 mx-auto rounded-2xl" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <Skeleton className="h-12 w-full rounded-lg" />
+          </div>
+        </div>
+      }
+    >
       <EmployeeLoginContent />
     </Suspense>
   );

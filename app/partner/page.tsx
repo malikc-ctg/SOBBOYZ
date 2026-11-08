@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { PlusCircle, Briefcase, DollarSign, TrendingUp } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PartnerDashData {
   partner: { company_name: string; credit_balance: number; referral_code: string };
@@ -21,7 +22,23 @@ export default function PartnerDashboard() {
   }, []);
 
   if (loading) {
-    return <div className="p-8 min-h-[400px]" />;
+    return (
+      <div className="p-8 space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-56" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    );
   }
 
   // Fallback demo data

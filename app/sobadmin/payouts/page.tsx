@@ -5,6 +5,7 @@ import { DollarSign, Users, TrendingUp, RefreshCw, Download } from 'lucide-react
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface VendorPayout {
   vendorName: string;
@@ -106,9 +107,23 @@ export default function PayoutsPage() {
       {/* Vendor Payouts Cards (< md) */}
       <div className="md:hidden space-y-2.5">
         {loading ? (
-          <div className="p-8 text-center text-muted-foreground text-sm">
-            <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
-            Loading payout data from QuickBooks…
+          <div className="space-y-2.5">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-3.5 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-3 w-28" />
+                    </div>
+                    <div className="space-y-1 text-right">
+                      <Skeleton className="h-4 w-20 ml-auto" />
+                      <Skeleton className="h-3 w-16 ml-auto" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : payouts.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground text-sm bg-card border rounded-xl">
@@ -162,9 +177,15 @@ export default function PayoutsPage() {
         </CardHeader>
         <CardContent className="p-0 overflow-x-auto">
           {loading ? (
-            <div className="p-12 text-center text-muted-foreground text-sm">
-              <RefreshCw className="h-5 w-5 animate-spin mx-auto mb-2" />
-              Loading payout data from QuickBooks…
+            <div className="p-6 space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center justify-between gap-4">
+                  <Skeleton className="h-4 w-44" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-16" />
+                </div>
+              ))}
             </div>
           ) : payouts.length === 0 ? (
             <div className="p-12 text-center text-muted-foreground text-sm">

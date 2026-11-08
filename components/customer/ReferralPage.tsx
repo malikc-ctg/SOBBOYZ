@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Copy, CheckCircle, Share2, Gift } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { CustomerReferral } from '@/types';
 import { format } from 'date-fns';
 
@@ -46,7 +47,18 @@ export default function ReferralPage({ customerId }: ReferralPageProps) {
     }
   }
 
-  if (loading) return <div className="p-6 text-muted-foreground text-sm">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="p-6 max-w-md mx-auto space-y-5">
+        <div className="space-y-2">
+          <Skeleton className="h-7 w-40" />
+          <Skeleton className="h-4 w-full" />
+        </div>
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-36 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 max-w-md mx-auto space-y-5">

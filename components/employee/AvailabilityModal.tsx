@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
@@ -133,8 +134,9 @@ export function AvailabilityModal() {
         </DialogHeader>
         
         {loading ? (
-          <div className="flex h-40 items-center justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <div className="space-y-4 pt-4">
+            <Skeleton className="h-48 w-full rounded-xl" />
+            <Skeleton className="h-32 w-full rounded-xl" />
           </div>
         ) : (
           <div className="space-y-6 pt-4">

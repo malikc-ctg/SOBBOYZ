@@ -5,6 +5,7 @@ import { MapPin, Sparkles, TrendingUp, DollarSign, Layers, RefreshCw, BarChart2 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 function formatCAD(val: number) {
@@ -116,7 +117,17 @@ export function UnitEconomicsSuite() {
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             {loading ? (
-              <div className="p-8 text-center text-muted-foreground text-xs">Loading zone data...</div>
+              <div className="p-4 space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-5 w-14 rounded" />
+                  </div>
+                ))}
+              </div>
             ) : (data?.zones || []).length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-xs">No zone jobs completed yet.</div>
             ) : (
@@ -168,7 +179,17 @@ export function UnitEconomicsSuite() {
           </CardHeader>
           <CardContent className="p-0 overflow-x-auto">
             {loading ? (
-              <div className="p-8 text-center text-muted-foreground text-xs">Loading service data...</div>
+              <div className="p-4 space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center justify-between gap-3">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-4 w-12" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-5 w-14 rounded" />
+                  </div>
+                ))}
+              </div>
             ) : (data?.services || []).length === 0 ? (
               <div className="p-8 text-center text-muted-foreground text-xs">No service data available.</div>
             ) : (

@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Waves, Clock, CheckCircle2, User, MapPin } from 'lucide-react';
 import type { Job } from '@/types';
 import { formatJobTimeSlot } from '@/lib/time-utils';
@@ -47,9 +48,12 @@ export default function TrackingPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6">
-        <Waves className="h-10 w-10 text-blue-500 animate-bounce mb-4" />
-        <p className="text-sm text-muted-foreground font-medium">Connecting to live status...</p>
+      <div className="min-h-screen bg-muted/30 p-6 flex flex-col items-center">
+        <div className="w-full max-w-md space-y-6 mt-12">
+          <Skeleton className="h-12 w-48 mx-auto rounded-xl" />
+          <Skeleton className="h-72 w-full rounded-3xl" />
+          <Skeleton className="h-32 w-full rounded-2xl" />
+        </div>
       </div>
     );
   }

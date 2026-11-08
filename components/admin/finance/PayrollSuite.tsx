@@ -5,6 +5,7 @@ import { DollarSign, UserCheck, CheckCircle2, ChevronDown, ChevronUp, FileText, 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 
@@ -71,9 +72,17 @@ export function PayrollSuite() {
 
   if (loading && !data) {
     return (
-      <div className="p-12 text-center text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
-        <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-        Calculating cleaner payroll...
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-xl" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {[1, 2, 3, 4].map((i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+          ))}
+        </div>
       </div>
     );
   }

@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { Label } from '@/components/ui/label';
@@ -518,7 +519,15 @@ function NewJobForm() {
 
 export default function NewJobPage() {
   return (
-    <Suspense fallback={<div className="p-6 text-muted-foreground">Loading job creator...</div>}>
+    <Suspense
+      fallback={
+        <div className="max-w-2xl mx-auto space-y-6 p-6">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-12 w-full rounded-xl" />
+          <Skeleton className="h-80 w-full rounded-xl" />
+        </div>
+      }
+    >
       <NewJobForm />
     </Suspense>
   );

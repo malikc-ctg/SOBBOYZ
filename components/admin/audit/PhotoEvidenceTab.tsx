@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -291,12 +292,21 @@ export function PhotoEvidenceTab({ employees = [] }: PhotoEvidenceTabProps) {
 
       {/* Gallery Grid */}
       {loading ? (
-        <Card className="p-12 text-center text-muted-foreground">
-          <div className="flex items-center justify-center gap-2">
-            <RefreshCw className="h-5 w-5 animate-spin" />
-            Loading timestamped photo checklist evidence...
-          </div>
-        </Card>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <Skeleton className="h-48 w-full rounded-none" />
+              <CardContent className="p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Skeleton className="h-4 w-28" />
+                  <Skeleton className="h-4 w-16 rounded-full" />
+                </div>
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="h-3 w-24" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       ) : photos.length === 0 ? (
         <Card className="p-12 text-center text-muted-foreground border-dashed">
           <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">

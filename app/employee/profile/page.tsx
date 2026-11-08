@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -134,7 +135,16 @@ export default function EmployeeProfilePage() {
     finally { setSaving(false); }
   }
 
-  if (loading) return <div className="p-4 text-muted-foreground">Loading profile...</div>;
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Skeleton className="h-8 w-32" />
+        <Skeleton className="h-14 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+      </div>
+    );
+  }
 
   const badges = employee ? getBadges(employee, totalCompleted, reviews) : [];
 

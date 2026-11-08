@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -139,7 +140,23 @@ export default function EmployeeDetailPage() {
     }
   }
 
-  if (!employee) return <div className="py-20" />;
+  if (!employee) {
+    return (
+      <div className="space-y-6 min-w-0">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-9 w-20 rounded-lg" />
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-5 w-32" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-64 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
   const currentWage = Number((() => { 
     try { return JSON.parse(employee.notes || '{}').hourly_wage; } catch { return 25; } 

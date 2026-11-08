@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ExternalLink, TrendingUp, DollarSign, Briefcase } from 'lucide-react';
 import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface PartnerJob {
   id: string; job_number: string; scheduled_date: string;
@@ -113,7 +114,17 @@ export default function PartnerJobsPage() {
       {/* Jobs Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-muted-foreground text-sm">Loading jobs…</div>
+          <div className="p-6 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-5 w-20 rounded-full" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <div className="p-12 text-center space-y-3">
             <Briefcase className="h-10 w-10 text-muted-foreground/30 mx-auto" />

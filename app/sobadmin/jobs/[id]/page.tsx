@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -223,7 +224,28 @@ export default function JobDetailPage() {
     }
   }
 
-  if (loading) return <p className="text-muted-foreground p-8">Loading...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-6 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <Skeleton className="h-9 w-20 rounded-lg" />
+            <Skeleton className="h-8 w-48" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-28 rounded-lg" />
+            <Skeleton className="h-9 w-32 rounded-lg" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-72 w-full rounded-xl" />
+          <Skeleton className="h-72 w-full rounded-xl" />
+          <Skeleton className="h-56 w-full rounded-xl" />
+          <Skeleton className="h-56 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
   if (!job) return <p className="text-red-500 p-8">Job not found</p>;
 
   const nextStatuses = getValidNextStatuses(job.status);
@@ -817,7 +839,17 @@ export default function JobDetailPage() {
             </div>
 
             {loadingSuggestions ? (
-              <p className="text-sm text-muted-foreground py-8 text-center">Calculating routes and smart matches...</p>
+              <div className="space-y-2 py-2">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-center justify-between p-3 rounded-lg border">
+                    <div className="space-y-1.5 flex-1">
+                      <Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-8 w-20 rounded-md" />
+                  </div>
+                ))}
+              </div>
             ) : availableEmployees.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">No active employees found.</p>
             ) : (

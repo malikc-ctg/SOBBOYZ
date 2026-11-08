@@ -10,6 +10,7 @@ import HistoryTab from '@/components/sales/history/HistoryTab';
 import MapTab from '@/components/sales/map/MapTab';
 import TeamTab from '@/components/sales/team/TeamTab';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { 
   LayoutGrid, ArrowLeft, Home, Building2, 
   PhoneCall, Compass, Clock, Users, RefreshCw,
@@ -208,7 +209,30 @@ export default function AdminSalesOSPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="fixed inset-0 z-50 flex h-dvh w-screen items-center justify-center bg-[#001326] text-[#fffcf6] font-sans dark" />
+      <div className="fixed inset-0 z-50 flex flex-col h-dvh w-screen overflow-hidden bg-[#001326] text-[#fffcf6] font-sans dark">
+        <header className="h-14 sm:h-12 px-4 bg-[#000d1a]/95 border-b border-[#3c6ca8]/25 flex items-center justify-between gap-4 shrink-0">
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-8 w-28 rounded-lg bg-[#3c6ca8]/20" />
+            <Skeleton className="h-8 w-24 rounded-lg bg-[#3c6ca8]/15" />
+            <Skeleton className="h-8 w-28 rounded-lg bg-[#3c6ca8]/15" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-7 w-24 rounded-md bg-[#3c6ca8]/15" />
+            <Skeleton className="h-8 w-8 rounded-lg bg-[#3c6ca8]/20" />
+          </div>
+        </header>
+        <div className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
+          <div className="space-y-2">
+            <Skeleton className="h-8 w-64 bg-[#3c6ca8]/20" />
+            <Skeleton className="h-4 w-96 max-w-full bg-[#3c6ca8]/15" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-64 w-full rounded-2xl bg-[#001b38] border border-[#3c6ca8]/20" />
+            ))}
+          </div>
+        </div>
+      </div>
     );
   }
 

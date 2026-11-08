@@ -23,7 +23,19 @@ import { Badge } from '@/components/ui/badge';
 const DispatchMap = dynamic(() => import('./DispatchMap'), {
   ssr: false,
   loading: () => (
-    <div className="w-full h-[calc(100vh-64px)] bg-[#001326]/95 flex items-center justify-center" />
+    <div className="w-full h-[calc(100vh-64px)] bg-[#001326]/95 p-6 flex flex-col justify-between">
+      <div className="flex items-center justify-between gap-4">
+        <Skeleton className="h-10 w-64 rounded-xl bg-white/10" />
+        <div className="flex items-center gap-2">
+          <Skeleton className="h-10 w-28 rounded-xl bg-white/10" />
+          <Skeleton className="h-10 w-28 rounded-xl bg-white/10" />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Skeleton className="h-80 w-full rounded-2xl bg-white/5" />
+        <Skeleton className="h-80 w-full md:col-span-3 rounded-2xl bg-white/5" />
+      </div>
+    </div>
   ),
 });
 

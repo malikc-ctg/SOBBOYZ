@@ -162,7 +162,15 @@ export default function FollowupSettingsModal({
         </div>
 
         {loading ? (
-          <div className="py-8 text-center text-sm text-slate-400">Loading settings...</div>
+          <div className="space-y-4 py-2 animate-pulse">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="space-y-1.5">
+                <div className="h-3 w-28 rounded bg-slate-800" />
+                <div className="h-9 w-full rounded-lg bg-slate-800/80" />
+              </div>
+            ))}
+            <div className="h-10 w-full rounded-lg bg-slate-800 mt-4" />
+          </div>
         ) : (
           <form onSubmit={handleSave} className="space-y-5">
             <div className="space-y-3.5">

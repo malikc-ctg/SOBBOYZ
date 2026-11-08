@@ -1112,7 +1112,21 @@ export default function Logger({
   });
 
   if (loading) {
-    return <div className="loading-screen" />;
+    return (
+      <div className="logger-container" style={{ padding: '20px 16px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="pre-stat-skel" style={{ width: 140, height: 28, borderRadius: 8 }} />
+          <div className="pre-stat-skel" style={{ width: 90, height: 28, borderRadius: 999 }} />
+        </div>
+        <div className="pre-stat-skel" style={{ width: '100%', height: 42, borderRadius: 10 }} />
+        <div className="stats-grid">
+          <div className="pre-stat-skel" style={{ height: 96, borderRadius: 12 }} />
+          <div className="pre-stat-skel" style={{ height: 96, borderRadius: 12 }} />
+        </div>
+        <div className="pre-stat-skel" style={{ width: '100%', height: 180, borderRadius: 14 }} />
+        <div className="pre-stat-skel" style={{ width: '100%', height: 52, borderRadius: 12 }} />
+      </div>
+    );
   }
 
   const SyncIndicator = () => (

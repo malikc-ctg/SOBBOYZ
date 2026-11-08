@@ -5,6 +5,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Table,
   TableBody,
@@ -448,9 +449,22 @@ export default function CustomersPage() {
       {/* Mobile Customer Cards */}
       <div className="md:hidden space-y-2">
         {loading ? (
-          <div className="flex flex-col items-center justify-center space-y-2 py-12 text-slate-400">
-            <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-            <span className="text-xs">Loading customer directory...</span>
+          <div className="space-y-2.5">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="rounded-xl border border-slate-800 bg-slate-900/90 p-3.5 space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1.5 flex-1">
+                    <Skeleton className="h-4 w-40 bg-slate-800" />
+                    <Skeleton className="h-3 w-28 bg-slate-800/70" />
+                  </div>
+                  <Skeleton className="h-5 w-20 rounded-md bg-slate-800" />
+                </div>
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800/80">
+                  <Skeleton className="h-8 w-full rounded-md bg-slate-800/60" />
+                  <Skeleton className="h-8 w-full rounded-md bg-slate-800/60" />
+                </div>
+              </div>
+            ))}
           </div>
         ) : filteredCustomers.length === 0 ? (
           <div className="rounded-xl border border-slate-800 bg-slate-900/90 px-4 py-10 text-center space-y-2">
@@ -621,14 +635,16 @@ export default function CustomersPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-slate-400">
-                    <div className="flex flex-col items-center justify-center space-y-2">
-                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-                      <span className="text-xs">Loading customer directory...</span>
-                    </div>
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i} className="border-slate-800/80">
+                    <TableCell><Skeleton className="h-5 w-40 bg-slate-800" /><Skeleton className="h-3 w-24 mt-1.5 bg-slate-800/70" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-24 bg-slate-800" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-36 bg-slate-800" /><Skeleton className="h-3 w-48 mt-1.5 bg-slate-800/70" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-28 bg-slate-800" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24 bg-slate-800" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-20 ml-auto rounded-md bg-slate-800" /></TableCell>
+                  </TableRow>
+                ))
               ) : filteredCustomers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-12 text-slate-400">

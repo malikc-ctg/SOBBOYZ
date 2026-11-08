@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -101,7 +102,27 @@ export default function JobsPage() {
       {/* Mobile: stacked job cards */}
       <div className="md:hidden space-y-2">
         {loading ? (
-          <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Loading...</CardContent></Card>
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1">
+                      <Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-3 w-20" />
+                    </div>
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-3.5 w-32" />
+                    <Skeleton className="h-3.5 w-16 ml-auto" />
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-3.5 w-24 ml-auto" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No jobs found</CardContent></Card>
         ) : (
@@ -167,7 +188,20 @@ export default function JobsPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">Loading...</TableCell></TableRow>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-44" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-16 rounded-md ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={10} className="text-center text-muted-foreground py-8">No jobs found</TableCell></TableRow>
               ) : (

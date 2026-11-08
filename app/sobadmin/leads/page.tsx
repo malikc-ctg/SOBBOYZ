@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
@@ -165,7 +166,24 @@ export default function LeadsPage() {
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {loading ? (
-          <p className="text-center text-sm text-muted-foreground py-6">Loading...</p>
+          <div className="space-y-2">
+            {[1, 2, 3, 4].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-3 space-y-2">
+                  <div className="flex items-start justify-between gap-2">
+                    <Skeleton className="h-4 w-40" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-3.5 w-24 ml-auto" />
+                    <Skeleton className="h-3.5 w-20" />
+                    <Skeleton className="h-3.5 w-16 ml-auto" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground py-6">No leads found</p>
         ) : (
@@ -224,7 +242,19 @@ export default function LeadsPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Loading...</TableCell></TableRow>
+                Array.from({ length: 6 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-16 rounded-md ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : filtered.length === 0 ? (
                 <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">No leads found</TableCell></TableRow>
               ) : (

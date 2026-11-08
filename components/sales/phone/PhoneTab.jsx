@@ -1806,8 +1806,23 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
             {/* Scrollable Lead List */}
             {loading ? (
-              <div style={{ textAlign: 'center', padding: '40px 0', color: '#88a2c0', fontSize: '13px' }}>
-                <p>Loading commercial accounts...</p>
+              <div className="phone-lead-list space-y-2.5 py-2">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="p-3.5 rounded-xl bg-slate-900/70 border border-slate-800/80 space-y-2.5 animate-pulse"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="h-4 w-40 rounded bg-slate-800" />
+                      <div className="h-4 w-16 rounded-full bg-slate-800" />
+                    </div>
+                    <div className="h-3 w-32 rounded bg-slate-800/70" />
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="h-3 w-24 rounded bg-slate-800/60" />
+                      <div className="h-6 w-20 rounded-md bg-slate-800/80" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : filteredContacts.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '48px 16px', color: '#88a2c0' }}>

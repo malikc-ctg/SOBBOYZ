@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Copy, CheckCircle, Share2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function PartnerAccountPage() {
   const [partner, setPartner] = useState<{
@@ -27,7 +28,13 @@ export default function PartnerAccountPage() {
     <div className="p-8 max-w-2xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold text-foreground">Account</h1>
 
-      {partner && (
+      {!partner ? (
+        <div className="space-y-4">
+          <Skeleton className="h-36 w-full rounded-xl" />
+          <Skeleton className="h-24 w-full rounded-xl" />
+          <Skeleton className="h-32 w-full rounded-xl" />
+        </div>
+      ) : (
         <>
           <div className="bg-card border border-border rounded-xl p-5 space-y-3">
             <h2 className="text-sm font-semibold">Account Details</h2>

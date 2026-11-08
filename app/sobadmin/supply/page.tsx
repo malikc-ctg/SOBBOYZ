@@ -28,6 +28,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -898,7 +899,25 @@ export default function SupplyPage() {
           {/* Mobile Supply Cards (< md) */}
           <div className="md:hidden space-y-2.5">
             {loading ? (
-              <p className="text-center py-10 text-xs text-muted-foreground">Loading supplies...</p>
+              <div className="space-y-2.5">
+                {[1, 2, 3, 4].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-4 w-40" />
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                      </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                        <Skeleton className="h-8 w-28 rounded-lg" />
+                        <Skeleton className="h-7 w-20 rounded-lg" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : filteredInventory.length === 0 ? (
               <p className="text-center py-10 text-xs text-muted-foreground">No supplies found matching this filter.</p>
             ) : (
@@ -1021,12 +1040,17 @@ export default function SupplyPage() {
               </TableHeader>
               <TableBody>
                 {loading ? (
-                  <TableRow>
-                    <TableCell colSpan={7} className="text-center py-10 text-xs text-muted-foreground">
-                      <RefreshCw className="h-4 w-4 animate-spin mx-auto mb-2 text-primary" />
-                      Loading supplies...
-                    </TableCell>
-                  </TableRow>
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><Skeleton className="h-4 w-48" /><Skeleton className="h-3 w-32 mt-1.5" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-8 w-24 mx-auto rounded-lg" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-12 mx-auto" /></TableCell>
+                      <TableCell><Skeleton className="h-5 w-16 mx-auto rounded-full" /></TableCell>
+                      <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-16 ml-auto rounded-md" /></TableCell>
+                    </TableRow>
+                  ))
                 ) : filteredInventory.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-10 text-xs text-muted-foreground">

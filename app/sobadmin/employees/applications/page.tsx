@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -202,7 +203,26 @@ export default function EmployeeApplicationsPage() {
       {/* Mobile applications cards (< md) */}
       <div className="md:hidden space-y-2.5">
         {loading ? (
-          <p className="text-center py-10 text-muted-foreground text-sm">Loading applications...</p>
+          <div className="space-y-2.5">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-3.5 space-y-2.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="space-y-1.5">
+                      <Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-3 w-48" />
+                    </div>
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-3.5 w-full" />
+                  <div className="flex items-center justify-between pt-1">
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-3.5 w-16" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <p className="text-center py-10 text-muted-foreground text-sm">No applications match the selected filter.</p>
         ) : (
@@ -256,11 +276,17 @@ export default function EmployeeApplicationsPage() {
             </TableHeader>
             <TableBody>
               {loading ? (
-                <TableRow>
-                  <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">
-                    Loading applications...
-                  </TableCell>
-                </TableRow>
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-48 mt-1.5" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-5 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-20 rounded-md ml-auto" /></TableCell>
+                  </TableRow>
+                ))
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-10 text-muted-foreground">

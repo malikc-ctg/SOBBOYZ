@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { DatePicker } from '@/components/ui/date-picker';
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete';
@@ -138,7 +139,20 @@ export default function LeadDetailPage() {
     }
   }
 
-  if (loading) return <p className="text-muted-foreground">Loading...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-6 min-w-0">
+        <div className="flex items-center gap-4">
+          <Skeleton className="h-9 w-20 rounded-lg" />
+          <Skeleton className="h-8 w-64" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-72 w-full rounded-xl" />
+          <Skeleton className="h-72 w-full rounded-xl" />
+        </div>
+      </div>
+    );
+  }
   if (!lead) return <p className="text-red-500">Lead not found</p>;
 
   const calculatedEndTime = calculateEndTime(convertForm.scheduled_start_time, convertForm.estimated_duration_minutes);

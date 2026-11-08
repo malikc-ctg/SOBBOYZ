@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
 import { PhotoEvidenceTab } from '@/components/admin/audit/PhotoEvidenceTab';
 import { SalesCallLogsTab } from '@/components/admin/audit/SalesCallLogsTab';
 
@@ -207,7 +208,18 @@ export default function AuditLogPage() {
           {/* Log Table */}
           <div className="bg-card border border-border rounded-xl overflow-hidden">
             {loading ? (
-              <div className="p-12 text-center text-muted-foreground text-sm">Loading audit logs...</div>
+              <div className="divide-y divide-border">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="px-5 py-3.5 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-3 flex-1">
+                      <Skeleton className="h-4 w-4 rounded" />
+                      <Skeleton className="h-5 w-32 rounded-full" />
+                      <Skeleton className="h-4 w-48" />
+                    </div>
+                    <Skeleton className="h-4 w-28" />
+                  </div>
+                ))}
+              </div>
             ) : filteredLogs.length === 0 ? (
               <div className="p-12 text-center text-muted-foreground text-sm">
                 No audit logs found. Actions will appear here as they occur.

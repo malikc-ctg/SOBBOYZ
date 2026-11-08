@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { DollarSign, TrendingUp, TrendingDown, Target, Plus, RefreshCw, Layers, Calendar, MessageSquare, BarChart2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import type { AdSpendLog, AdSpendChannel, Zone } from '@/types';
 import { AD_SPEND_CHANNEL_LABELS } from '@/types';
 
@@ -229,9 +230,17 @@ export function AdSpendSuite() {
         </div>
 
         {loading && filteredLogs.length === 0 ? (
-          <div className="p-12 text-center text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
-            <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-            Loading weekly ad spend records…
+          <div className="p-6 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-4">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-5 w-28 rounded-full" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-4 w-20" />
+              </div>
+            ))}
           </div>
         ) : filteredLogs.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground text-sm">

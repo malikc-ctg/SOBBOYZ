@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -744,11 +745,26 @@ export default function VendorListsAndTendersPage() {
       {activeTab === 'companies' && (
         <div className="space-y-3">
           {loading ? (
-            <Card>
-              <CardContent className="p-8 text-center text-muted-foreground text-sm">
-                Loading Vendor List accounts...
-              </CardContent>
-            </Card>
+            <div className="space-y-3">
+              {[1, 2, 3].map((i) => (
+                <Card key={i}>
+                  <CardContent className="p-5 space-y-3">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-5 w-48" />
+                        <Skeleton className="h-3.5 w-64" />
+                      </div>
+                      <Skeleton className="h-6 w-24 rounded-full" />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                      <Skeleton className="h-14 w-full rounded-lg" />
+                      <Skeleton className="h-14 w-full rounded-lg" />
+                      <Skeleton className="h-14 w-full rounded-lg" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           ) : filteredCompanies.length === 0 ? (
             <Card>
               <CardContent className="p-10 text-center space-y-2">
@@ -1039,7 +1055,26 @@ export default function VendorListsAndTendersPage() {
           {/* Mobile Tenders Card List (< md) */}
           <div className="md:hidden space-y-2.5">
             {loading ? (
-              <p className="text-center text-sm text-muted-foreground py-8">Loading commercial tenders...</p>
+              <div className="space-y-2.5">
+                {[1, 2, 3].map((i) => (
+                  <Card key={i} className="bg-card/70 border-border/70">
+                    <CardContent className="p-3.5 space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-4 w-44" />
+                          <Skeleton className="h-3 w-32" />
+                        </div>
+                        <Skeleton className="h-5 w-16" />
+                      </div>
+                      <Skeleton className="h-4 w-full" />
+                      <div className="flex items-center justify-between pt-2 border-t border-border/60">
+                        <Skeleton className="h-8 w-32 rounded-lg" />
+                        <Skeleton className="h-8 w-24 rounded-lg" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : filteredTenders.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground py-8">
                 No active project bids or tenders yet. Click &ldquo;Log New Tender / Bid&rdquo; when an Invitation to Bid (ITB) arrives.
@@ -1142,11 +1177,17 @@ export default function VendorListsAndTendersPage() {
                 </TableHeader>
                 <TableBody>
                   {loading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
-                        Loading commercial tenders...
-                      </TableCell>
-                    </TableRow>
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-44" /><Skeleton className="h-3 w-28 mt-1.5" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-36" /><Skeleton className="h-3 w-24 mt-1.5" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-24 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-36 rounded-lg" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-24 rounded-md ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
                   ) : filteredTenders.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-muted-foreground py-8">

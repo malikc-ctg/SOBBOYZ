@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Download, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
 import type { PartnerInvoice } from '@/types';
 import { format } from 'date-fns';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-muted text-muted-foreground',
@@ -87,7 +88,17 @@ export default function PartnerInvoicesPage() {
       {/* Invoices Table */}
       <div className="bg-card border border-border rounded-xl overflow-hidden">
         {loading ? (
-          <div className="p-12 text-center text-muted-foreground text-sm">Loading invoices…</div>
+          <div className="p-6 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center justify-between gap-4">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-5 w-16 rounded-full" />
+              </div>
+            ))}
+          </div>
         ) : invoices.length === 0 ? (
           <div className="p-12 text-center space-y-2">
             <DollarSign className="h-10 w-10 text-muted-foreground/30 mx-auto" />
@@ -145,7 +156,7 @@ export default function PartnerInvoicesPage() {
                       const qboInvId = (inv as any).qbo_invoice_id;
                       const qboInv = qboInvId ? qboStatuses[qboInvId] : null;
                       if (!qboInvId) return <span className="text-xs text-muted-foreground">Not synced</span>;
-                      if (!qboInv) return <span className="text-xs text-muted-foreground">Loading…</span>;
+                      if (!qboInv) return <Skeleton className="h-5 w-20 rounded-full" />;
                       const balance = Number(qboInv.Balance ?? 0);
                       const total = Number(qboInv.TotalAmt ?? 0);
                       if (balance === 0 && total > 0) return <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700">Paid ✓</span>;

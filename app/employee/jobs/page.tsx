@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic';
 import { useEffect, useState, useCallback } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -82,7 +83,18 @@ export default function EmployeeJobsPage() {
   const completedJobs = jobs.filter(j => ['completed', 'reviewed', 'paid_out', 'disputed'].includes(j.status));
 
   if (loading) {
-    return <div className="h-[50vh]" />;
+    return (
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-4 w-64" />
+        </div>
+        <Skeleton className="h-10 w-full rounded-lg" />
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-36 w-full rounded-xl" />
+        ))}
+      </div>
+    );
   }
 
   function renderJobCard(job: Job) {

@@ -506,7 +506,19 @@ export default function RepStatsView({ onOpenDossier, initialRep = 'all' }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800/60 font-mono">
-              {filteredCalls.length === 0 ? (
+              {loading && filteredCalls.length === 0 ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td className="py-3 px-3"><div className="h-3.5 w-16 rounded bg-slate-800" /></td>
+                    <td className="py-3 px-3"><div className="h-3.5 w-24 rounded bg-slate-800" /></td>
+                    <td className="py-3 px-3"><div className="h-3.5 w-36 rounded bg-slate-800" /></td>
+                    <td className="py-3 px-3"><div className="h-3.5 w-24 rounded bg-slate-800" /></td>
+                    <td className="py-3 px-3"><div className="h-5 w-20 rounded bg-slate-800" /></td>
+                    <td className="py-3 px-3"><div className="h-3.5 w-10 rounded bg-slate-800" /></td>
+                    <td className="py-3 px-3"><div className="h-3.5 w-40 rounded bg-slate-800" /></td>
+                  </tr>
+                ))
+              ) : filteredCalls.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-slate-500 text-xs">
                     No calls recorded for this filter criteria

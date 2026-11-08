@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { StatusBadge } from '@/components/shared/StatusBadge';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
@@ -97,14 +98,7 @@ function RoomChecklist({ title, items, onItemChange, jobId, existingPhotos = [] 
 // Lazy-load map to avoid SSR issues
 const EmployeeJobMap = dynamic(() => import('@/components/employee/EmployeeJobMap'), {
   ssr: false,
-  loading: () => (
-    <div className="w-full h-56 bg-black/80 rounded-2xl flex items-center justify-center">
-      <div className="flex flex-col items-center gap-2">
-        <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-white/40 text-xs">Loading route map...</p>
-      </div>
-    </div>
-  ),
+  loading: () => <Skeleton className="w-full h-56 rounded-2xl" />,
 });
 
 function buildChecklist(bedrooms: number, bathrooms: number, addOns: string[]): ChecklistData {
@@ -248,7 +242,22 @@ export default function EmployeeJobDetailPage() {
     return { checked, total };
   }
 
-  if (loading) return <p className="text-muted-foreground p-4">Loading...</p>;
+  if (loading) {
+    return (
+      <div className="space-y-4 p-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-9 w-9 rounded-lg" />
+          <div className="space-y-1.5">
+            <Skeleton className="h-6 w-48" />
+            <Skeleton className="h-4 w-32" />
+          </div>
+        </div>
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
+    );
+  }
   if (!job) return <p className="text-red-500 p-4">Job not found</p>;
 
   const { checked, total } = countChecked();

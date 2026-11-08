@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -634,7 +635,26 @@ export default function RecurringPage() {
 
       {/* Mobile: stacked cards */}
       <div className="md:hidden space-y-2.5">
-        {filteredBookings.length === 0 ? (
+        {loading ? (
+          <div className="space-y-2.5">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-card border border-border rounded-xl p-3.5 space-y-2.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-1.5">
+                    <Skeleton className="h-4 w-36" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                  <Skeleton className="h-6 w-12 rounded-full" />
+                </div>
+                <Skeleton className="h-4 w-40" />
+                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-border/60">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredBookings.length === 0 ? (
           <div className="py-8 text-center text-sm text-muted-foreground bg-card border border-border rounded-xl">
             No recurring service agreements found.
           </div>
@@ -725,7 +745,21 @@ export default function RecurringPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filteredBookings.map((b) => {
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i}>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-40" /><Skeleton className="h-3 w-32 mt-1.5" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-24 rounded-full" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-36" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-28" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-16" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-20" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-4 w-24" /></td>
+                    <td className="px-4 py-3"><Skeleton className="h-5 w-10 rounded-full" /></td>
+                    <td className="px-4 py-3 text-right"><Skeleton className="h-8 w-8 rounded-md ml-auto" /></td>
+                  </tr>
+                ))
+              ) : filteredBookings.map((b) => {
                 const scheduleSummary = formatRecurrenceSchedule(
                   b.frequency,
                   b.days_of_week || [],

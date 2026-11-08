@@ -5,6 +5,7 @@ import { ShieldCheck, FileCheck, Download, AlertCircle, RefreshCw, Calculator, L
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
 function formatCAD(val: number) {
@@ -62,9 +63,21 @@ export function ComplianceSuite() {
 
   if (loading && !data) {
     return (
-      <div className="p-12 text-center text-muted-foreground text-sm flex flex-col items-center justify-center gap-2">
-        <RefreshCw className="h-5 w-5 animate-spin text-primary" />
-        Loading Ontario CRA &amp; WSIB compliance records...
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-7 w-64" />
+            <Skeleton className="h-4 w-96 max-w-full" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-9 w-24 rounded-lg" />
+            <Skeleton className="h-9 w-40 rounded-lg" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-72 w-full rounded-xl" />
+          <Skeleton className="h-72 w-full rounded-xl" />
+        </div>
       </div>
     );
   }

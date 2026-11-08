@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -205,7 +206,27 @@ export default function EmployeesPage() {
           {/* Mobile card list */}
           <div className="md:hidden space-y-2">
             {loadingEmployees ? (
-              <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">Loading...</CardContent></Card>
+              <div className="space-y-2">
+                {[1, 2, 3, 4].map((i) => (
+                  <Card key={i}>
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <Skeleton className="h-4 w-36" />
+                        <Skeleton className="h-5 w-16 rounded-full" />
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="h-3.5 w-24" />
+                        <Skeleton className="h-3.5 w-16" />
+                        <Skeleton className="h-3.5 w-16" />
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <Skeleton className="h-9 w-24 rounded-md" />
+                        <Skeleton className="h-9 w-20 rounded-md" />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
             ) : employees.length === 0 ? (
               <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">No employees yet</CardContent></Card>
             ) : employees.map(c => {
@@ -269,7 +290,19 @@ export default function EmployeesPage() {
                 </TableHeader>
                 <TableBody>
                   {loadingEmployees ? (
-                    <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">Loading...</TableCell></TableRow>
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell><Skeleton className="h-4 w-36" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-5 w-16 rounded-full" /></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20 rounded" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-12" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                        <TableCell><Skeleton className="h-4 w-20" /></TableCell>
+                        <TableCell><Skeleton className="h-8 w-20 rounded-md ml-auto" /></TableCell>
+                      </TableRow>
+                    ))
                   ) : employees.length === 0 ? (
                     <TableRow><TableCell colSpan={9} className="text-center py-8 text-muted-foreground">No employees yet</TableCell></TableRow>
                   ) : employees.map(c => {
