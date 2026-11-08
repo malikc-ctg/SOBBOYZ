@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from '@/components/ui/sonner';
@@ -23,16 +23,17 @@ const brice = localFont({
   display: 'swap',
 });
 
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  themeColor: '#1e40af',
+};
+
 export const metadata: Metadata = {
   title: 'Sea of Blue',
   description: 'Sea of Blue dispatch and operations platform',
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: '#1e40af',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
