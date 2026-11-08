@@ -519,10 +519,13 @@ export function OperatorControlPopover({
         <button
           type="button"
           aria-label="Open operator appearance and workspace preferences"
-          className={`os-operator-pill inline-flex items-center h-8 px-2.5 rounded-full text-[11px] gap-1.5 border font-sans transition cursor-pointer select-none ${className}`}
+          className={`os-operator-pill inline-flex items-center h-9 md:h-8 px-2.5 rounded-full text-[11px] gap-1.5 border font-sans transition cursor-pointer select-none shrink-0 ${className}`}
         >
           <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block animate-pulse shrink-0" />
-          <span className="font-bold text-foreground truncate max-w-[120px]">
+          <span className="font-bold text-foreground truncate max-w-[90px] sm:hidden">
+            {operator.name.split(' ')[0]}
+          </span>
+          <span className="font-bold text-foreground truncate max-w-[130px] hidden sm:inline">
             {operator.name}
           </span>
           {operator.title && (

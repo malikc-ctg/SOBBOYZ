@@ -400,7 +400,7 @@ export default function AdminSalesOSPage() {
             }}
             onLogout={handleSalesLogout}
             showTitleBreakpoint="xl"
-            className="hidden sm:inline-flex"
+            className="inline-flex"
           />
 
           {/* System Clock */}
@@ -415,7 +415,7 @@ export default function AdminSalesOSPage() {
             type="button"
             onClick={toggleFullscreen}
             title={isFullscreen ? 'Exit Full Screen (Esc)' : 'Enter Full Screen OS Mode'}
-            className={`h-8 px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition cursor-pointer ${
+            className={`hidden md:flex h-8 px-2.5 rounded-lg text-xs font-bold items-center gap-1.5 border transition cursor-pointer ${
               isFullscreen
                 ? 'bg-primary/15 text-primary border-primary/40 hover:bg-primary/25'
                 : 'os-tray-btn'

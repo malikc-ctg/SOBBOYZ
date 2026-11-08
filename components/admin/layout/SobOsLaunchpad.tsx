@@ -83,16 +83,24 @@ export function SobOsLaunchpad({
       <div className="max-w-7xl w-full mx-auto my-auto space-y-7">
         {/* OS Workspace Hero Banner */}
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between pb-2">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-card border border-border p-2 flex items-center justify-center shrink-0">
-              <img
-                src="/logo.png"
-                alt="Sea of Blue"
-                className="w-full h-full object-contain"
-              />
+          <div className="flex flex-col sm:flex-row sm:items-start gap-3.5 sm:gap-4">
+            <div className="flex items-center gap-3 sm:block">
+              <div className="w-11 h-11 sm:w-14 sm:h-14 rounded-2xl bg-card border border-border p-2 flex items-center justify-center shrink-0">
+                <img
+                  src="/logo.png"
+                  alt="Sea of Blue"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div className="inline-flex sm:hidden items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/12 border border-primary/25 text-primary">
+                <Waves className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-[10px] font-bold uppercase tracking-wider">
+                  Sea of Blue OS
+                </span>
+              </div>
             </div>
             <div>
-              <div className="inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-primary/12 border border-primary/25 text-primary mb-2">
+              <div className="hidden sm:inline-flex items-center gap-2 px-2.5 py-0.5 rounded-md bg-primary/12 border border-primary/25 text-primary mb-2">
                 <Waves className="h-3.5 w-3.5" />
                 <span className="text-[11px] font-bold uppercase tracking-widest">
                   Sea of Blue Operating System

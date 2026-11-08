@@ -49,14 +49,14 @@ export function AdminHeader({
   return (
     <div className="os-dock-bar relative shrink-0 z-40 select-none border-b text-foreground safe-top">
       {/* Primary Top OS Menu Bar */}
-      <header className="h-14 md:h-12 px-3 sm:px-4 flex items-center justify-between gap-2">
+      <header className="h-12 px-3 sm:px-4 flex items-center justify-between gap-2">
         {/* LEFT: OS Launchpad Home Button */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+        <div className="flex items-center gap-2 min-w-0 flex-1 md:flex-initial">
           <button
             type="button"
             onClick={onOpenLaunchpad}
             aria-label="Open OS Launchpad"
-            className={`h-10 w-10 justify-center md:w-auto md:justify-start md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
+            className={`h-9 w-9 justify-center md:w-auto md:justify-start md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1.5 border transition shrink-0 cursor-pointer ${
               isLaunchpadView
                 ? 'bg-primary text-primary-foreground border-primary shadow-xs'
                 : 'os-tray-btn'
@@ -72,7 +72,7 @@ export function AdminHeader({
           </button>
 
           {/* Phone: current location label (desktop shows module tabs instead) */}
-          <div className="md:hidden min-w-0 leading-tight">
+          <div className="md:hidden min-w-0 flex-1 leading-tight">
             {isLaunchpadView ? (
               <p className="text-sm font-bold text-foreground truncate">Sea of Blue OS</p>
             ) : (
@@ -152,7 +152,7 @@ export function AdminHeader({
               <Link
                 href="/sobadmin/jobs/new"
                 aria-label="New Job"
-                className="h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-primary hover:opacity-90 text-primary-foreground transition"
+                className="h-9 w-9 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-bold flex items-center gap-1 bg-primary hover:opacity-90 text-primary-foreground transition"
               >
                 <Plus className="w-4 h-4 md:w-3.5 md:h-3.5" />
                 <span className="hidden xl:inline">New Job</span>
@@ -170,7 +170,7 @@ export function AdminHeader({
               }}
               onLogout={onLogout}
               showTitleBreakpoint="2xl"
-              className={isLaunchpadView ? 'inline-flex' : 'hidden md:inline-flex'}
+              className="inline-flex"
             />
           )}
 
@@ -205,13 +205,13 @@ export function AdminHeader({
             )}
           </button>
 
-          {/* Sign Out */}
+          {/* Sign Out (Desktop/Tablet; on phones, Sign Out is inside the Operator Pill popover) */}
           <button
             type="button"
             onClick={onLogout}
             title="Sign Out"
             aria-label="Sign Out"
-            className={`${isLaunchpadView ? 'flex' : 'hidden md:flex'} h-10 w-10 justify-center md:w-auto md:h-8 px-0 md:px-2.5 rounded-lg text-xs font-semibold items-center gap-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-300 border border-red-500/40 hover:border-red-500/60 transition cursor-pointer`}
+            className="hidden md:flex h-8 px-2.5 rounded-lg text-xs font-semibold items-center gap-1.5 bg-red-500/15 hover:bg-red-500/25 text-red-600 dark:text-red-300 border border-red-500/40 hover:border-red-500/60 transition cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5 text-red-500 dark:text-red-400" />
             <span className="hidden md:inline">Sign Out</span>
