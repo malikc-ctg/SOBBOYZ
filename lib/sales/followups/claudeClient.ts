@@ -1,11 +1,11 @@
 /**
- * Claude Sonnet 5.5 API Client for Sea of Blue Follow-Up Engine.
- * Uses prompt caching ($0.10/MTok cache hits) and optional native web search.
+ * Claude Haiku 4.5 API Client for Sea of Blue Follow-Up Engine.
+ * Uses prompt caching and optional domain-restricted web search.
  */
 
 import { createServiceClient } from '@/lib/supabase/server';
 
-export const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-sonnet-5-5';
+export const CLAUDE_MODEL = 'claude-haiku-4-5';
 
 let cachedSystemConfig: {
   ANTHROPIC_API_KEY?: string;
@@ -61,6 +61,7 @@ export interface ClaudeCallOptions {
   maxTokens?: number;
   enableWebSearch?: boolean;
   maxWebSearches?: number;
+  allowedSearchDomains?: string[];
   effort?: 'low' | 'medium' | 'high';
   documents?: ClaudeDocumentBlock[];
 }
@@ -116,13 +117,15 @@ export async function callClaudeSonnet(options: ClaudeCallOptions): Promise<Clau
   };
 
   if (options.enableWebSearch) {
-    body.tools = [
-      {
-        type: 'web_search_20250305',
-        name: 'web_search',
-        max_uses: options.maxWebSearches || 3,
-      },
-    ];
+    const webSearchTool: Record<string, any> = {
+      type: 'web_search_20250305',
+      name: 'web_search',
+      max_uses: options.maxWebSearches || 1,
+    };
+    if (options.allowedSearchDomains && options.allowedSearchDomains.length > 0) {
+      webSearchTool.allowed_domains = options.allowedSearchDomains;
+    }
+    body.tools = [webSearchTool];
   }
 
   const headers: Record<string, string> = {

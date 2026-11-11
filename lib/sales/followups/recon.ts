@@ -1,11 +1,11 @@
 /**
- * Website & LinkedIn Recon Service powered by Claude Sonnet 5.5.
- * Scopes a construction company's website and the contact's LinkedIn/role profile,
+ * Website & LinkedIn Recon Service powered by Claude Haiku 4.5.
+ * Scopes ONLY the provided construction company website and the contact's provided LinkedIn URL,
  * caches the structured intel in leads.notes JSON (intel.ai_recon), and builds the Pre-Call Whisper Card.
  */
 
 import { createServiceClient } from '@/lib/supabase/server';
-import { callClaudeSonnet, extractJsonFromClaude } from './claudeClient';
+import { callClaudeSonnet, extractJsonFromClaude, CLAUDE_MODEL } from './claudeClient';
 import { companyKey } from './company';
 
 export interface LeadContactVerification {
@@ -144,6 +144,51 @@ async function fetchWebsiteText(baseUrl: string): Promise<{ text: string; fetche
   };
 }
 
+function extractHostname(rawUrl?: string | null): string | null {
+  if (!rawUrl) return null;
+  let candidate = String(rawUrl).trim();
+  if (!candidate) return null;
+  if (!/^https?:\/\//i.test(candidate)) {
+    candidate = `https://${candidate}`;
+  }
+  try {
+    const u = new URL(candidate);
+    return u.hostname.replace(/^www\./i, '').toLowerCase();
+  } catch {
+    return null;
+  }
+}
+
+async function fetchLinkedinPublicSnippet(linkedinUrl?: string | null): Promise<string> {
+  if (!linkedinUrl) return '';
+  let url = String(linkedinUrl).trim();
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url}`;
+  }
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)',
+        Accept: 'text/html,application/xhtml+xml',
+      },
+    });
+    clearTimeout(timeout);
+    if (!res.ok) return '';
+    const html = await res.text();
+    const cleaned = stripHtmlToText(html, 2000);
+    if (cleaned.length > 80 && !/sign in|join linkedin|authwall/i.test(cleaned.slice(0, 300))) {
+      return cleaned;
+    }
+    return '';
+  } catch {
+    return '';
+  }
+}
+
 export function parseLeadIntelJson(notesRaw?: string | null): Record<string, any> {
   if (!notesRaw) return {};
   const trimmed = String(notesRaw).trim();
@@ -159,43 +204,62 @@ export function parseLeadIntelJson(notesRaw?: string | null): Record<string, any
 
 const RECON_SYSTEM_PROMPT = `You are the Senior Construction Intelligence Analyst for Sea of Blue Inc., a commercial and post-construction cleaning contractor serving the Greater Toronto Area (GTA: Toronto, Mississauga, Brampton, Vaughan, Oakville, Burlington, Markham, Milton, Hamilton).
 
-Your job is to scope a prospect's construction/development company website, research the specific contact person on LinkedIn and across the web, verify their current employment, role, and projects, and return a concise JSON dossier for our sales reps (Malik Campbell, Raahim Ahmed, and Ayaan Baig) and email drafter.
+Your job is to scope a prospect's construction/development company ONLY using their provided company website and their provided LinkedIn profile link (plus the CRM lead data), and return a concise JSON dossier for our sales reps (Malik Campbell, Raahim Ahmed, and Ayaan Baig) and email drafter.
 
-STRICT WRITING RULES:
+STRICT RULES:
 1. NEVER use em-dashes (—) or en-dashes (–) anywhere. Use commas or periods instead.
-2. Write in a grounded, practical contractor-to-contractor tone. No corporate buzzwords or cheesy flattery.
-3. In "lead_intel", research and report:
-   - Whether they still work at this company (confirmed active, tenure, or recent profile updates).
-   - Whether they are still in the same role (e.g. Estimator, Project Manager, Site Super) or have a different/promoted title.
-   - Any specific projects, bids, sectors, or brand rollouts they personally oversee, estimate, manage, or have worked on.
-4. Return ONLY valid JSON matching this exact schema:
+2. NEVER search or reference third-party directory sites like ZoomInfo, RocketReach, Apollo, Lusha, SignalHire, ContactOut, or yellow pages. Rely strictly on the provided company website content, the provided LinkedIn URL, and the lead's CRM profile fields.
+3. Write in a grounded, practical contractor-to-contractor tone. No corporate buzzwords or cheesy flattery.
+4. In "lead_intel", summarize:
+   - Their role/title at the company (from their LinkedIn/CRM data).
+   - What projects, sectors, or divisions at the company align with their role (e.g. Estimator, Project Manager, Site Super).
+5. Return ONLY valid JSON matching this exact schema:
 {
   "company_summary": "1-2 sentence factual summary of what this builder/company constructs and where they operate",
   "build_specialty": "Short label, e.g. 'Commercial ICI & Retail Fit-Outs', 'Custom Luxury Homes', 'Multi-Family & Condo Developments', or 'General Contracting'",
-  "notable_projects": ["Up to 3 specific project types, named projects, or sectors mentioned on their site/web"],
+  "notable_projects": ["Up to 3 specific project types, named projects, or sectors mentioned on their site"],
   "service_cities": ["Cities they build in, e.g. Mississauga, Oakville, Toronto"],
   "contact_role_angle": "1 sentence on what matters most to this specific contact's job title (e.g. Estimators care about fast fixed-price per sq ft + WSIB/insurance; Site Supers care about crews showing up on schedule and zero dust punch-list items before handover; Project Managers care about reliable rough + final + touch-up scheduling)",
   "proof_sentence": "A natural 1-sentence line for a cold email referencing their specific type of builds or city (no em-dashes, no double spaces, e.g. 'We handle rough, final, and pre-handover touch-up cleans for commercial fit-out and ICI builders across Mississauga and the GTA.')",
   "whisper_card": {
     "what_they_build": "1 punchy bullet for the rep before dialing summarizing what the company builds",
     "company_touch_intel": "1 punchy bullet summarizing past calls/colleagues at this company or decision-maker level",
-    "lead_intel": "2-3 concise, high-value sentences for the rep: whether they still work there, confirmed current role, and any projects, bids, or sectors they may be on or manage",
+    "lead_intel": "2-3 concise, high-value sentences for the rep: their confirmed role/seniority at the company and the types of projects, tenders, or divisions they oversee",
     "recommended_opener": "1 sentence phone opener tailored to their title and company specialty"
   },
   "contact_verification": {
-    "still_at_company": "Yes / Verified / Likely / Moved / Unknown",
-    "current_title": "Current confirmed title from LinkedIn or web",
+    "still_at_company": "Yes / Verified / Likely",
+    "current_title": "Current confirmed title from LinkedIn or CRM",
     "tenure": "Time at company if found, or 'N/A'",
     "projects_or_focus": "Specific projects or divisions they are tied to"
   }
 }`;
 
+const inFlightReconByLead = new Map<string, Promise<LeadRecon>>();
+
 export async function getOrRunLeadRecon(
   leadId: string,
   options: { forceRefresh?: boolean } = {}
 ): Promise<LeadRecon> {
-  const supabase = await createServiceClient();
   const rawLeadId = String(leadId).replace(/^lead_/, '');
+
+  if (!options.forceRefresh && inFlightReconByLead.has(rawLeadId)) {
+    return inFlightReconByLead.get(rawLeadId)!;
+  }
+
+  const runPromise = executeLeadRecon(rawLeadId, options).finally(() => {
+    inFlightReconByLead.delete(rawLeadId);
+  });
+
+  inFlightReconByLead.set(rawLeadId, runPromise);
+  return runPromise;
+}
+
+async function executeLeadRecon(
+  rawLeadId: string,
+  options: { forceRefresh?: boolean } = {}
+): Promise<LeadRecon> {
+  const supabase = await createServiceClient();
 
   const { data: lead, error } = await supabase
     .from('leads')
@@ -254,58 +318,62 @@ export async function getOrRunLeadRecon(
     }
   }
 
-  // 1. Scrape Website if available
+  // 1. Scrape provided Company Website directly (free via Node fetch) unless siblingRecon already has it
   const baseUrl = normalizeUrl(intel.website, lead.customer_email);
   let websiteScrapedText = '';
   let fetchedUrls: string[] = [];
-  if (baseUrl) {
+  if (baseUrl && !siblingRecon) {
     const scraped = await fetchWebsiteText(baseUrl);
     websiteScrapedText = scraped.text;
     fetchedUrls = scraped.fetchedUrls;
+  } else if (siblingRecon?.sources?.length) {
+    fetchedUrls = siblingRecon.sources;
   }
 
-  // Enable Claude web_search whenever contact name, company or LinkedIn is present
-  // so Claude can check LinkedIn, current employment status, role changes, and project activity
-  const shouldUseWebSearch = Boolean(
-    lead.customer_name ||
-      intel.linkedin ||
-      (lead.company_name && lead.company_name !== 'Commercial Prospect')
-  );
+  // 2. Attempt direct metadata fetch on provided LinkedIn URL if present
+  const providedLinkedin = intel.linkedin ? String(intel.linkedin).trim() : '';
+  const linkedinScrapedText = providedLinkedin
+    ? await fetchLinkedinPublicSnippet(providedLinkedin)
+    : '';
 
+  // 3. STRICT PROVIDED-LINKS-ONLY POLICY:
+  // Never use paid Anthropic web_search ($0.01/search + 15k-30k search snippet tokens).
+  // Recon relies 100% on the free direct website scrape + provided LinkedIn snippet + CRM lead data.
   const userPrompt = [
     `Contact Name: ${lead.customer_name || 'Decision Maker'}`,
     `Contact Title: ${lead.contact_title || intel.seniority || 'Project Manager'}`,
+    `Seniority / Department: ${intel.seniority || 'N/A'} / ${intel.departments || intel.department || 'Construction'}`,
     `Company Name: ${lead.company_name || 'Commercial Builder'}`,
     `City / Region: ${lead.city || 'GTA, Ontario'}`,
     `Industry / Sector: ${intel.industry || intel.sector || lead.service_type || 'Construction'}`,
-    `Website URL: ${intel.website || baseUrl || 'Not listed'}`,
-    `LinkedIn URL: ${intel.linkedin || 'Not listed'}`,
+    `Provided Website URL: ${intel.website || baseUrl || 'Not provided'}`,
+    `Provided LinkedIn URL: ${providedLinkedin || 'Not provided'}`,
     `Company Size / Revenue Intel: ${intel.employees ? `${intel.employees} employees` : 'Unknown'} ${intel.annual_revenue || ''}`,
     `Rep Notes: ${intel.notes || intel.rep_notes || 'None'}`,
     `Recent Call / Colleague History at Company:\n${companyCallSummaries.length ? companyCallSummaries.join('\n') : 'No prior connected calls logged yet.'}`,
     siblingRecon
-      ? `Existing Company Intel from Colleague Dossier:\nSummary: ${siblingRecon.company_summary}\nSpecialty: ${siblingRecon.build_specialty}\nProjects: ${(siblingRecon.notable_projects || []).join(', ')}`
+      ? `Existing Company Intel from Colleague Dossier:\nSummary: ${siblingRecon.company_summary}\nSpecialty: ${siblingRecon.build_specialty}\nProjects: ${(siblingRecon.notable_projects || []).join(', ')}\nCities: ${(siblingRecon.service_cities || []).join(', ')}`
       : '',
     websiteScrapedText
-      ? `\nScraped Company Website Content:\n${websiteScrapedText}`
-      : '\nNo direct website HTML scraped.',
+      ? `\nScraped Company Website Content (from ${baseUrl}):\n${websiteScrapedText}`
+      : '\nNo additional website HTML scraped.',
+    linkedinScrapedText
+      ? `\nProvided LinkedIn Profile Content (from ${providedLinkedin}):\n${linkedinScrapedText}`
+      : '',
     `\nTASK:`,
-    `1. Scrape/analyze the company and what projects they build in the GTA / Ontario / Canada.`,
-    `2. Perform research on the contact person (${lead.customer_name || 'this contact'}) via LinkedIn and web search:`,
-    `   - Check if they still work at ${lead.company_name || 'this company'}.`,
-    `   - Check if they are still in the same role (${lead.contact_title || 'their title'}) or have a new title / promotion.`,
-    `   - Check any active, recent, or past projects, tenders, bids, or sectors they may personally be on, manage, or estimate.`,
-    `3. Synthesize the findings into the requested JSON schema with a punchy 'lead_intel' block in whisper_card.`,
+    `1. Analyze the company and what projects they build in the GTA / Ontario using ONLY the scraped website content, colleague dossier, and CRM data provided above.`,
+    `2. Using the contact's provided LinkedIn profile (${providedLinkedin || 'CRM role data'}) and title (${lead.contact_title || 'their title'}), summarize their role focus and project alignment in 'lead_intel'. Do NOT search external directories like ZoomInfo or RocketReach.`,
+    `3. Synthesize the findings into the requested JSON schema.`,
   ]
     .filter(Boolean)
     .join('\n');
 
   const claudeRes = await callClaudeSonnet({
+    model: 'claude-haiku-4-5',
     systemPrompt: RECON_SYSTEM_PROMPT,
     userPrompt,
-    maxTokens: 2500,
-    enableWebSearch: shouldUseWebSearch,
-    maxWebSearches: 4,
+    maxTokens: 1200,
+    enableWebSearch: false,
   });
 
   const parsed = extractJsonFromClaude<Partial<LeadRecon>>(claudeRes.text);
@@ -369,7 +437,7 @@ export async function getOrRunLeadRecon(
       : undefined,
     sources: allSources,
     scoped_at: new Date().toISOString(),
-    model: 'claude-sonnet-5-5',
+    model: CLAUDE_MODEL,
   };
 
   // Persist into leads.notes JSON so it's cached for future emails and visible in LeadDossierModal

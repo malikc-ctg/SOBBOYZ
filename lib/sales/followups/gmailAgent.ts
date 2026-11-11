@@ -392,7 +392,30 @@ export function getTaskAutoSendAt(task: {
  *    Old static fallback templates are phased out; only personalized Claude drafts are auto-sent.
  * 2. For warm follow-up sequences: pre-drafts emails with Claude so they are waiting for rep approval (never auto-sends).
  */
+let isAutoSenderRunning = false;
+
 export async function runNoAnswerAutoSender(options: {
+  forceTaskId?: string;
+  leadId?: string;
+  limit?: number;
+} = {}) {
+  if (isAutoSenderRunning && !options.forceTaskId && !options.leadId) {
+    return {
+      autoSent: [],
+      preDraftedWarm: [],
+      skipped: [{ taskId: 'batch', reason: 'already_running' }],
+      timestamp: new Date().toISOString(),
+    };
+  }
+  isAutoSenderRunning = true;
+  try {
+    return await executeNoAnswerAutoSender(options);
+  } finally {
+    isAutoSenderRunning = false;
+  }
+}
+
+async function executeNoAnswerAutoSender(options: {
   forceTaskId?: string;
   leadId?: string;
   limit?: number;
@@ -717,8 +740,9 @@ export async function scanRepInboxesAndRemind(options: { sendEmailDigest?: boole
 
         const bodyText = decodeGmailBody(msgData.payload) || msgData.snippet || '';
 
-        // Classify with Claude Sonnet 5.5
+        // Classify with Claude Haiku 4.5
         const claudeRes = await callClaudeSonnet({
+          model: 'claude-haiku-4-5',
           systemPrompt: INBOX_CLASSIFIER_SYSTEM_PROMPT,
           userPrompt: [
             `Rep: ${rep.name} (${rep.gmail_address})`,
@@ -727,7 +751,7 @@ export async function scanRepInboxesAndRemind(options: { sendEmailDigest?: boole
             `Subject: ${subjectHeader}`,
             `Email Body:\n${bodyText.slice(0, 2500)}`,
           ].join('\n'),
-          maxTokens: 900,
+          maxTokens: 700,
         });
 
         const parsed = extractJsonFromClaude<{

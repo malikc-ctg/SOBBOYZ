@@ -1,5 +1,5 @@
 /**
- * Claude Sonnet 5.5 Dossier Email Drafter & Post-Call Transcript Autopilot.
+ * Claude Haiku 4.5 Dossier Email Drafter & Post-Call Transcript Autopilot.
  * Combines Website/LinkedIn Recon + Call Transcripts + Colleague Logs + Rep Notes
  * to generate tailored follow-up emails that pass validateRenderedOutput().
  */
@@ -8,7 +8,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { FOLLOWUP_CONFIG, resolveRepConfig } from './config';
 import { renderEmail, parseFirstName, validateRenderedOutput } from './render';
 import { getOrRunLeadRecon, parseLeadIntelJson, LeadRecon } from './recon';
-import { callClaudeSonnet, extractJsonFromClaude } from './claudeClient';
+import { callClaudeSonnet, extractJsonFromClaude, CLAUDE_MODEL } from './claudeClient';
 import { companyKey } from './company';
 
 export interface AiDraftResult {
@@ -56,7 +56,32 @@ function sanitizeForValidation(text: string): string {
     .trim();
 }
 
+const inFlightDraftsByKey = new Map<string, Promise<AiDraftResult>>();
+
 export async function draftDossierEmailWithClaude(options: {
+  leadId: string;
+  templateKey?: string;
+  taskId?: string;
+  repIdentifier?: string | null;
+  customInstruction?: string;
+  forceReconRefresh?: boolean;
+}): Promise<AiDraftResult> {
+  const rawLeadId = String(options.leadId).replace(/^lead_/, '');
+  const lockKey = `${rawLeadId}:${options.taskId || options.templateKey || 'default'}`;
+
+  if (!options.forceReconRefresh && !options.customInstruction && inFlightDraftsByKey.has(lockKey)) {
+    return inFlightDraftsByKey.get(lockKey)!;
+  }
+
+  const runPromise = executeDraftDossierEmail(options).finally(() => {
+    inFlightDraftsByKey.delete(lockKey);
+  });
+
+  inFlightDraftsByKey.set(lockKey, runPromise);
+  return runPromise;
+}
+
+async function executeDraftDossierEmail(options: {
   leadId: string;
   templateKey?: string;
   taskId?: string;
@@ -229,9 +254,10 @@ export async function draftDossierEmailWithClaude(options: {
 
   try {
     const claudeRes = await callClaudeSonnet({
+      model: 'claude-haiku-4-5',
       systemPrompt: DRAFTER_SYSTEM_PROMPT,
       userPrompt,
-      maxTokens: 1200,
+      maxTokens: 800,
     });
 
     const parsed = extractJsonFromClaude<{
@@ -319,7 +345,7 @@ export async function draftDossierEmailWithClaude(options: {
     rep: effectiveRep,
     templateKey,
     draftedAt,
-    model: 'claude-sonnet-5-5',
+    model: CLAUDE_MODEL,
   };
 }
 
@@ -387,13 +413,14 @@ export async function runTranscriptAutopilot(
   }
 
   const res = await callClaudeSonnet({
+    model: 'claude-haiku-4-5',
     systemPrompt: AUTOPILOT_SYSTEM_PROMPT,
     userPrompt: [
       `Prospect: ${lead?.customer_name || 'Contact'} (${lead?.contact_title || 'Lead'}) at ${lead?.company_name || 'Company'}`,
       `Known Colleagues at Company: ${colleagues.map((c) => `${c.customer_name} (${c.contact_title || 'Colleague'}) [id:${c.id}]`).join(', ') || 'None'}`,
       `Call Transcript / Notes:\n${transcriptOrNotes}`,
     ].join('\n\n'),
-    maxTokens: 900,
+    maxTokens: 700,
   });
 
   const parsed = extractJsonFromClaude<TranscriptAutopilotResult>(res.text);
