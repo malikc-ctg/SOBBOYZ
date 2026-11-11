@@ -10,6 +10,7 @@ import { renderEmail, parseFirstName, validateRenderedOutput } from './render';
 import { getOrRunLeadRecon, parseLeadIntelJson, LeadRecon } from './recon';
 import { callClaudeSonnet, extractJsonFromClaude, CLAUDE_MODEL } from './claudeClient';
 import { companyKey } from './company';
+import { isPropertyOrAssetManagement } from '@/lib/sales/sectorUtils';
 
 export interface AiDraftResult {
   subject: string;
@@ -26,21 +27,33 @@ export interface AiDraftResult {
   model: string;
 }
 
-const DRAFTER_SYSTEM_PROMPT = `You are writing a B2B commercial construction follow-up email on behalf of a co-founder at Sea of Blue Inc. (Malik Campbell, Raahim Ahmed, or Ayaan Baig).
-Sea of Blue Inc. provides rough, final, and pre-handover touch-up post-construction cleaning for commercial, ICI, multi-family, and custom residential builders across the Greater Toronto Area (GTA).
+const DRAFTER_SYSTEM_PROMPT = `You are writing a B2B commercial follow-up email on behalf of a co-founder at Sea of Blue Inc. (Malik Campbell, Raahim Ahmed, or Ayaan Baig).
+Sea of Blue Inc. serves the Greater Toronto Area (GTA), Hamilton, Kitchener-Waterloo, London & Southwestern Ontario across TWO core verticals:
+
+1. FOR PROPERTY MANAGERS & ASSET MANAGERS (Sea of Blue Property Services):
+   - Value Proposition: ONE VENDOR (one number, one call for cleaning, turnovers and building upkeep so they stop chasing multiple contractors), FIXED PRICE (no surprise invoices), DOCUMENTED (before and after photos on every job), WSIB Insured.
+   - Core Services (book individually or bundle under one agreement for condos, rental portfolios, commercial offices, retail plazas, and industrial sites):
+     * Recurring Building Services: Common area cleaning, garbage rooms, amenity rooms, washrooms, day porter, night porter, building super.
+     * Unit Turnover (between tenants): Move-out/in cleans, carpet & appliance cleaning, paint touch-ups, drywall patching, junk removal.
+     * Special & Problem Units: Hoarding clean-outs, deep resets, sanitation, post-pest, fire & flood cleanup.
+     * Renovation & Construction Support: Rough/pre-final/final turnover cleans, painting, drywall repair, floor prep, strip and wax.
+     * Grounds & Exterior Support: Landscaping, walkway snow & ice, exterior glass & gutters, solar panel cleaning, pressure washing, parking garages, minor repairs, vacancy checks.
+
+2. FOR CONSTRUCTION BUILDERS & GENERAL CONTRACTORS (Post-Construction):
+   - Value Proposition: Rough, pre-final, and final turnover post-construction cleaning for commercial, ICI, multi-family, and custom residential builders with fixed square-foot pricing and WSIB/$5M liability coverage.
 
 YOUR GOAL:
-Personalize the email body and subject line using the Lead Dossier (Company Website & LinkedIn Recon, Quo Call Transcripts, Colleague Call Logs, and Rep Notes) while keeping the exact purpose and directness of the sequence step's Base Template.
+Personalize the email body and subject line using the Lead Dossier (Company Website & LinkedIn Recon, Quo Call Transcripts, Colleague Call Logs, and Rep Notes) while keeping the exact purpose and directness of the sequence step's Base Template and matching the prospect's vertical.
 
 STRICT FORMATTING & STYLE RULES (CRITICAL):
-1. Plain contractor-to-contractor English. Short sentences. Under 85 words for the body paragraphs (excluding greeting and signature).
+1. Plain contractor-to-manager English. Short sentences. Under 90 words for the body paragraphs (excluding greeting and signature).
 2. NEVER use em-dashes (—) or en-dashes (–). Use a comma or period instead.
 3. NEVER use double spaces, bullet lists, or cheesy AI phrases ("I hope this email finds you well", "impressive portfolio", "synergy", "delighted").
-4. If the Dossier has specific call transcript details, colleague names spoken to at their company, or specific build types/cities from their website/LinkedIn, weave ONE natural, specific reference into the email.
+4. If the Dossier has specific call transcript details, colleague names spoken to at their company, or specific property/build types and cities from their website/LinkedIn, weave ONE natural, specific reference into the email.
 5. Do NOT include the greeting ("Hi Name,") or the signature block in your "body_paragraphs" JSON field; our renderer attaches the exact greeting and legal signature automatically.
 6. Return ONLY valid JSON with this exact shape:
 {
-  "subject": "Short, specific subject line (3 to 7 words, no em-dashes)",
+  "subject": "Short, specific subject line (3 to 8 words, no em-dashes)",
   "body_paragraphs": "The 1 to 3 short paragraphs of the email body only (separated by \\n\\n, no greeting, no sign-off)",
   "reasoning": "1 short sentence explaining what dossier/website/transcript detail was used"
 }`;
@@ -172,14 +185,26 @@ async function executeDraftDossierEmail(options: {
     forceRefresh: options.forceReconRefresh,
   });
 
+  const isPropMgmt = isPropertyOrAssetManagement({
+    contact_title: lead.contact_title || intel.seniority,
+    company_name: lead.company_name,
+    industry: intel.industry,
+    sector: intel.sector,
+    service_type: lead.service_type,
+    departments: intel.departments || intel.department,
+  });
+
   // 5. Render deterministic base template (with recon proof_sentence injected) as fallback & structural reference
   const baseRendered = renderEmail({
     templateKey,
     lead: {
       customer_name: lead.customer_name,
       company_name: lead.company_name,
+      contact_title: lead.contact_title || intel.seniority,
       city: lead.city,
-      sector: intel.sector || lead.service_type,
+      sector: isPropMgmt ? 'property_management' : intel.sector || lead.service_type,
+      industry: intel.industry,
+      service_type: lead.service_type,
     },
     rep: {
       signature_name: effectiveRep.name,
@@ -189,6 +214,8 @@ async function executeDraftDossierEmail(options: {
     context: {
       ...(activeEnr?.context || {}),
       proof_sentence: recon.proof_sentence,
+      contact_title: lead.contact_title || intel.seniority,
+      sector: isPropMgmt ? 'property_management' : intel.sector || lead.service_type,
     },
     anchorAt: activeEnr?.anchor_at || new Date(),
   });
@@ -225,19 +252,20 @@ async function executeDraftDossierEmail(options: {
     }
   }
 
-  // 7. Call Claude Sonnet 5.5 to personalize the email
+  // 7. Call Claude Haiku 4.5 to personalize the email
   const userPrompt = [
+    `VERTICAL PLAYBOOK: ${isPropMgmt ? 'PROPERTY & ASSET MANAGEMENT (Sea of Blue Property Services: One Vendor, Fixed Price, Documented before/after photos for Recurring Common Area/Porter Cleaning, Between-Tenant Unit Turnovers with paint/drywall/carpet/junk, Problem Units, Renovation Cleans, and Grounds/Exterior Upkeep)' : 'POST-CONSTRUCTION CLEANING (Rough, Pre-Final, and Final Turnover Cleans for Builders & General Contractors)'}`,
     `SEQUENCE STEP / TEMPLATE KEY: ${templateKey}`,
     `SENDING REP: ${effectiveRep.name} (${effectiveRep.title}, Sea of Blue Inc.)`,
     `PROSPECT NAME: ${lead.customer_name || 'Decision Maker'}`,
-    `PROSPECT TITLE: ${lead.contact_title || intel.seniority || 'Project Lead'}`,
-    `COMPANY: ${lead.company_name || 'Commercial Builder'} (${lead.city || 'GTA'})`,
+    `PROSPECT TITLE: ${lead.contact_title || intel.seniority || (isPropMgmt ? 'Property Manager' : 'Project Lead')}`,
+    `COMPANY: ${lead.company_name || (isPropMgmt ? 'Property Management Firm' : 'Commercial Builder')} (${lead.city || 'GTA'})`,
     `WEBSITE & LINKEDIN RECON:`,
     `- Company Summary: ${recon.company_summary}`,
-    `- Build Specialty: ${recon.build_specialty}`,
-    `- Notable Projects / Sectors: ${(recon.notable_projects || []).join('; ') || 'Commercial builds'}`,
+    `- Portfolio / Build Specialty: ${recon.build_specialty}`,
+    `- Notable Properties / Projects / Sectors: ${(recon.notable_projects || []).join('; ') || (isPropMgmt ? 'Managed properties' : 'Commercial builds')}`,
     `- Role Angle: ${recon.contact_role_angle}`,
-    recon.whisper_card?.lead_intel ? `- Lead Intel (LinkedIn / Current Role & Projects): ${recon.whisper_card.lead_intel}` : '',
+    recon.whisper_card?.lead_intel ? `- Lead Intel (LinkedIn / Current Role & Properties): ${recon.whisper_card.lead_intel}` : '',
     `REP NOTES ON LEAD: ${intel.notes || intel.rep_notes || 'None'}`,
     `ENROLLMENT CONTEXT: ${JSON.stringify(activeEnr?.context || {})}`,
     `DIRECT CALL LOGS & QUO TRANSCRIPTS:\n${directTranscripts.slice(0, 4).join('\n') || 'No connected transcript yet (cold outreach / no answer).'}`,

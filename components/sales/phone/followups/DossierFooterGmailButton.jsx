@@ -128,8 +128,11 @@ export default function DossierFooterGmailButton({
             lead: {
               customer_name: contact.name,
               company_name: contact.company,
+              contact_title: contact.position || contact.title,
               city: contact.city,
               sector: contact.sector,
+              industry: contact.industry,
+              service_type: contact.service_type,
             },
             rep: {
               signature_name: effectiveRep.name,

@@ -27,6 +27,7 @@ export interface TemplateContext {
   rep_first_name?: string;
   call_day_simple?: string;
   proof_sentence?: string;
+  is_property_management?: boolean;
 }
 
 export type TemplateFunction = (ctx: TemplateContext) => { subject: string; body: string };
@@ -35,7 +36,6 @@ export const TEMPLATES: Record<string, TemplateFunction> = {
   // C.1 No-answer drip
   drip_1: (ctx) => {
     const proj = ctx.project_name || (ctx.company_name && !['commercial prospect'].includes(ctx.company_name.toLowerCase()) ? ctx.company_name : '');
-    const subject = proj ? `Closeout clean for ${proj}` : 'Closeout clean for your current projects';
 
     const callPhrase = ctx.is_same_day
       ? 'today'
@@ -47,7 +47,28 @@ export const TEMPLATES: Record<string, TemplateFunction> = {
     const rep = ctx.rep_first_name || 'Malik';
     const inRegion = ctx.city ? `in ${ctx.city}` : ctx.service_area;
     const proofCity = ctx.city || 'Mississauga';
-    const proof = ctx.proof_sentence || `Most recently we turned over a 35,000 sq ft commercial facility in ${proofCity}.`;
+
+    if (ctx.is_property_management) {
+      const subject = proj
+        ? `Cleaning, turnovers and building upkeep for ${proj}`
+        : 'Cleaning, turnovers and building upkeep for your properties';
+      const proof = ctx.proof_sentence
+        ? `${ctx.proof_sentence.replace(/[.]+$/, '')}.`
+        : `We support condos, rental portfolios, and commercial plazas across ${proofCity} and the GTA with fixed pricing and before and after photos on every job.`;
+
+      return {
+        subject,
+        body: [
+          `${callSentence} I’m ${rep} with Sea of Blue Inc. Instead of coordinating several contractors, we give property and asset managers ${inRegion} one fixed-price team for recurring common area cleaning, unit turnovers, and building upkeep. ${proof}`,
+          'We handle day and night porters, garbage and amenity rooms, between-tenant move-out cleans, carpet cleaning, paint touch-ups, drywall patching, and junk removal. Which building or upcoming turnover can we price for you?',
+        ].join('\n\n'),
+      };
+    }
+
+    const subject = proj ? `Closeout clean for ${proj}` : 'Closeout clean for your current projects';
+    const proof = ctx.proof_sentence
+      ? `${ctx.proof_sentence.replace(/[.]+$/, '')}.`
+      : `Most recently we turned over a 35,000 sq ft commercial facility in ${proofCity}.`;
 
     return {
       subject,
@@ -58,22 +79,31 @@ export const TEMPLATES: Record<string, TemplateFunction> = {
     };
   },
 
-  drip_2: () => ({
-    subject: 'Dust after your last trades',
-    body: [
-      'Closeout cleans get undone when flooring, paint, or touch-up trades come in after the cleaners leave.',
-      'We schedule around your final trades and include a touch-up visit before the owner walkthrough. Which site finishes next?',
-    ].join('\n\n'),
-  }),
+  drip_2: (ctx) => {
+    if (ctx.is_property_management) {
+      return {
+        subject: 'One vendor for unit turnovers and common areas',
+        body: [
+          'Chasing separate vendors for move-out cleans, paint and drywall touch-ups, junk removal, and common area upkeep slows down unit turnovers.',
+          'We bundle recurring building cleaning, between-tenant unit turnovers, problem-unit resets, and exterior grounds upkeep under one fixed-price team with before and after photos on every job. Do you have any vacant units or buildings up for review this month?',
+        ].join('\n\n'),
+      };
+    }
+    return {
+      subject: 'Dust after your last trades',
+      body: [
+        'Closeout cleans get undone when flooring, paint, or touch-up trades come in after the cleaners leave.',
+        'We schedule around your final trades and include a touch-up visit before the owner walkthrough. Which site finishes next?',
+      ].join('\n\n'),
+    };
+  },
 
   drip_3: (ctx) => {
     const proj = ctx.project_name || (ctx.company_name && !['commercial prospect'].includes(ctx.company_name.toLowerCase()) ? ctx.company_name : '');
-    const subject = proj ? `Quote for ${proj}’s final clean` : 'Quote for your project’s final clean';
 
     const rep = ctx.rep_first_name || 'Malik';
     const inRegion = ctx.city ? `in ${ctx.city}` : ctx.service_area;
     const proofCity = ctx.city || 'Mississauga';
-    const proof = ctx.proof_sentence || `Our last turnover was a 35,000 sq ft commercial site in ${proofCity}.`;
 
     let callRef = 'my call recently';
     if (ctx.is_same_day) {
@@ -84,6 +114,26 @@ export const TEMPLATES: Record<string, TemplateFunction> = {
       callRef = `my call on ${ctx.call_day_simple}`;
     }
 
+    if (ctx.is_property_management) {
+      const subject = proj ? `Fixed pricing for ${proj}’s buildings` : 'Fixed pricing for your buildings and turnovers';
+      const proof = ctx.proof_sentence
+        ? `${ctx.proof_sentence.replace(/[.]+$/, '')}.`
+        : `We serve high-rise and low-rise condos, rental portfolios, commercial offices, and retail plazas in ${proofCity} and the GTA.`;
+
+      return {
+        subject,
+        body: [
+          `I’ve been trying to reach you since ${callRef}. I’m ${rep} with Sea of Blue Inc. We take cleaning, unit turnovers, renovation cleans, and exterior upkeep off your plate ${inRegion}. ${proof}`,
+          'You can book services individually or bundle them under one agreement at a fixed price. Send over one building or unit turnover scope and I will send back a fixed quote with our WSIB and insurance certificates attached.',
+        ].join('\n\n'),
+      };
+    }
+
+    const subject = proj ? `Quote for ${proj}’s final clean` : 'Quote for your project’s final clean';
+    const proof = ctx.proof_sentence
+      ? `${ctx.proof_sentence.replace(/[.]+$/, '')}.`
+      : `Our last turnover was a 35,000 sq ft commercial site in ${proofCity}.`;
+
     return {
       subject,
       body: [
@@ -93,10 +143,18 @@ export const TEMPLATES: Record<string, TemplateFunction> = {
     };
   },
 
-  drip_4: () => ({
-    subject: 'Wrong person?',
-    body: 'Not sure if closeout cleaning even runs through you. If someone else on your team books it, point me to them and I’ll leave you alone.',
-  }),
+  drip_4: (ctx) => {
+    if (ctx.is_property_management) {
+      return {
+        subject: 'Wrong person?',
+        body: 'Not sure if building cleaning, unit turnovers, and property upkeep run through you. If another property or asset manager on your team handles vendor quotes, point me to them and I’ll leave you alone.',
+      };
+    }
+    return {
+      subject: 'Wrong person?',
+      body: 'Not sure if closeout cleaning even runs through you. If someone else on your team books it, point me to them and I’ll leave you alone.',
+    };
+  },
 
   // C.2 Pick-up follow-up
   pickup_recap: (ctx) => {

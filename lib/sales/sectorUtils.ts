@@ -132,7 +132,13 @@ export function resolveCanonicalSector(input?: string | null): string {
   if (
     s === 'property_management' ||
     s.includes('property') ||
+    s.includes('asset manag') ||
+    s.includes('portfolio manag') ||
+    s.includes('facilities manag') ||
+    s.includes('facility manag') ||
+    s.includes('building operat') ||
     s.includes('real estate') ||
+    s.includes('reit') ||
     s.includes('residential') ||
     s.includes('hoa') ||
     s.includes('landlord') ||
@@ -223,13 +229,23 @@ export function classifyLeadSector(lead: {
     .join(' ')
     .toLowerCase();
 
-  // 1. Property Management & Condos
+  // 1. Property Management, Asset Management & Condos
   if (
     combined.includes('property manager') ||
     combined.includes('property management') ||
+    combined.includes('asset manager') ||
+    combined.includes('asset management') ||
+    combined.includes('portfolio manager') ||
+    combined.includes('facilities manager') ||
+    combined.includes('facility manager') ||
     combined.includes('condominium manager') ||
     combined.includes('condo manager') ||
+    combined.includes('community manager') ||
+    combined.includes('building operator') ||
+    combined.includes('building operations') ||
+    combined.includes('reit') ||
     combined.includes('realty') ||
+    combined.includes('real estate') ||
     combined.includes('residential') ||
     combined.includes('landlord') ||
     combined.includes('hoa') ||
@@ -310,4 +326,24 @@ export function classifyLeadSector(lead: {
 
   // Fallback to resolving whatever raw industry/sector was given
   return resolveCanonicalSector(lead.industry || lead.sector || '');
+}
+
+/**
+ * Returns true if the lead belongs to the Property Management / Asset Management vertical
+ * (Condos, Rental Portfolios, Commercial Offices/Plazas, REITs, Property/Asset/Facilities Managers).
+ */
+export function isPropertyOrAssetManagement(lead: {
+  contact_title?: string | null;
+  company_name?: string | null;
+  industry?: string | null;
+  sector?: string | null;
+  service_type?: string | null;
+  departments?: string | null;
+  sub_departments?: string | null;
+}): boolean {
+  if (String(lead.sector || '').trim().toLowerCase() === 'property_management') {
+    return true;
+  }
+  const resolved = classifyLeadSector(lead);
+  return resolved === 'property_management';
 }

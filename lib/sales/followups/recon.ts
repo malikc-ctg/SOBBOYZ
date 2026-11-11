@@ -7,6 +7,7 @@
 import { createServiceClient } from '@/lib/supabase/server';
 import { callClaudeSonnet, extractJsonFromClaude, CLAUDE_MODEL } from './claudeClient';
 import { companyKey } from './company';
+import { isPropertyOrAssetManagement } from '@/lib/sales/sectorUtils';
 
 export interface LeadContactVerification {
   still_at_company: string;
@@ -104,8 +105,13 @@ function stripHtmlToText(html: string, maxChars = 4500): string {
   return combined.slice(0, maxChars);
 }
 
-async function fetchWebsiteText(baseUrl: string): Promise<{ text: string; fetchedUrls: string[] }> {
-  const paths = ['', '/projects', '/portfolio', '/about', '/about-us', '/services'];
+async function fetchWebsiteText(
+  baseUrl: string,
+  isPropertyMgmt = false
+): Promise<{ text: string; fetchedUrls: string[] }> {
+  const paths = isPropertyMgmt
+    ? ['', '/properties', '/portfolio', '/communities', '/buildings', '/services', '/about', '/about-us']
+    : ['', '/projects', '/portfolio', '/about', '/about-us', '/services'];
   const fetchedUrls: string[] = [];
   const chunks: string[] = [];
 
@@ -202,36 +208,49 @@ export function parseLeadIntelJson(notesRaw?: string | null): Record<string, any
   return { notes: notesRaw };
 }
 
-const RECON_SYSTEM_PROMPT = `You are the Senior Construction Intelligence Analyst for Sea of Blue Inc., a commercial and post-construction cleaning contractor serving the Greater Toronto Area (GTA: Toronto, Mississauga, Brampton, Vaughan, Oakville, Burlington, Markham, Milton, Hamilton).
+const RECON_SYSTEM_PROMPT = `You are the Senior Commercial Intelligence Analyst for Sea of Blue Inc. (serving the GTA, Hamilton, Kitchener-Waterloo, London & Southwestern Ontario).
 
-Your job is to scope a prospect's construction/development company ONLY using their provided company website and their provided LinkedIn profile link (plus the CRM lead data), and return a concise JSON dossier for our sales reps (Malik Campbell, Raahim Ahmed, and Ayaan Baig) and email drafter.
+We have TWO distinct service lines depending on the prospect's vertical:
+1. FOR CONSTRUCTION BUILDERS & GENERAL CONTRACTORS (Post-Construction):
+   - Rough clean, pre-final clean, and final turnover clean for commercial, ICI, retail fit-out, multi-family, and custom residential builders.
+2. FOR PROPERTY MANAGERS & ASSET MANAGERS (Sea of Blue Property Services):
+   - Core Commitment: ONE VENDOR (one number, one call for cleaning, turnovers and building services), FIXED PRICE (know the cost before we start, no surprise invoices), DOCUMENTED (before and after photos on every job), WSIB Insured.
+   - Core Services (book individually or bundle under one agreement for high-rise/low-rise condos, rental portfolios, commercial offices, retail plazas, industrial sites, and new builds):
+     * Recurring Building Services: Common area cleaning, garbage rooms, amenity rooms, washrooms, day porter, night porter, building super.
+     * Unit Turnover (between tenants): Move-out cleans, move-in cleans, carpet cleaning, appliance cleaning, paint touch-ups, drywall patching, junk removal.
+     * Special & Problem Units: Hoarding clean-outs, deep cleans and resets, sanitation cleans, post-pest cleans, fire and flood cleanup.
+     * Renovation & Construction Support (units & common areas): Rough/pre-final/final turnover clean, painting, drywall repair, floor prep, strip and wax.
+     * Grounds, Exterior & Support Services: Landscaping & grounds, walkway snow & ice, exterior glass & gutters, solar panel cleaning, pressure washing, parking areas & garages, junk & move support (elevator padding), minor repairs (hardware/fixtures/bulbs/caulking), inspections & vacancy checks.
+
+Your job is to scope the prospect's company ONLY using their provided company website and their provided LinkedIn profile link (plus the CRM lead data), and return a concise JSON dossier for our sales reps (Malik Campbell, Raahim Ahmed, and Ayaan Baig) and email drafter.
 
 STRICT RULES:
 1. NEVER use em-dashes (—) or en-dashes (–) anywhere. Use commas or periods instead.
 2. NEVER search or reference third-party directory sites like ZoomInfo, RocketReach, Apollo, Lusha, SignalHire, ContactOut, or yellow pages. Rely strictly on the provided company website content, the provided LinkedIn URL, and the lead's CRM profile fields.
-3. Write in a grounded, practical contractor-to-contractor tone. No corporate buzzwords or cheesy flattery.
+3. Write in a grounded, practical contractor-to-manager tone. No corporate buzzwords or cheesy flattery.
 4. In "lead_intel", summarize:
    - Their role/title at the company (from their LinkedIn/CRM data).
-   - What projects, sectors, or divisions at the company align with their role (e.g. Estimator, Project Manager, Site Super).
+   - If Property/Asset Manager: what buildings, condo corporations, rental portfolios, or commercial plazas they manage or oversee.
+   - If Construction/GC: what projects, sectors, or divisions at the company align with their role (e.g. Estimator, Project Manager, Site Super).
 5. Return ONLY valid JSON matching this exact schema:
 {
-  "company_summary": "1-2 sentence factual summary of what this builder/company constructs and where they operate",
-  "build_specialty": "Short label, e.g. 'Commercial ICI & Retail Fit-Outs', 'Custom Luxury Homes', 'Multi-Family & Condo Developments', or 'General Contracting'",
-  "notable_projects": ["Up to 3 specific project types, named projects, or sectors mentioned on their site"],
-  "service_cities": ["Cities they build in, e.g. Mississauga, Oakville, Toronto"],
-  "contact_role_angle": "1 sentence on what matters most to this specific contact's job title (e.g. Estimators care about fast fixed-price per sq ft + WSIB/insurance; Site Supers care about crews showing up on schedule and zero dust punch-list items before handover; Project Managers care about reliable rough + final + touch-up scheduling)",
-  "proof_sentence": "A natural 1-sentence line for a cold email referencing their specific type of builds or city (no em-dashes, no double spaces, e.g. 'We handle rough, final, and pre-handover touch-up cleans for commercial fit-out and ICI builders across Mississauga and the GTA.')",
+  "company_summary": "1-2 sentence factual summary of what this company builds or what properties/portfolios they manage and where they operate",
+  "build_specialty": "Short label, e.g. 'Condo & Multi-Family Property Management', 'Commercial & Retail Asset Management', 'Commercial ICI & Retail Fit-Outs', or 'General Contracting'",
+  "notable_projects": ["Up to 3 specific property types, named buildings/communities, or construction projects mentioned on their site"],
+  "service_cities": ["Cities they operate in, e.g. Mississauga, Oakville, Toronto, Hamilton"],
+  "contact_role_angle": "1 sentence on what matters most to this specific contact's job title (e.g. Property Managers want one fixed-price vendor for common areas, day porters, and fast unit turnovers with paint/drywall touch-ups and before/after photos; Asset Managers want fast vacant suite turnovers, bundled building/exterior upkeep, and predictable fixed pricing; Estimators/PMs care about fixed-price rough + final cleans)",
+  "proof_sentence": "A natural 1-sentence line for a cold email referencing their specific type of buildings/properties or construction sites and city (no em-dashes, no double spaces)",
   "whisper_card": {
-    "what_they_build": "1 punchy bullet for the rep before dialing summarizing what the company builds",
+    "what_they_build": "1 punchy bullet for the rep before dialing summarizing what properties they manage or what they build",
     "company_touch_intel": "1 punchy bullet summarizing past calls/colleagues at this company or decision-maker level",
-    "lead_intel": "2-3 concise, high-value sentences for the rep: their confirmed role/seniority at the company and the types of projects, tenders, or divisions they oversee",
+    "lead_intel": "2-3 concise, high-value sentences for the rep: their confirmed role/seniority at the company and the types of properties, portfolios, or projects they oversee",
     "recommended_opener": "1 sentence phone opener tailored to their title and company specialty"
   },
   "contact_verification": {
     "still_at_company": "Yes / Verified / Likely",
     "current_title": "Current confirmed title from LinkedIn or CRM",
     "tenure": "Time at company if found, or 'N/A'",
-    "projects_or_focus": "Specific projects or divisions they are tied to"
+    "projects_or_focus": "Specific properties, portfolios, or construction divisions they are tied to"
   }
 }`;
 
@@ -318,12 +337,21 @@ async function executeLeadRecon(
     }
   }
 
+  const isPropMgmt = isPropertyOrAssetManagement({
+    contact_title: lead.contact_title || intel.seniority,
+    company_name: lead.company_name,
+    industry: intel.industry,
+    sector: intel.sector,
+    service_type: lead.service_type,
+    departments: intel.departments || intel.department,
+  });
+
   // 1. Scrape provided Company Website directly (free via Node fetch) unless siblingRecon already has it
   const baseUrl = normalizeUrl(intel.website, lead.customer_email);
   let websiteScrapedText = '';
   let fetchedUrls: string[] = [];
   if (baseUrl && !siblingRecon) {
-    const scraped = await fetchWebsiteText(baseUrl);
+    const scraped = await fetchWebsiteText(baseUrl, isPropMgmt);
     websiteScrapedText = scraped.text;
     fetchedUrls = scraped.fetchedUrls;
   } else if (siblingRecon?.sources?.length) {
@@ -340,19 +368,20 @@ async function executeLeadRecon(
   // Never use paid Anthropic web_search ($0.01/search + 15k-30k search snippet tokens).
   // Recon relies 100% on the free direct website scrape + provided LinkedIn snippet + CRM lead data.
   const userPrompt = [
+    `Vertical Playbook: ${isPropMgmt ? 'PROPERTY & ASSET MANAGEMENT (Sea of Blue Property Services: One Vendor, Fixed Price, Documented before/after photos for Recurring Building Services, Unit Turnovers with paint/drywall/junk/carpet, Problem Units, Renovation Support, and Grounds/Exterior Upkeep)' : 'POST-CONSTRUCTION CLEANING (Rough, Pre-Final, and Final Turnover Cleans for Builders & General Contractors)'}`,
     `Contact Name: ${lead.customer_name || 'Decision Maker'}`,
-    `Contact Title: ${lead.contact_title || intel.seniority || 'Project Manager'}`,
-    `Seniority / Department: ${intel.seniority || 'N/A'} / ${intel.departments || intel.department || 'Construction'}`,
-    `Company Name: ${lead.company_name || 'Commercial Builder'}`,
+    `Contact Title: ${lead.contact_title || intel.seniority || (isPropMgmt ? 'Property Manager' : 'Project Manager')}`,
+    `Seniority / Department: ${intel.seniority || 'N/A'} / ${intel.departments || intel.department || (isPropMgmt ? 'Property Management' : 'Construction')}`,
+    `Company Name: ${lead.company_name || (isPropMgmt ? 'Property Management Firm' : 'Commercial Builder')}`,
     `City / Region: ${lead.city || 'GTA, Ontario'}`,
-    `Industry / Sector: ${intel.industry || intel.sector || lead.service_type || 'Construction'}`,
+    `Industry / Sector: ${intel.industry || intel.sector || lead.service_type || (isPropMgmt ? 'Property Management' : 'Construction')}`,
     `Provided Website URL: ${intel.website || baseUrl || 'Not provided'}`,
     `Provided LinkedIn URL: ${providedLinkedin || 'Not provided'}`,
     `Company Size / Revenue Intel: ${intel.employees ? `${intel.employees} employees` : 'Unknown'} ${intel.annual_revenue || ''}`,
     `Rep Notes: ${intel.notes || intel.rep_notes || 'None'}`,
     `Recent Call / Colleague History at Company:\n${companyCallSummaries.length ? companyCallSummaries.join('\n') : 'No prior connected calls logged yet.'}`,
     siblingRecon
-      ? `Existing Company Intel from Colleague Dossier:\nSummary: ${siblingRecon.company_summary}\nSpecialty: ${siblingRecon.build_specialty}\nProjects: ${(siblingRecon.notable_projects || []).join(', ')}\nCities: ${(siblingRecon.service_cities || []).join(', ')}`
+      ? `Existing Company Intel from Colleague Dossier:\nSummary: ${siblingRecon.company_summary}\nSpecialty: ${siblingRecon.build_specialty}\nProjects/Properties: ${(siblingRecon.notable_projects || []).join(', ')}\nCities: ${(siblingRecon.service_cities || []).join(', ')}`
       : '',
     websiteScrapedText
       ? `\nScraped Company Website Content (from ${baseUrl}):\n${websiteScrapedText}`
@@ -361,8 +390,10 @@ async function executeLeadRecon(
       ? `\nProvided LinkedIn Profile Content (from ${providedLinkedin}):\n${linkedinScrapedText}`
       : '',
     `\nTASK:`,
-    `1. Analyze the company and what projects they build in the GTA / Ontario using ONLY the scraped website content, colleague dossier, and CRM data provided above.`,
-    `2. Using the contact's provided LinkedIn profile (${providedLinkedin || 'CRM role data'}) and title (${lead.contact_title || 'their title'}), summarize their role focus and project alignment in 'lead_intel'. Do NOT search external directories like ZoomInfo or RocketReach.`,
+    isPropMgmt
+      ? `1. Analyze the company and what properties or portfolios they manage or own (high-rise/low-rise condos, multi-family rentals, commercial offices, retail plazas, or industrial sites) in the GTA / Southwestern Ontario using ONLY the scraped website content, colleague dossier, and CRM data provided above.`
+      : `1. Analyze the company and what projects they build in the GTA / Ontario using ONLY the scraped website content, colleague dossier, and CRM data provided above.`,
+    `2. Using the contact's provided LinkedIn profile (${providedLinkedin || 'CRM role data'}) and title (${lead.contact_title || 'their title'}), summarize their role focus and property/project alignment in 'lead_intel'. Do NOT search external directories like ZoomInfo or RocketReach.`,
     `3. Synthesize the findings into the requested JSON schema.`,
   ]
     .filter(Boolean)
@@ -395,8 +426,12 @@ async function executeLeadRecon(
   const recon: LeadRecon = {
     company_summary:
       cleanNoDashes(parsed.company_summary) ||
-      `${lead.company_name || 'This builder'} operates construction projects in ${lead.city || 'the GTA'}.`,
-    build_specialty: cleanNoDashes(parsed.build_specialty) || 'Commercial & Post-Construction',
+      (isPropMgmt
+        ? `${lead.company_name || 'This firm'} manages residential and commercial properties in ${lead.city || 'the GTA'}.`
+        : `${lead.company_name || 'This builder'} operates construction projects in ${lead.city || 'the GTA'}.`),
+    build_specialty:
+      cleanNoDashes(parsed.build_specialty) ||
+      (isPropMgmt ? 'Property & Asset Management' : 'Commercial & Post-Construction'),
     notable_projects: Array.isArray(parsed.notable_projects)
       ? parsed.notable_projects.map((p) => cleanNoDashes(p)).filter(Boolean).slice(0, 4)
       : [],
@@ -405,15 +440,21 @@ async function executeLeadRecon(
       : [lead.city || 'GTA'],
     contact_role_angle:
       cleanNoDashes(parsed.contact_role_angle) ||
-      'Focus on reliable rough, final, and touch-up clean scheduling with fixed square-foot pricing.',
+      (isPropMgmt
+        ? 'Focus on one fixed-price vendor for common area cleaning, unit turnovers with paint and drywall touch-ups, and building upkeep with before and after photos.'
+        : 'Focus on reliable rough, final, and touch-up clean scheduling with fixed square-foot pricing.'),
     proof_sentence:
       cleanNoDashes(parsed.proof_sentence) ||
-      `Most recently we turned over a 35,000 sq ft commercial facility in ${lead.city || 'Mississauga'}.`,
+      (isPropMgmt
+        ? `We give property and asset managers in ${lead.city || 'the GTA'} one fixed-price team for recurring common area cleaning, between-tenant unit turnovers, and building upkeep with before and after photos on every job.`
+        : `Most recently we turned over a 35,000 sq ft commercial facility in ${lead.city || 'Mississauga'}.`),
     whisper_card: {
       what_they_build:
         cleanNoDashes(rawWhisper?.what_they_build) ||
         cleanNoDashes(parsed.company_summary) ||
-        `Commercial construction in ${lead.city || 'the GTA'}.`,
+        (isPropMgmt
+          ? `Manages properties and building portfolios in ${lead.city || 'the GTA'}.`
+          : `Commercial construction in ${lead.city || 'the GTA'}.`),
       company_touch_intel:
         cleanNoDashes(rawWhisper?.company_touch_intel) ||
         (companyCallSummaries[0] ? cleanNoDashes(companyCallSummaries[0]) : 'First touch at this company.'),
@@ -425,7 +466,9 @@ async function executeLeadRecon(
             `${lead.customer_name || 'Contact'} is listed as ${lead.contact_title || 'lead'} at ${lead.company_name || 'the company'}.`),
       recommended_opener:
         rawOpener ||
-        `Hi ${lead.customer_name?.split(' ')[0] || 'there'}, I'm calling from Sea of Blue. We handle rough and final post-construction cleans for builders in ${lead.city || 'the GTA'}.`,
+        (isPropMgmt
+          ? `Hi ${lead.customer_name?.split(' ')[0] || 'there'}, I'm calling from Sea of Blue. We give property and asset managers in ${lead.city || 'the GTA'} one fixed-price vendor for common area cleaning, unit turnovers, and building upkeep.`
+          : `Hi ${lead.customer_name?.split(' ')[0] || 'there'}, I'm calling from Sea of Blue. We handle rough and final post-construction cleans for builders in ${lead.city || 'the GTA'}.`),
     },
     contact_verification: parsed.contact_verification
       ? {

@@ -1,5 +1,6 @@
 import { FOLLOWUP_CONFIG, resolveRepConfig } from './config';
 import { TEMPLATES, TemplateContext } from './templates';
+import { isPropertyOrAssetManagement } from '@/lib/sales/sectorUtils';
 import {
   toTorontoDate,
   formatTorontoDay,
@@ -83,8 +84,11 @@ export interface RenderInput {
   lead: {
     customer_name?: string | null;
     company_name?: string | null;
+    contact_title?: string | null;
     city?: string | null;
     sector?: string | null;
+    industry?: string | null;
+    service_type?: string | null;
   };
   rep: {
     signature_name?: string | null;
@@ -178,6 +182,14 @@ export function renderEmail(input: RenderInput): RenderResult {
   const repFirstName = parseFirstName(repName) || 'Malik';
   const callDaySimple = formatPastDaySimple(anchorDate, now);
 
+  const isPropMgmt = isPropertyOrAssetManagement({
+    contact_title: input.lead.contact_title || ctx.contact_title,
+    company_name: input.lead.company_name || ctx.company_name,
+    sector: input.lead.sector || ctx.sector,
+    industry: input.lead.industry || ctx.industry,
+    service_type: input.lead.service_type || ctx.service_type,
+  });
+
   const tCtx: TemplateContext = {
     service_area: FOLLOWUP_CONFIG.serviceAreaPhrase,
     is_same_day: isSameTorontoDate(now, anchorDate),
@@ -201,6 +213,8 @@ export function renderEmail(input: RenderInput): RenderResult {
     company_name: companyName,
     rep_first_name: repFirstName,
     call_day_simple: callDaySimple,
+    proof_sentence: cleanSnippet(ctx.proof_sentence, 280),
+    is_property_management: isPropMgmt,
   };
 
   const rendered = templateFn(tCtx);
