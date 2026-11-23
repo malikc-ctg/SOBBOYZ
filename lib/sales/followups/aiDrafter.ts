@@ -153,6 +153,8 @@ async function executeDraftDossierEmail(options: {
     taskRow?.template_key ||
     (lead.status === 'walkthrough_booked'
       ? 'wt_confirm'
+      : lead.status === 'info_sent'
+      ? 'info_day2'
       : lead.status === 'quoted'
       ? 'quote_day2'
       : lead.status === 'won'

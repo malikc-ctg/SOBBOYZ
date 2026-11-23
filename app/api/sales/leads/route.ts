@@ -59,16 +59,23 @@ export async function GET(request: NextRequest) {
     }
 
     // 3. Scalable Call Event Fetch:
-    // Only select necessary fields and limit to recent calls to avoid OOM / slow JSON parsing
-    const { data: callEvents, error: callsError } = await supabase
-      .from('events')
-      .select('event_id, rep_id, created_at, payload')
-      .eq('type', 'PHONE_CALL')
-      .order('created_at', { ascending: false })
-      .limit(5000);
-
-    if (callsError) {
-      console.error('[API /api/sales/leads] Calls query error:', callsError);
+    // Fetch up to 5000 recent calls in parallel 1000-row pages (PostgREST max_rows = 1000)
+    const callPagePromises = Array.from({ length: 5 }, (_, idx) =>
+      supabase
+        .from('events')
+        .select('event_id, rep_id, created_at, payload')
+        .eq('type', 'PHONE_CALL')
+        .order('created_at', { ascending: false })
+        .range(idx * 1000, idx * 1000 + 999)
+    );
+    const callPageResults = await Promise.all(callPagePromises);
+    const callEvents: any[] = [];
+    for (const res of callPageResults) {
+      if (res.error) {
+        console.error('[API /api/sales/leads] Calls query error:', res.error);
+      } else if (res.data) {
+        callEvents.push(...res.data);
+      }
     }
 
     // 4. Pre-index calls into O(1) Maps by contact_id, phone, and company

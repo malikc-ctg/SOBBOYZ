@@ -1030,9 +1030,29 @@ export default function SalesKanbanBoard({
                                   {directLock.reason === 'dialing' ? 'is dialing...' : 'viewing dossier'}
                                 </span>
                               </div>
-                              <span className="text-[10px] font-mono text-amber-300/90 shrink-0">
-                                {formatDateRelative(directLock.locked_at)}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                <span className="text-[10px] font-mono text-amber-300/90">
+                                  {formatDateRelative(directLock.locked_at)}
+                                </span>
+                                {onReleaseLock && (
+                                  <button
+                                    type="button"
+                                    draggable={false}
+                                    onMouseDown={e => e.stopPropagation()}
+                                    onPointerDown={e => e.stopPropagation()}
+                                    onDoubleClick={e => e.stopPropagation()}
+                                    onClick={e => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      onReleaseLock(contact.id);
+                                    }}
+                                    className="relative z-10 text-[10px] font-mono px-1.5 py-0.5 rounded bg-amber-950/90 hover:bg-amber-900 text-amber-200 border border-amber-700/60 transition cursor-pointer shrink-0"
+                                    title="Force release lock on this lead"
+                                  >
+                                    Release ×
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           )}
 
@@ -1049,11 +1069,16 @@ export default function SalesKanbanBoard({
                               {onReleaseLock && (
                                 <button
                                   type="button"
+                                  draggable={false}
+                                  onMouseDown={e => e.stopPropagation()}
+                                  onPointerDown={e => e.stopPropagation()}
+                                  onDoubleClick={e => e.stopPropagation()}
                                   onClick={e => {
+                                    e.preventDefault();
                                     e.stopPropagation();
                                     onReleaseLock(contact.id);
                                   }}
-                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-700/60 transition cursor-pointer shrink-0"
+                                  className="relative z-10 text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-700/60 transition cursor-pointer shrink-0"
                                   title="Release lock on this lead"
                                 >
                                   Release ×

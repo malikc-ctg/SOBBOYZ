@@ -650,7 +650,8 @@ export default function LeadDossierModal({
   const directLock = contact?.id ? activeLocks?.[String(contact.id)] : null;
   const hasValidDirectLock =
     directLock && directLock.expires_at && new Date(directLock.expires_at).getTime() > Date.now();
-  const isLockedByOther = hasValidDirectLock && !(isMyLock ? isMyLock(directLock) : false);
+  const isLockedByMe = hasValidDirectLock && (isMyLock ? isMyLock(directLock) : false);
+  const isLockedByOther = hasValidDirectLock && !isLockedByMe;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
@@ -669,7 +670,46 @@ export default function LeadDossierModal({
                 {formatDateRelative(directLock.locked_at)})
               </span>
             </div>
-            <span className="text-[11px] font-mono text-amber-300/90">Avoid simultaneous dial</span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-[11px] font-mono text-amber-300/90">Avoid simultaneous dial</span>
+              {onReleaseLock && (
+                <button
+                  type="button"
+                  onClick={e => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onReleaseLock(contact.id);
+                  }}
+                  className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-950/90 hover:bg-amber-900 text-amber-200 border border-amber-700/60 transition cursor-pointer"
+                >
+                  Release ×
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+        {isLockedByMe && (
+          <div className="px-6 py-2 bg-emerald-500/15 border-b border-emerald-500/30 flex items-center justify-between gap-3 text-xs font-bold text-emerald-300">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+              <PhoneCall size={13} className="text-emerald-400 shrink-0" />
+              <span>
+                {directLock.reason === 'dialing' ? 'Dialing Lock Active (You)' : 'Viewing Dossier Lock Active (You)'}
+              </span>
+            </div>
+            {onReleaseLock && (
+              <button
+                type="button"
+                onClick={e => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onReleaseLock(contact.id);
+                }}
+                className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-950/90 hover:bg-emerald-900 text-emerald-200 border border-emerald-700/60 transition cursor-pointer"
+              >
+                Release ×
+              </button>
+            )}
           </div>
         )}
 

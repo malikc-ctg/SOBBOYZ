@@ -287,7 +287,7 @@ export default function FollowupSettingsModal({
 
               <div className="p-3 bg-slate-950/90 border border-slate-800 rounded-lg space-y-2">
                 <p className="text-[11px] text-slate-400">
-                  Connect each rep&apos;s Google Workspace Gmail (`@seaofblue.app`) so Claude can auto-send No-Answer drips (after a 10m buffer) and scan inboxes for prospect replies & reminders.
+                  Connect each rep&apos;s Google Workspace Gmail (`@seaofblue.ca`) so Claude can auto-send No-Answer drips (after a 10m buffer) and scan inboxes for prospect replies & reminders.
                 </p>
                 <div className="space-y-1.5">
                   {repsGmail.map((rep) => (

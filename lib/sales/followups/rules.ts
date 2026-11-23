@@ -51,7 +51,7 @@ export function planForOutcome(input: PlanOutcomeInput): PlannerResult {
 
   // 2. Normalize legacy outcomes
   let outcome = rawOutcome;
-  if (outcome === 'SEND_QUOTE') outcome = 'INFO_SENT';
+  if (outcome === 'QUOTE_SENT') outcome = 'SEND_QUOTE';
   if (outcome === 'SALE') outcome = 'JOB_WON';
   let isGatekeeper = false;
   if (outcome === 'GATEKEEPER') {
@@ -85,6 +85,7 @@ export function planForOutcome(input: PlanOutcomeInput): PlannerResult {
     'CONVO',
     'CALLBACK',
     'INFO_SENT',
+    'SEND_QUOTE',
     'WALKTHROUGH',
     'JOB_WON',
     'NOT_INTERESTED',
@@ -518,6 +519,78 @@ export function planForOutcome(input: PlanOutcomeInput): PlannerResult {
       ],
     });
     toast = 'Info sent follow-up started. First email in 2 days.';
+  } else if (outcome === 'SEND_QUOTE') {
+    actions.push({
+      type: 'set_flag',
+      updates: { warm_at: now.toISOString() },
+    });
+
+    if (callbackEnr) {
+      actions.push({
+        type: 'complete_enrollment',
+        enrollmentId: callbackEnr.id,
+        endReason: 'completed',
+      });
+    }
+
+    if (prospectEnr?.sequence_key === 'walkthrough') {
+      const wtQuoteTask = prospectEnr.pendingTasks.find((t) => t.step_key === 'wt_quote');
+      if (wtQuoteTask) {
+        actions.push({
+          type: 'update_task',
+          taskId: wtQuoteTask.id,
+          status: 'done',
+          result: 'sent_outside_app',
+        });
+      }
+      actions.push({
+        type: 'complete_enrollment',
+        enrollmentId: prospectEnr.id,
+        endReason: 'completed',
+      });
+    } else if (prospectEnr?.sequence_key === 'quote_followup') {
+      const existingNotes = Array.isArray(prospectEnr.context.notes) ? [...prospectEnr.context.notes] : [];
+      existingNotes.push('Quote sent');
+      actions.push({
+        type: 'update_context',
+        enrollmentId: prospectEnr.id,
+        context: { ...prospectEnr.context, notes: existingNotes },
+      });
+      toast = 'Note saved to the Quote follow-up.';
+      return { actions, toast };
+    } else if (prospectEnr) {
+      actions.push({
+        type: 'cancel_enrollment',
+        enrollmentId: prospectEnr.id,
+        endReason: 'superseded:SEND_QUOTE',
+        cancelTasksReason: 'superseded',
+      });
+    }
+
+    const quoteDay2Due = calculateDayNDue(now, 2);
+    actions.push({
+      type: 'start_enrollment',
+      sequenceKey: 'quote_followup',
+      lane: 'prospect',
+      status: 'active',
+      anchorAt: now,
+      context: {
+        quoteAmount: prospectEnr?.context?.quoteAmount || capture.amount || '',
+        scopePhase: prospectEnr?.context?.scopePhase || capture.scope || '',
+        siteAddress: prospectEnr?.context?.siteAddress || '',
+      },
+      initialTasks: [
+        {
+          stepKey: 'quote_day2',
+          kind: 'email',
+          templateKey: 'quote_day2',
+          title: 'Email: Questions on the quote?',
+          dueAt: quoteDay2Due,
+        },
+      ],
+    });
+    statusOverride = 'quoted';
+    toast = 'Quote follow-up started. First email in 2 days.';
   } else if (outcome === 'WALKTHROUGH') {
     actions.push({
       type: 'set_flag',

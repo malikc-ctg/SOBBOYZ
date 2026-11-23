@@ -381,17 +381,21 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [realtimeConnected, setRealtimeConnected] = useState(false);
   const channelRef = useRef(null);
   const myLocksRef = useRef({});
+  const recentlyReleasedRef = useRef({});
 
-  // Helper to check if a lock belongs to this rep's active session
+  // Helper to check if a lock belongs to this rep (across any tab or session)
   const isMyLock = (lock) => {
     if (!lock) return false;
-    if (lock.session_id && clientSessionIdRef.current) {
-      return lock.session_id === clientSessionIdRef.current;
+    if (lock.session_id && clientSessionIdRef.current && lock.session_id === clientSessionIdRef.current) {
+      return true;
     }
-    if (activeRepId && lock.rep_id) {
-      return lock.rep_id === activeRepId;
+    if (activeRepId && lock.rep_id && lock.rep_id === activeRepId) {
+      return true;
     }
-    return normalizeRepName(lock.rep_name) === activeRepName;
+    if (lock.rep_name && activeRepName) {
+      return normalizeRepName(lock.rep_name) === activeRepName;
+    }
+    return false;
   };
 
   // Sync our held locks to Supabase Presence
@@ -465,6 +469,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       expires_at: new Date(now + LOCK_TTL_MS).toISOString(),
     };
 
+    delete recentlyReleasedRef.current[leadId];
     myLocksRef.current[leadId] = lockPayload;
     setActiveLocks(prev => ({ ...prev, [leadId]: lockPayload }));
 
@@ -488,6 +493,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const releaseLeadLock = async (leadId, options = { skipDb: false }) => {
     if (!leadId) return;
     const idStr = String(leadId);
+    recentlyReleasedRef.current[idStr] = Date.now();
     delete myLocksRef.current[idStr];
 
     setActiveLocks(prev => {
@@ -496,6 +502,10 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       delete next[idStr];
       return next;
     });
+
+    setContacts(prev =>
+      prev.map(c => (String(c.id) === idStr ? { ...c, active_lock: null } : c))
+    );
 
     if (channelRef.current) {
       channelRef.current.send({
@@ -573,7 +583,20 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
             if (Array.isArray(p.locks)) {
               p.locks.forEach(lk => {
                 if (lk?.lead_id && lk?.expires_at && new Date(lk.expires_at).getTime() > now) {
-                  presenceLocks[String(lk.lead_id)] = lk;
+                  const lid = String(lk.lead_id);
+                  const releasedAt = recentlyReleasedRef.current[lid];
+                  const lockTime = lk.locked_at ? new Date(lk.locked_at).getTime() : 0;
+                  if (releasedAt && (!lockTime || lockTime <= releasedAt + 2000)) {
+                    return;
+                  }
+                  // Never let stale self-presence re-add a lock we already released locally
+                  const isSelfPresence =
+                    (p.session_id && p.session_id === clientSessionIdRef.current) ||
+                    (lk.session_id && lk.session_id === clientSessionIdRef.current);
+                  if (isSelfPresence && !myLocksRef.current[lid]) {
+                    return;
+                  }
+                  presenceLocks[lid] = lk;
                 }
               });
             }
@@ -583,9 +606,16 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
         setOnlineReps(Array.from(repsMap.values()));
         setActiveLocks(prev => {
           const next = { ...prev };
-          // Prune expired locks
+          // Prune expired locks or any self-locks that are no longer in myLocksRef
           Object.keys(next).forEach(k => {
-            if (!next[k]?.expires_at || new Date(next[k].expires_at).getTime() <= now) {
+            const lk = next[k];
+            if (!lk?.expires_at || new Date(lk.expires_at).getTime() <= now) {
+              delete next[k];
+            } else if (
+              lk.session_id &&
+              lk.session_id === clientSessionIdRef.current &&
+              !myLocksRef.current[k]
+            ) {
               delete next[k];
             }
           });
@@ -785,6 +815,11 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       (data || []).forEach(c => {
         if (c.active_lock && c.active_lock.expires_at && new Date(c.active_lock.expires_at).getTime() > now) {
           const idStr = String(c.id);
+          const releasedAt = recentlyReleasedRef.current[idStr];
+          const lockTime = c.active_lock.locked_at ? new Date(c.active_lock.locked_at).getTime() : 0;
+          if (releasedAt && (!lockTime || lockTime <= releasedAt + 2000)) {
+            return;
+          }
           dbLocks[idStr] = {
             ...c.active_lock,
             lead_id: idStr,
@@ -1126,6 +1161,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
 
     let notes = `Outcome: ${outcomeType}`;
     let duration = 0;
+    let leadStatus = null;
     if (outcomeType === 'NO_ANSWER') {
       notes = 'Outbound call: No Answer / Rang out';
     } else if (outcomeType === 'VOICEMAIL') {
@@ -1134,12 +1170,14 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
     } else if (outcomeType === 'INFO_SENT') {
       notes = 'Pricing spec sheet / information sent';
       duration = 45;
+      leadStatus = 'info_sent';
     } else if (outcomeType === 'SEND_QUOTE') {
       notes = 'Quote / proposal sent';
       duration = 45;
+      leadStatus = 'quoted';
     }
 
-    return await logOutcome(contact, outcomeType, { notes, durationSeconds: duration });
+    return await logOutcome(contact, outcomeType, { notes, durationSeconds: duration, leadStatus });
   }
 
   // Follow-up modal submit handlers

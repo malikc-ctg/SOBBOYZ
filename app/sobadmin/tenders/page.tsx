@@ -1334,13 +1334,13 @@ export default function VendorListsAndTendersPage() {
 
       {/* UNIFIED LOG COMMERCIAL TENDER / BID MODAL (AI AUTO-FILL + MANUAL) */}
       <Dialog open={tenderModalOpen} onOpenChange={setTenderModalOpen}>
-        <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl sm:max-w-3xl w-[95vw] md:w-full max-h-[92vh] overflow-y-auto p-5 sm:p-7 bg-slate-900 border border-slate-800 text-slate-100 shadow-2xl rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2">
+            <DialogTitle className="text-base sm:text-lg font-bold flex items-center gap-2 text-slate-100">
               <Plus className="w-4 h-4 text-indigo-400" />
               <span>Log Commercial Tender / Bid</span>
             </DialogTitle>
-            <DialogDescription className="text-xs">
+            <DialogDescription className="text-xs text-slate-400">
               Record an incoming Invitation to Bid (ITB). Drop your Claude proposal (.pdf or .docx) to auto-fill everything instantly, or fill manually.
             </DialogDescription>
           </DialogHeader>
@@ -1378,14 +1378,14 @@ export default function VendorListsAndTendersPage() {
                 <span>Extracting proposal with Claude Haiku &amp; auto-filling details...</span>
               </div>
             ) : autoFilledMeta ? (
-              <div className="flex items-center justify-between w-full gap-2 text-xs">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between w-full gap-2 text-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                   <div className="text-left min-w-0">
-                    <p className="font-bold text-foreground truncate">
+                    <p className="font-bold text-slate-100 truncate">
                       Auto-Filled from {autoFilledMeta.fileName}
                     </p>
-                    <p className="text-[11px] text-muted-foreground truncate">
+                    <p className="text-[11px] text-slate-400 truncate">
                       {autoFilledMeta.matchedCompany?.is_existing
                         ? `Matched GC: ${autoFilledMeta.matchedCompany?.company_name}`
                         : `New GC enrolled: ${tenderForm.company_name}`}
@@ -1403,7 +1403,7 @@ export default function VendorListsAndTendersPage() {
                     e.stopPropagation();
                     autoFillInputRef.current?.click();
                   }}
-                  className="h-7 text-[11px] text-indigo-300 hover:text-indigo-200"
+                  className="h-7 text-[11px] text-indigo-300 hover:text-indigo-200 shrink-0 self-end sm:self-auto"
                 >
                   Replace File
                 </Button>
@@ -1414,10 +1414,10 @@ export default function VendorListsAndTendersPage() {
                   <Sparkles className="w-3.5 h-3.5" />
                 </div>
                 <div className="text-left">
-                  <span className="font-semibold text-foreground">
+                  <span className="font-semibold text-slate-100">
                     Drop Claude Proposal (.pdf or .docx) to auto-fill
                   </span>
-                  <span className="text-[11px] text-muted-foreground block">
+                  <span className="text-[11px] text-slate-400 block">
                     Extracts pricing, dates, contact info, cleaner wages &amp; materials in seconds
                   </span>
                 </div>
@@ -1427,26 +1427,29 @@ export default function VendorListsAndTendersPage() {
 
           {/* Reconciled Fleet Wage Pill if auto-filled */}
           {autoFilledMeta?.labor && (
-            <div className="p-2.5 rounded-lg bg-indigo-950/25 border border-indigo-500/30 flex items-center justify-between text-[11px]">
-              <span className="text-muted-foreground">
-                Fleet Wages Reconciled:{' '}
-                <strong className="text-foreground">
-                  ${Number(autoFilledMeta.labor.avg_cleaner_wage).toFixed(2)}/hr avg
-                </strong>
+            <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/30 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 text-xs">
+              <span className="text-slate-300 flex items-center gap-1.5 min-w-0">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                <span>
+                  Fleet Wages Reconciled:{' '}
+                  <strong className="text-slate-100 font-semibold">
+                    ${Number(autoFilledMeta.labor.avg_cleaner_wage).toFixed(2)}/hr avg
+                  </strong>
+                </span>
               </span>
               <Badge
                 variant="outline"
-                className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[10px]"
+                className="bg-emerald-500/15 text-emerald-300 border-emerald-500/30 text-[11px] font-semibold px-2.5 py-0.5 shrink-0"
               >
                 {autoFilledMeta.labor.gross_margin_percentage}% Projected Margin
               </Badge>
             </div>
           )}
 
-          <form onSubmit={handleCreateTenderSubmit} className="space-y-3 text-xs pt-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">GC / Company Name *</Label>
+          <form onSubmit={handleCreateTenderSubmit} className="space-y-3.5 text-xs pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">GC / Company Name *</Label>
                 <Input
                   required
                   value={tenderForm.company_name}
@@ -1454,11 +1457,11 @@ export default function VendorListsAndTendersPage() {
                     setTenderForm((f) => ({ ...f, company_name: e.target.value }))
                   }
                   placeholder="e.g. EllisDon / PCL"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Project / Tender Name *</Label>
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Project / Tender Name *</Label>
                 <Input
                   required
                   value={tenderForm.project_name}
@@ -1466,25 +1469,25 @@ export default function VendorListsAndTendersPage() {
                     setTenderForm((f) => ({ ...f, project_name: e.target.value }))
                   }
                   placeholder="e.g. Square One Retail Fit-Out"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs">Estimator / Contact</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Estimator / Contact</Label>
                 <Input
                   value={tenderForm.customer_name}
                   onChange={(e) =>
                     setTenderForm((f) => ({ ...f, customer_name: e.target.value }))
                   }
                   placeholder="Estimator Name"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Estimator Email</Label>
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Estimator Email</Label>
                 <Input
                   type="email"
                   value={tenderForm.customer_email}
@@ -1492,36 +1495,36 @@ export default function VendorListsAndTendersPage() {
                     setTenderForm((f) => ({ ...f, customer_email: e.target.value }))
                   }
                   placeholder="estimating@company.com"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Phone</Label>
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Phone</Label>
                 <Input
                   value={tenderForm.customer_phone}
                   onChange={(e) =>
                     setTenderForm((f) => ({ ...f, customer_phone: e.target.value }))
                   }
                   placeholder="(416) 555-0199"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <Label className="text-xs">Bid Closing / Due Date</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Bid Closing / Due Date</Label>
                 <Input
                   type="date"
                   value={tenderForm.bid_due_date}
                   onChange={(e) =>
                     setTenderForm((f) => ({ ...f, bid_due_date: e.target.value }))
                   }
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 focus:border-indigo-500 [color-scheme:dark]"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Est. Square Footage</Label>
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Est. Square Footage</Label>
                 <Input
                   type="number"
                   value={tenderForm.sqft}
@@ -1529,11 +1532,11 @@ export default function VendorListsAndTendersPage() {
                     setTenderForm((f) => ({ ...f, sqft: e.target.value }))
                   }
                   placeholder="e.g. 12000"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Bid Amount ($)</Label>
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Bid Amount ($)</Label>
                 <Input
                   type="number"
                   step="0.01"
@@ -1542,77 +1545,96 @@ export default function VendorListsAndTendersPage() {
                     setTenderForm((f) => ({ ...f, quoted_price: e.target.value }))
                   }
                   placeholder="e.g. 4800"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-emerald-400 font-semibold placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <Label className="text-xs">City</Label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">City</Label>
                 <Input
                   value={tenderForm.city}
                   onChange={(e) =>
                     setTenderForm((f) => ({ ...f, city: e.target.value }))
                   }
                   placeholder="Mississauga"
-                  className="mt-1 h-8 text-xs"
+                  className="mt-1 h-9 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500"
                 />
               </div>
-              <div>
-                <Label className="text-xs">Bid Status</Label>
+              <div className="min-w-0">
+                <Label className="text-xs font-medium text-slate-300">Bid Status</Label>
                 <select
                   value={tenderForm.bid_status}
                   onChange={(e) =>
                     setTenderForm((f) => ({ ...f, bid_status: e.target.value }))
                   }
-                  className="mt-1 w-full h-8 rounded-md border border-input bg-background px-2.5 text-xs"
+                  className="mt-1 w-full h-9 rounded-md border border-slate-700 bg-slate-800/80 px-2.5 text-xs text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 min-w-0"
                 >
                   <option value="itb_received">ITB Received / Pricing</option>
                   <option value="site_visit">Site Visit / Walkthrough</option>
                   <option value="bid_submitted">Bid Submitted</option>
                   <option value="awarded">Awarded / Won</option>
+                  <option value="not_awarded">Not Awarded</option>
                 </select>
               </div>
             </div>
 
-            <div>
-              <Label className="text-xs">Scope &amp; Tender Notes</Label>
+            <div className="min-w-0">
+              <Label className="text-xs font-medium text-slate-300">Scope &amp; Tender Notes</Label>
               <Textarea
-                rows={2}
+                rows={3}
                 value={tenderForm.scope_summary}
                 onChange={(e) =>
                   setTenderForm((f) => ({ ...f, scope_summary: e.target.value }))
                 }
                 placeholder="Drawings received via BuildingConnected — rough + final clean + interior glass..."
-                className="mt-1 text-xs"
+                className="mt-1 text-xs w-full min-w-0 bg-slate-800/80 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-indigo-500 resize-y"
               />
             </div>
 
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setTenderModalOpen(false);
-                  setAutoFilledMeta(null);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                size="sm"
-                disabled={submittingTender || aiAutoFilling}
-                className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold"
-              >
-                {submittingTender
-                  ? 'Saving...'
-                  : autoFilledMeta
-                  ? 'Confirm & Save Tender'
-                  : 'Save Tender'}
-              </Button>
+            <div className="flex flex-col-reverse sm:flex-row items-center justify-between gap-3 pt-4 border-t border-slate-800">
+              <div className="text-[11px] text-slate-400 w-full sm:w-auto text-left">
+                {autoFilledMeta ? (
+                  <span className="flex items-center gap-1.5 text-emerald-400 font-medium">
+                    <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                    <span>Auto-populated from proposal</span>
+                  </span>
+                ) : (
+                  <span>Tip: Drop a PDF or DOCX proposal above to fill automatically</span>
+                )}
+              </div>
+              <div className="flex items-center justify-end gap-2.5 w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTenderModalOpen(false);
+                    setAutoFilledMeta(null);
+                  }}
+                  className="text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={submittingTender || aiAutoFilling}
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 shadow-md shadow-indigo-600/30"
+                >
+                  {submittingTender ? (
+                    <span className="flex items-center gap-1.5">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Saving...
+                    </span>
+                  ) : autoFilledMeta ? (
+                    'Confirm & Save Tender'
+                  ) : (
+                    'Save Tender'
+                  )}
+                </Button>
+              </div>
             </div>
           </form>
         </DialogContent>

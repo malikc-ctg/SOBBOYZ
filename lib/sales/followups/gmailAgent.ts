@@ -341,9 +341,9 @@ export async function sendEmailViaRepGmail(options: {
   });
 
   if (error) {
-    // Secondary fallback to info@seaofblue.app if rep address isn't verified in Resend
+    // Secondary fallback to info@seaofblue.ca if rep address isn't verified in Resend
     const retry = await resend.emails.send({
-      from: `${rep.name} (Sea of Blue) <info@seaofblue.app>`,
+      from: `${rep.name} (Sea of Blue) <info@seaofblue.ca>`,
       replyTo: rep.gmail_address,
       to: options.to,
       subject: options.subject,
@@ -917,7 +917,7 @@ async function sendRepReminderDigests(newAlerts: InboxAlertItem[]) {
 
     try {
       await resend.emails.send({
-        from: 'Sea of Blue AI Copilot <info@seaofblue.app>',
+        from: 'Sea of Blue AI Copilot <info@seaofblue.ca>',
         to: rep.gmail_address,
         subject: `Sea of Blue Follow-Up Alert: ${repAlerts.length} new replies, ${dueTasks?.length || 0} due tasks`,
         text: lines.join('\n'),

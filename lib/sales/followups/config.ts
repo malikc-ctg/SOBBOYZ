@@ -41,8 +41,8 @@ export const SALES_REPS: Record<'malik' | 'raahim' | 'ayaan', SalesRepConfig> = 
     name: 'Malik Campbell',
     title: 'Founder & CEO',
     phone: '(289) 670-3357',
-    email: 'malik@seaofblue.app',
-    gmail_address: 'malik@seaofblue.app',
+    email: 'malik@seaofblue.ca',
+    gmail_address: 'malik@seaofblue.ca',
     auth_user_id: 'd616b5ed-d3a0-425d-b0c2-5f47a9320fc5',
   },
   raahim: {
@@ -50,8 +50,8 @@ export const SALES_REPS: Record<'malik' | 'raahim' | 'ayaan', SalesRepConfig> = 
     name: 'Raahim Ahmed',
     title: 'Co-Founder & COO',
     phone: '(437) 494-1091',
-    email: 'raahim@seaofblue.app',
-    gmail_address: 'raahim@seaofblue.app',
+    email: 'raahim@seaofblue.ca',
+    gmail_address: 'raahim@seaofblue.ca',
     auth_user_id: 'fa039375-1c07-4579-890a-6c7000cc0be8',
   },
   ayaan: {
@@ -59,8 +59,8 @@ export const SALES_REPS: Record<'malik' | 'raahim' | 'ayaan', SalesRepConfig> = 
     name: 'Ayaan Baig',
     title: 'Co-Founder & CFO',
     phone: '(437) 494-1091',
-    email: 'ayaan@seaofblue.app',
-    gmail_address: 'ayaan@seaofblue.app',
+    email: 'ayaan@seaofblue.ca',
+    gmail_address: 'ayaan@seaofblue.ca',
     auth_user_id: '3b2831b3-7922-4cb5-aa77-1a9b182e77a1',
   },
 };
