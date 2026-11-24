@@ -2,6 +2,10 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { requireAuth } from '@/lib/api-auth';
 import { NextRequest, NextResponse } from 'next/server';
 import { toValidServiceType, resolveCanonicalSector, classifyLeadSector } from '@/lib/sales/sectorUtils';
+import {
+  compareLeadsForDuplicate,
+  buildMergedLeadUpdate,
+} from '@/lib/sales/leadDeduplication';
 
 
 function cleanRepName(name: string | null | undefined): string {
@@ -472,8 +476,17 @@ export async function POST(request: NextRequest) {
     const supabase = await createServiceClient();
     const body = await request.json();
 
+    // Fetch existing leads for fast duplicate detection
+    const { data: existingLeads } = await supabase
+      .from('leads')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    const allKnownLeads: any[] = [...(existingLeads || [])];
+
     // Support batch import from spreadsheets/CSV
     if (Array.isArray(body.leads)) {
+      const duplicateStrategy: 'merge' | 'skip' | 'create' = body.duplicate_strategy || 'merge';
       const rows = body.leads.map((item: any) => {
         // Auto-classify if sector is not explicitly specified or default
         const rawSector = item.sector || item.industry || item.service_type;
@@ -524,13 +537,71 @@ export async function POST(request: NextRequest) {
         };
       });
 
-      const { data, error } = await supabase
-        .from('leads')
-        .insert(rows)
-        .select();
+      const rowsToInsert: any[] = [];
+      const mergedLeads: any[] = [];
+      let skippedCount = 0;
 
-      if (error) throw error;
-      return NextResponse.json({ success: true, count: data?.length || rows.length, leads: data }, { status: 201 });
+      for (const candidate of rows) {
+        if (duplicateStrategy === 'create') {
+          rowsToInsert.push(candidate);
+          continue;
+        }
+
+        // Check against already-known DB leads and earlier rows in this same batch
+        const matchedExisting = allKnownLeads.find(
+          (ex) => compareLeadsForDuplicate(ex, candidate).isDuplicate
+        );
+
+        if (!matchedExisting) {
+          rowsToInsert.push(candidate);
+          allKnownLeads.push(candidate);
+          continue;
+        }
+
+        if (duplicateStrategy === 'skip') {
+          skippedCount++;
+          continue;
+        }
+
+        // duplicateStrategy === 'merge'
+        const mergedPayload = buildMergedLeadUpdate(matchedExisting, candidate);
+        Object.assign(matchedExisting, mergedPayload);
+
+        if (matchedExisting.id) {
+          const { data: updatedRow } = await supabase
+            .from('leads')
+            .update(mergedPayload)
+            .eq('id', matchedExisting.id)
+            .select()
+            .maybeSingle();
+          if (updatedRow) {
+            mergedLeads.push(updatedRow);
+          }
+        }
+      }
+
+      let insertedData: any[] = [];
+      if (rowsToInsert.length > 0) {
+        const { data, error } = await supabase
+          .from('leads')
+          .insert(rowsToInsert)
+          .select();
+
+        if (error) throw error;
+        insertedData = data || [];
+      }
+
+      return NextResponse.json(
+        {
+          success: true,
+          count: insertedData.length + mergedLeads.length,
+          inserted_count: insertedData.length,
+          merged_count: mergedLeads.length,
+          skipped_count: skippedCount,
+          leads: [...insertedData, ...mergedLeads],
+        },
+        { status: 201 }
+      );
     }
 
     // Single lead creation
@@ -567,23 +638,76 @@ export async function POST(request: NextRequest) {
       singleIntel.mobile_phone = resolvedSingleMobile;
     }
 
+    const singleCandidate = {
+      source: body.source || 'phone_sales_os',
+      customer_name: body.customer_name || body.name || null,
+      company_name: body.company_name || body.company || 'Commercial Prospect',
+      contact_title: body.contact_title || body.position || body.title || null,
+      customer_phone: body.customer_phone || body.phone || '',
+      customer_email: body.customer_email || body.email || null,
+      city: body.city || 'GTA',
+      service_type: dbServiceType,
+      preferred_date: body.preferred_date ? body.preferred_date.split('T')[0] : null,
+      preferred_start_time: body.preferred_start_time || '09:00',
+      quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : (leadSector === 'post_construction' ? 2500 : 950),
+      notes: JSON.stringify(singleIntel),
+      status: body.status || 'new',
+    };
+
+    // Check if single lead already exists unless force_create is passed
+    if (!body.force_create) {
+      let matchedDup: any = null;
+      let matchInfo: any = null;
+      for (const ex of allKnownLeads) {
+        const cmp = compareLeadsForDuplicate(ex, singleCandidate);
+        if (cmp.isDuplicate) {
+          matchedDup = ex;
+          matchInfo = cmp;
+          break;
+        }
+      }
+
+      if (matchedDup) {
+        // If caller requested merge_if_duplicate (or default safe enrichment when explicitly requested)
+        if (body.merge_if_duplicate) {
+          const mergedPayload = buildMergedLeadUpdate(matchedDup, singleCandidate);
+          const { data: updatedLead, error: mergeErr } = await supabase
+            .from('leads')
+            .update(mergedPayload)
+            .eq('id', matchedDup.id)
+            .select()
+            .single();
+
+          if (mergeErr) throw mergeErr;
+          return NextResponse.json(
+            {
+              success: true,
+              merged: true,
+              duplicate_reason: matchInfo?.reason,
+              lead: updatedLead,
+            },
+            { status: 200 }
+          );
+        }
+
+        // Return duplicate warning so UI can offer to open/merge with existing or force create
+        return NextResponse.json(
+          {
+            success: false,
+            duplicate_detected: true,
+            duplicate_reason: matchInfo?.reason,
+            matched_value: matchInfo?.matchedValue,
+            existing_lead: matchedDup,
+            error: `Duplicate lead detected (${matchInfo?.reason === 'email' ? 'same email' : matchInfo?.reason === 'company_and_name' ? 'same contact & company' : 'same phone number'}): ${matchedDup.customer_name || 'Decision Maker'} at ${matchedDup.company_name || 'Commercial Prospect'}`,
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const { data, error } = await supabase
       .from('leads')
-      .insert({
-        source: body.source || 'phone_sales_os',
-        customer_name: body.customer_name || body.name || null,
-        company_name: body.company_name || body.company || 'Commercial Prospect',
-        contact_title: body.contact_title || body.position || body.title || null,
-        customer_phone: body.customer_phone || body.phone || '',
-        customer_email: body.customer_email || body.email || null,
-        city: body.city || 'GTA',
-        service_type: dbServiceType,
-        preferred_date: body.preferred_date ? body.preferred_date.split('T')[0] : null,
-        preferred_start_time: body.preferred_start_time || '09:00',
-        quoted_price: body.quoted_price ? parseFloat(body.quoted_price) : (leadSector === 'post_construction' ? 2500 : 950),
-        notes: JSON.stringify(singleIntel),
-        status: body.status || 'new',
-      })
+      .insert(singleCandidate)
       .select()
       .single();
 

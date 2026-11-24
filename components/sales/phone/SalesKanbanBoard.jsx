@@ -17,13 +17,15 @@ import {
   Lock,
   PhoneCall,
   Eye,
-  AlertTriangle
+  AlertTriangle,
+  GitMerge
 } from 'lucide-react';
 import { toast } from 'sonner';
 import FollowupStrip from './followups/FollowupStrip';
 import { getDueBucket } from '@/lib/sales/followups/schedule';
 import { matchContactSearch } from '@/lib/sales/searchUtils';
 import { parsePhoneAndExt, normalizeRepName } from '@/lib/sales/phoneService';
+import { findDuplicateGroups } from '@/lib/sales/leadDeduplication';
 
 function normalizeCompanyKey(name) {
   if (!name) return '';
@@ -94,6 +96,7 @@ export default function SalesKanbanBoard({
   onDeleteLead,
   onOpenImporter,
   onOpenAddLead,
+  onOpenDuplicates,
   user,
   activeRepName = 'Sales Rep',
   activeLocks = {},
@@ -430,6 +433,14 @@ export default function SalesKanbanBoard({
       return fData?.nextTask && getLeadFollowupBucket(c, fData) === 'due_today';
     }).length;
   }, [followupMeta, repFilter, contacts, followupsByLeadId]);
+
+  const duplicateGroupsCount = useMemo(() => {
+    try {
+      return findDuplicateGroups(contacts || []).length;
+    } catch {
+      return 0;
+    }
+  }, [contacts]);
 
   // Drag-and-drop handlers
   const handleDragStart = (e, contactId) => {
@@ -782,6 +793,27 @@ export default function SalesKanbanBoard({
               >
                 <Upload size={13} />
                 <span>Import Leads</span>
+              </button>
+            )}
+
+            {onOpenDuplicates && (
+              <button
+                type="button"
+                onClick={onOpenDuplicates}
+                className={`px-3 py-1.5 rounded-xl font-sans text-xs font-bold transition flex items-center gap-1.5 shadow-sm cursor-pointer border ${
+                  duplicateGroupsCount > 0
+                    ? 'bg-amber-500/15 hover:bg-amber-500/25 text-amber-200 border-amber-500/50'
+                    : 'bg-slate-900/90 hover:bg-slate-800 text-slate-300 border-slate-700/80'
+                }`}
+                title="Scan and merge duplicate leads"
+              >
+                <GitMerge size={13} className={duplicateGroupsCount > 0 ? 'text-amber-400' : 'text-cyan-400'} />
+                <span>Duplicates</span>
+                {duplicateGroupsCount > 0 && (
+                  <span className="px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-500/30 text-amber-200 border border-amber-400/40">
+                    {duplicateGroupsCount}
+                  </span>
+                )}
               </button>
             )}
           </div>

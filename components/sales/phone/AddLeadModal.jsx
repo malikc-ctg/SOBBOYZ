@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Plus,
@@ -12,9 +12,13 @@ import {
   FileText,
   Layers,
   Loader2,
-  AlertCircle
+  AlertCircle,
+  AlertTriangle,
+  GitMerge,
+  ExternalLink
 } from 'lucide-react';
 import { createNewPhoneLead } from '@/lib/sales/phoneService';
+import { compareLeadsForDuplicate } from '@/lib/sales/leadDeduplication';
 import { toast } from 'sonner';
 import { SECTORS, STAGES } from './SalesKanbanBoard';
 
@@ -22,6 +26,8 @@ export default function AddLeadModal({
   isOpen,
   onClose,
   onSuccess,
+  onOpenExistingDossier,
+  existingContacts = [],
   initialStage = 'new',
   initialSector = 'post_construction'
 }) {
@@ -40,6 +46,32 @@ export default function AddLeadModal({
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [serverDupLead, setServerDupLead] = useState(null);
+
+  // Live client-side duplicate match against existingContacts
+  const liveDuplicateMatch = useMemo(() => {
+    const company = formData.companyName.trim();
+    const contact = formData.contactName.trim();
+    const phone = formData.phone.trim();
+    const email = formData.email.trim();
+
+    if (!phone && !email && (!company || !contact)) return null;
+
+    const candidate = {
+      company_name: company,
+      customer_name: contact,
+      customer_phone: phone,
+      customer_email: email,
+    };
+
+    for (const ex of existingContacts || []) {
+      const cmp = compareLeadsForDuplicate(ex, candidate);
+      if (cmp.isDuplicate) {
+        return { existing: ex, reason: cmp.reason, matchedValue: cmp.matchedValue };
+      }
+    }
+    return null;
+  }, [formData.companyName, formData.contactName, formData.phone, formData.email, existingContacts]);
 
   // Synchronize initial stage/sector when modal opens or props change
   useEffect(() => {
@@ -50,6 +82,7 @@ export default function AddLeadModal({
         sector: initialSector || prev.sector || 'post_construction'
       }));
       setErrorMsg('');
+      setServerDupLead(null);
     }
   }, [isOpen, initialStage, initialSector]);
 
@@ -69,10 +102,10 @@ export default function AddLeadModal({
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (errorMsg) setErrorMsg('');
+    if (serverDupLead) setServerDupLead(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const submitLeadRequest = async (options = { mergeIfDuplicate: false, forceCreate: false }) => {
     if (isSubmitting) return;
 
     const company = formData.companyName.trim();
@@ -106,13 +139,19 @@ export default function AddLeadModal({
         status: formData.status || 'new',
         quoted_price: formData.quotedPrice ? parseFloat(formData.quotedPrice) : 2500,
         notes: formData.notes.trim(),
-        source: 'phone_sales_os'
+        source: 'phone_sales_os',
+        merge_if_duplicate: Boolean(options.mergeIfDuplicate),
+        force_create: Boolean(options.forceCreate),
       };
 
       const res = await createNewPhoneLead(payload);
 
       if (res?.success) {
-        toast.success(`Lead "${company || contact}" added to pipeline!`);
+        if (res.merged) {
+          toast.success(`Merged & updated existing lead "${company || contact}"!`);
+        } else {
+          toast.success(`Lead "${company || contact}" added to pipeline!`);
+        }
         // Reset form
         setFormData({
           companyName: '',
@@ -126,10 +165,14 @@ export default function AddLeadModal({
           quotedPrice: '2500',
           notes: ''
         });
+        setServerDupLead(null);
         if (onSuccess) {
           await onSuccess(res.lead || res);
         }
         onClose();
+      } else if (res?.duplicate_detected && res?.existing_lead) {
+        setServerDupLead(res.existing_lead);
+        setErrorMsg(res.error || 'This contact already exists in the CRM.');
       } else {
         setErrorMsg(res?.error || 'Failed to create lead. Please check the details and try again.');
       }
@@ -139,6 +182,11 @@ export default function AddLeadModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await submitLeadRequest({ mergeIfDuplicate: false, forceCreate: false });
   };
 
   return (
@@ -191,6 +239,76 @@ export default function AddLeadModal({
             <span>{errorMsg}</span>
           </div>
         )}
+
+        {(liveDuplicateMatch || serverDupLead) && (() => {
+          const dupContact = liveDuplicateMatch?.existing || serverDupLead;
+          const dupName = dupContact?.name || dupContact?.customer_name || 'Decision Maker';
+          const dupComp = dupContact?.company || dupContact?.company_name || 'Commercial Prospect';
+          const dupPhone = dupContact?.phone || dupContact?.customer_phone || '';
+          const dupStage = dupContact?.status || 'new';
+          const reasonLabel =
+            liveDuplicateMatch?.reason === 'email'
+              ? 'Matching Email'
+              : liveDuplicateMatch?.reason === 'company_and_name'
+              ? 'Matching Name & Company'
+              : 'Matching Phone Number';
+
+          return (
+            <div className="mt-3.5 p-3 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200 text-xs space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={15} className="shrink-0 text-amber-400 mt-0.5" />
+                  <div>
+                    <div className="font-bold text-amber-300">
+                      Potential Duplicate Lead Detected ({reasonLabel})
+                    </div>
+                    <div className="text-[11px] text-slate-300 mt-0.5">
+                      <span className="font-semibold text-white">{dupName}</span> at{' '}
+                      <span className="font-semibold text-white">{dupComp}</span>
+                      {dupPhone ? ` • ${dupPhone}` : ''} • Stage:{' '}
+                      <span className="uppercase font-semibold text-amber-300">{dupStage}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => submitLeadRequest({ mergeIfDuplicate: true, forceCreate: false })}
+                  className="px-2.5 py-1.5 rounded-lg bg-cyan-600/25 hover:bg-cyan-600/40 border border-cyan-500/50 text-cyan-200 font-bold text-[11px] flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <GitMerge size={12} />
+                  <span>Merge & Update Existing Lead</span>
+                </button>
+
+                {onOpenExistingDossier && liveDuplicateMatch?.existing && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      onOpenExistingDossier(liveDuplicateMatch.existing);
+                    }}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 font-semibold text-[11px] flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <ExternalLink size={12} />
+                    <span>Open Existing Dossier</span>
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => submitLeadRequest({ mergeIfDuplicate: false, forceCreate: true })}
+                  className="px-2.5 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/35 border border-amber-500/40 text-amber-200 font-semibold text-[11px] transition cursor-pointer"
+                >
+                  Create Separate Lead Anyway
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="mt-4 space-y-4">

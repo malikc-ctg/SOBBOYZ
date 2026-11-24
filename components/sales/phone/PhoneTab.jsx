@@ -54,6 +54,7 @@ import {
 import { matchContactSearch } from '@/lib/sales/searchUtils';
 import LeadImporterModal from './LeadImporterModal';
 import AddLeadModal from './AddLeadModal';
+import DuplicateLeadsModal from './DuplicateLeadsModal';
 import WalkthroughModal from './WalkthroughModal';
 import LeadDossierModal from './LeadDossierModal';
 import SalesKanbanBoard from './SalesKanbanBoard';
@@ -250,6 +251,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
   const [showWalkthroughModal, setShowWalkthroughModal] = useState(false);
   const [showSaleModal, setShowSaleModal] = useState(false);
   const [showAddLeadModal, setShowAddLeadModal] = useState(false);
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
   const [addLeadInitialStage, setAddLeadInitialStage] = useState('new');
   const [showDossierModal, setShowDossierModal] = useState(false);
   const [dossierModalContact, setDossierModalContact] = useState(null);
@@ -2310,6 +2312,7 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
                   onOneClickOutcome={handleKanbanOneClickOutcome}
                   onDeleteLead={handleKanbanDeleteLead}
                   onOpenImporter={() => setShowImporterModal(true)}
+                  onOpenDuplicates={() => setShowDuplicatesModal(true)}
                   onOpenAddLead={(stageKey) => {
                     setAddLeadInitialStage(stageKey || 'new');
                     setShowAddLeadModal(true);
@@ -2384,10 +2387,23 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       {/* Lead Importer Modal (Supports CSV, XLSX, XLS, TSV) */}
       <LeadImporterModal
         isOpen={showImporterModal}
+        existingContacts={contacts}
         onClose={() => setShowImporterModal(false)}
         onImportSuccess={() => {
           loadContacts();
           refreshStats();
+        }}
+      />
+
+      {/* Duplicate Leads Manager Modal */}
+      <DuplicateLeadsModal
+        isOpen={showDuplicatesModal}
+        scope="b2b"
+        onClose={() => setShowDuplicatesModal(false)}
+        onMerged={() => {
+          loadContacts();
+          refreshStats();
+          if (fetchFollowupBoard) fetchFollowupBoard();
         }}
       />
 
@@ -2450,7 +2466,14 @@ export default function PhoneTab({ user, repName, repTitle, isActive }) {
       <AddLeadModal
         isOpen={showAddLeadModal}
         initialStage={addLeadInitialStage}
+        existingContacts={contacts}
         onClose={() => setShowAddLeadModal(false)}
+        onOpenExistingDossier={(existingContact) => {
+          setSelectedContact(existingContact);
+          setDossierModalContact(existingContact);
+          setShowDossierModal(true);
+          claimLeadLock(existingContact, 'viewing');
+        }}
         onSuccess={async () => {
           await loadContacts();
           if (fetchFollowupBoard) fetchFollowupBoard();

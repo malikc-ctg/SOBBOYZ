@@ -2,6 +2,7 @@ import { createServiceClient } from '@/lib/supabase/server';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireRole } from '@/lib/api-auth';
 import { rateLimit } from '@/lib/rate-limit';
+import { compareLeadsForDuplicate, buildMergedLeadUpdate } from '@/lib/sales/leadDeduplication';
 
 export async function POST(request: NextRequest) {
   // Rate limit: 10 requests per minute per IP
@@ -15,6 +16,43 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createServiceClient();
     const body = await request.json();
+
+    // Check for duplicate active inbound lead unless force_create is passed
+    if (!body.force_create) {
+      const { data: recentLeads } = await supabase
+        .from('leads')
+        .select('*')
+        .not('source', 'in', '(contact_import,phone_sales_os,apollo,bid_tender,vendor_list)')
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      const matchedExisting = (recentLeads || []).find((ex: any) =>
+        compareLeadsForDuplicate(ex, body).isDuplicate
+      );
+
+      if (matchedExisting && !matchedExisting.converted_job_id) {
+        const mergedPayload = buildMergedLeadUpdate(matchedExisting, body);
+        const { data: updated, error: updateErr } = await supabase
+          .from('leads')
+          .update({
+            ...mergedPayload,
+            service_type: body.service_type || matchedExisting.service_type,
+            preferred_date: body.preferred_date || matchedExisting.preferred_date,
+            preferred_window: body.preferred_window || matchedExisting.preferred_window,
+            home_bedrooms: body.home_bedrooms ?? matchedExisting.home_bedrooms,
+            home_bathrooms: body.home_bathrooms ?? matchedExisting.home_bathrooms,
+            home_size_sqft: body.home_size_sqft ?? matchedExisting.home_size_sqft,
+            quoted_price: body.quoted_price ?? matchedExisting.quoted_price,
+          })
+          .eq('id', matchedExisting.id)
+          .select()
+          .single();
+
+        if (!updateErr && updated) {
+          return NextResponse.json({ ...updated, merged_duplicate: true }, { status: 200 });
+        }
+      }
+    }
 
     const { data, error } = await supabase
       .from('leads')

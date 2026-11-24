@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import * as XLSX from 'xlsx';
 import {
   Upload,
@@ -14,10 +14,14 @@ import {
   Store,
   ArrowUpCircle,
   Sparkles,
-  Home
+  Home,
+  GitMerge,
+  ShieldCheck
 } from 'lucide-react';
 import { batchImportApolloLeads, parsePhoneAndExt } from '@/lib/sales/phoneService';
 import { classifyLeadSector, resolveCanonicalSector } from '@/lib/sales/sectorUtils';
+import { compareLeadsForDuplicate } from '@/lib/sales/leadDeduplication';
+import { toast } from 'sonner';
 
 /**
  * Normalizes keys to lowercase alphanumeric
@@ -172,7 +176,7 @@ function mapRowToLead(row, defaultVertical = 'post_construction') {
   };
 }
 
-export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) {
+export default function LeadImporterModal({ isOpen, onClose, onImportSuccess, existingContacts = [] }) {
   const [inputMode, setInputMode] = useState('file'); // 'file' | 'paste'
   const [rawText, setRawText] = useState('');
   const [fileName, setFileName] = useState('');
@@ -180,6 +184,7 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
   const [rawRows, setRawRows] = useState([]);
   const [vertical, setVertical] = useState('auto_detect');
   const [parsedLeads, setParsedLeads] = useState([]);
+  const [duplicateStrategy, setDuplicateStrategy] = useState('merge'); // 'merge' | 'skip' | 'create'
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   
@@ -189,6 +194,56 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
   const dragCounter = useRef(0);
   const modalDragCounter = useRef(0);
   const fileInputRef = useRef(null);
+
+  // Compute duplicate stats across existing contacts and within the uploaded file itself
+  const duplicateAnalysis = useMemo(() => {
+    if (!parsedLeads || parsedLeads.length === 0) {
+      return { newCount: 0, existingDupCount: 0, inFileDupCount: 0, rowStatuses: [] };
+    }
+
+    const rowStatuses = [];
+    const seenInFile = [];
+    let newCount = 0;
+    let existingDupCount = 0;
+    let inFileDupCount = 0;
+
+    for (let i = 0; i < parsedLeads.length; i++) {
+      const candidate = parsedLeads[i];
+      // Check against existing contacts in pipeline
+      const matchedExisting = (existingContacts || []).find((ex) =>
+        compareLeadsForDuplicate(ex, candidate).isDuplicate
+      );
+
+      if (matchedExisting) {
+        existingDupCount++;
+        rowStatuses.push({ isDup: true, type: 'existing', match: matchedExisting });
+        continue;
+      }
+
+      // Check against earlier rows in this same file
+      const matchedInFile = seenInFile.find((prev) =>
+        compareLeadsForDuplicate(prev, candidate).isDuplicate
+      );
+
+      if (matchedInFile) {
+        inFileDupCount++;
+        rowStatuses.push({ isDup: true, type: 'in_file', match: matchedInFile });
+        continue;
+      }
+
+      newCount++;
+      seenInFile.push(candidate);
+      rowStatuses.push({ isDup: false, type: 'new', match: null });
+    }
+
+    return {
+      newCount,
+      existingDupCount,
+      inFileDupCount,
+      totalDuplicates: existingDupCount + inFileDupCount,
+      rowStatuses,
+    };
+  }, [parsedLeads, existingContacts]);
 
   if (!isOpen) return null;
 
@@ -384,8 +439,17 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
     setErrorMsg('');
 
     try {
-      const result = await batchImportApolloLeads(parsedLeads);
+      const result = await batchImportApolloLeads(parsedLeads, duplicateStrategy);
       if (result?.success) {
+        const ins = result.inserted_count ?? result.count ?? 0;
+        const mrg = result.merged_count ?? 0;
+        const skp = result.skipped_count ?? 0;
+        const summaryParts = [];
+        if (ins > 0) summaryParts.push(`${ins} new imported`);
+        if (mrg > 0) summaryParts.push(`${mrg} duplicate${mrg === 1 ? '' : 's'} merged/enriched`);
+        if (skp > 0) summaryParts.push(`${skp} duplicate${skp === 1 ? '' : 's'} skipped`);
+        toast.success(summaryParts.length > 0 ? `Import complete: ${summaryParts.join(', ')}` : 'Import complete');
+
         if (onImportSuccess) onImportSuccess(result);
         onClose();
       } else {
@@ -713,6 +777,81 @@ export default function LeadImporterModal({ isOpen, onClose, onImportSuccess }) 
                 </span>
               </div>
             )}
+
+            {/* Duplicate Detection & Handling Bar */}
+            <div className="mt-3 pt-2.5 border-t border-slate-800/80">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-200">
+                  <GitMerge size={13} className="text-cyan-400" />
+                  <span>Duplicate Lead Protection</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-[10px]">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">
+                    {duplicateAnalysis.newCount} New
+                  </span>
+                  {duplicateAnalysis.existingDupCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
+                      {duplicateAnalysis.existingDupCount} Already in CRM
+                    </span>
+                  )}
+                  {duplicateAnalysis.inFileDupCount > 0 && (
+                    <span className="px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30 font-semibold">
+                      {duplicateAnalysis.inFileDupCount} In-File Repeat{duplicateAnalysis.inFileDupCount === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDuplicateStrategy('merge')}
+                  className={`p-2 rounded-lg border text-left transition ${
+                    duplicateStrategy === 'merge'
+                      ? 'border-cyan-500/60 bg-cyan-500/15 text-white'
+                      : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="text-[11px] font-bold text-white flex items-center justify-between">
+                    <span>Merge & Enrich</span>
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/20 text-cyan-300">Default</span>
+                  </div>
+                  <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">
+                    Fills missing emails, phones & titles on existing leads
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDuplicateStrategy('skip')}
+                  className={`p-2 rounded-lg border text-left transition ${
+                    duplicateStrategy === 'skip'
+                      ? 'border-blue-500/60 bg-blue-500/15 text-white'
+                      : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="text-[11px] font-bold text-white">Skip Duplicates</div>
+                  <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">
+                    Only import brand-new contacts ({duplicateAnalysis.newCount})
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setDuplicateStrategy('create')}
+                  className={`p-2 rounded-lg border text-left transition ${
+                    duplicateStrategy === 'create'
+                      ? 'border-amber-500/60 bg-amber-500/15 text-white'
+                      : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="text-[11px] font-bold text-white">Import All Anyway</div>
+                  <div className="text-[9px] text-slate-400 mt-0.5 leading-tight">
+                    Disable duplicate check and insert all {totalParsed} rows
+                  </div>
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

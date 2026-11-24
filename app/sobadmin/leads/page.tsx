@@ -18,13 +18,15 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Plus } from 'lucide-react';
+import { Plus, GitMerge } from 'lucide-react';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { SERVICE_TYPE_LABELS, DEFAULT_PRICING, LEAD_SOURCE_LABELS } from '@/types';
 import type { Lead, ServiceType, TimeWindow, AddOn } from '@/types';
 import Link from 'next/link';
 import { CRMPricingModal } from '@/components/admin/leads/CRMPricingModal';
+import DuplicateLeadsModal from '@/components/sales/phone/DuplicateLeadsModal';
+import { findDuplicateGroups } from '@/lib/sales/leadDeduplication';
 
 const ADD_ON_OPTIONS: { value: AddOn; label: string }[] = [
   { value: 'inside_fridge', label: 'Inside Fridge' },
@@ -47,6 +49,7 @@ export default function LeadsPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // New lead form
@@ -145,9 +148,42 @@ export default function LeadsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          {(() => {
+            const dupGroups = findDuplicateGroups(filtered);
+            return (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDuplicatesModal(true)}
+                className={
+                  dupGroups.length > 0
+                    ? 'border-amber-500/50 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                    : ''
+                }
+              >
+                <GitMerge className="h-4 w-4 mr-1.5" />
+                <span>Duplicates</span>
+                {dupGroups.length > 0 && (
+                  <Badge
+                    variant="outline"
+                    className="ml-1.5 border-amber-400/40 bg-amber-500/20 text-amber-200 text-[10px] px-1.5 py-0"
+                  >
+                    {dupGroups.length}
+                  </Badge>
+                )}
+              </Button>
+            );
+          })()}
           <CRMPricingModal onSuccess={fetchLeads} />
         </div>
       </div>
+
+      <DuplicateLeadsModal
+        isOpen={showDuplicatesModal}
+        scope="inbound"
+        onClose={() => setShowDuplicatesModal(false)}
+        onMerged={() => fetchLeads()}
+      />
 
       {/* Filter chips — scrollable on mobile */}
       <div className="flex gap-2 overflow-x-auto scrollbar-none pb-1 -mx-1 px-1">
